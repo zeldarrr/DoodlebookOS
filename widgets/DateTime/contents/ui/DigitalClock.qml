@@ -175,7 +175,7 @@ MouseArea {
                 dateLabel.fontSizeMode: Text.FixedSize
 
                 timeLabel.height: main.fontPixelSize
-                timeLabel.width: sizehelper.contentWidth
+                timeLabel.width: (Plasmoid.configuration && Plasmoid.configuration.showSeconds === 2) ? sizehelper.contentWidth : timeLabel.paintedWidth
                 timeLabel.font.pointSize: main.fontPixelSize * 0.75
                 timeLabel.verticalAlignment: Text.AlignVCenter
                 timeLabel.fontSizeMode: Text.FixedSize
@@ -399,7 +399,7 @@ MouseArea {
                     family: "Google Sans Flex"
                     weight: 600
                     pointSize: main.fontPixelSize * 0.75
-                    features: { "tnum": 1 }
+                    features: ({ "tnum": (Plasmoid.configuration && Plasmoid.configuration.showSeconds === 2) ? 1 : 0 })
                 }
                 renderType: Text.CurveRendering
                 color: main.labelColor
@@ -446,7 +446,7 @@ MouseArea {
             family: timeLabel.font.family
             weight: timeLabel.font.weight
             pointSize: timeLabel.font.pointSize
-            features: { "tnum": 1 }
+            features: timeLabel.font.features
         }
         minimumPixelSize: 1
 
