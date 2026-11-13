@@ -42,12 +42,12 @@ MouseArea {
 
     // Design Tokens / Normalized Top Bar Metrics (Full Symmetry ChromeOS)
     readonly property real pillHeight: snap(effectiveHeight * 0.675)          // 27px physical on 32dp (21.6 dp)
-    readonly property real pillTopMargin: snap((effectiveHeight - pillHeight) / 2) // Centered in rail (6.5px physical / 5.2 dp)
-    readonly property real pillSidePadding: snap(effectiveHeight * 0.25)      // 25% side padding inside pill (10px physical)
-    readonly property real pillLeftMargin: Math.max(0, snap(effectiveHeight * 0.62) - 4.0) // 20px physical (left edge)
-    readonly property real fontPixelSize: snap(pillHeight * 0.54)             // 54% of pill height (14px physical)
-    readonly property real dateLeftMargin: snap(effectiveHeight * 0.38)       // 15px physical between time & date
-    readonly property real pillWidth: isVert ? Math.min(main.width, pillHeight) : (contentItem.width + pillSidePadding * 2)
+    readonly property real pillTopMargin: snap((effectiveHeight - pillHeight) / 2) // Centered in rail (7px physical / 5.6 dp)
+    readonly property real pillSidePadding: snap(effectiveHeight * 0.20)      // 20% side padding inside pill (8px physical)
+    readonly property real pillLeftMargin: Math.max(0, snap(effectiveHeight * 0.62) - 4.0) // 20px physical (left edge; +8px pad +6px panel = 34px)
+    readonly property real fontPixelSize: snap(effectiveHeight * 0.400)       // 40% of bar height (12.8 dp = 16px physical)
+    readonly property real dateLeftMargin: snap(effectiveHeight * 0.300)      // 12px physical (+2px glyph bearing = 14px gap)
+    readonly property real pillWidth: isVert ? Math.min(main.width, pillHeight) : snap(contentItem.width + pillSidePadding * 2)
 
     implicitWidth: isVert ? effectiveHeight : (pillLeftMargin + pillWidth)
     implicitHeight: isVert ? (pillLeftMargin + pillWidth) : effectiveHeight
@@ -169,19 +169,19 @@ MouseArea {
 
                 dateLabel.height: main.fontPixelSize
                 dateLabel.width: dateLabel.paintedWidth
-                dateLabel.font.pixelSize: main.fontPixelSize
+                dateLabel.font.pointSize: main.fontPixelSize * 0.75
                 dateLabel.verticalAlignment: Text.AlignVCenter
                 dateLabel.anchors.leftMargin: main.dateLeftMargin
                 dateLabel.fontSizeMode: Text.FixedSize
 
                 timeLabel.height: main.fontPixelSize
                 timeLabel.width: sizehelper.contentWidth
-                timeLabel.font.pixelSize: main.fontPixelSize
+                timeLabel.font.pointSize: main.fontPixelSize * 0.75
                 timeLabel.verticalAlignment: Text.AlignVCenter
                 timeLabel.fontSizeMode: Text.FixedSize
 
                 sizehelper.height: main.fontPixelSize
-                sizehelper.font.pixelSize: main.fontPixelSize
+                sizehelper.font.pointSize: main.fontPixelSize * 0.75
                 sizehelper.fontSizeMode: Text.FixedSize
             }
 
@@ -217,7 +217,7 @@ MouseArea {
 
                 timeLabel.height: sizehelper.contentHeight
                 timeLabel.width: labelsGrid.width
-                timeLabel.font.pixelSize: Math.min(timeLabel.height, main.fontPixelSize)
+                timeLabel.font.pointSize: Math.min(timeLabel.height, main.fontPixelSize) * 0.75
                 timeLabel.fontSizeMode: Text.Fit
 
                 dateLabel.height: timeLabel.height
@@ -227,7 +227,7 @@ MouseArea {
 
                 sizehelper.width: main.width
                 sizehelper.fontSizeMode: Text.HorizontalFit
-                sizehelper.font.pixelSize: main.fontPixelSize
+                sizehelper.font.pointSize: main.fontPixelSize * 0.75
             }
 
             AnchorChanges {
@@ -365,6 +365,7 @@ MouseArea {
     Item {
         id: contentItem
         anchors.verticalCenter: unifiedButton.verticalCenter
+        anchors.verticalCenterOffset: 0.4 // Half physical pixel nudge for CurveRendering cap height (y=14..25)
         anchors.horizontalCenter: unifiedButton.horizontalCenter
 
         Grid {
@@ -385,10 +386,10 @@ MouseArea {
                 font {
                     family: "Google Sans Flex"
                     weight: 600
-                    pixelSize: main.fontPixelSize
+                    pointSize: main.fontPixelSize * 0.75
                     features: { "tnum": 1 }
                 }
-                renderType: Text.QtRendering
+                renderType: Text.CurveRendering
                 color: main.labelColor
                 Behavior on color { ColorAnimation { duration: Kirigami.Units.shortDuration } }
                 minimumPixelSize: 1
@@ -409,9 +410,9 @@ MouseArea {
             font {
                 family: timeLabel.font.family
                 weight: timeLabel.font.weight
-                pixelSize: timeLabel.font.pixelSize
+                pointSize: timeLabel.font.pointSize
             }
-            renderType: Text.QtRendering
+            renderType: Text.CurveRendering
             color: main.labelColor
             Behavior on color { ColorAnimation { duration: Kirigami.Units.shortDuration } }
             minimumPixelSize: 1
@@ -432,7 +433,7 @@ MouseArea {
         font {
             family: timeLabel.font.family
             weight: timeLabel.font.weight
-            pixelSize: timeLabel.font.pixelSize
+            pointSize: timeLabel.font.pointSize
             features: { "tnum": 1 }
         }
         minimumPixelSize: 1
@@ -446,7 +447,7 @@ MouseArea {
 
         font.family: timeLabel.font.family
         font.weight: timeLabel.font.weight
-        font.pixelSize: timeLabel.font.pixelSize
+        font.pointSize: timeLabel.font.pointSize
     }
 
     // Qt's QLocale does not offer any modular time creating like Klocale did
