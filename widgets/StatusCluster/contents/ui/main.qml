@@ -99,9 +99,9 @@ PlasmoidItem {
     // ==========================================
     readonly property real railHeight: snap(effectiveHeight * 0.675)             // 27 px physical at 40 px panel height (21.6 dp)
     readonly property real qsIconHeight: snap(effectiveHeight * 0.400)           // 16 px physical at 40 px panel height (12.8 dp)
-    readonly property real railTopMargin: snap((effectiveHeight - railHeight) / 2) // 6.5 px physical (centered in rail)
-    readonly property real clusterRightMargin: Math.max(0, snap(effectiveHeight * 0.67) - 4.0) // 22 px physical
-    readonly property real itemSpacing: snap(effectiveHeight * 0.30)            // 12 px physical
+    readonly property real railTopMargin: snap((effectiveHeight - railHeight) / 2) // 7 px physical at 40 px panel height (centered in rail)
+    readonly property real clusterRightMargin: Math.max(0, snap(effectiveHeight * 0.65) - 4.0) // 21 px physical (symmetrical 34 px screen edge margin)
+    readonly property real itemSpacing: snap(effectiveHeight * 0.35)            // 14 px physical (28 px glyph-to-glyph gap)
 
     // Common Colors & Styling Tokens
     readonly property color topBarContentColor: {
@@ -594,7 +594,8 @@ PlasmoidItem {
             anchors.rightMargin: root.isVertical ? 0 : root.clusterRightMargin
             anchors.bottom: root.isVertical ? parent.bottom : undefined
             anchors.bottomMargin: root.isVertical ? root.clusterRightMargin : 0
-            anchors.verticalCenter: root.isVertical ? undefined : parent.verticalCenter
+            anchors.top: root.isVertical ? undefined : parent.top
+            anchors.topMargin: root.isVertical ? 0 : root.railTopMargin
             anchors.horizontalCenter: root.isVertical ? parent.horizontalCenter : undefined
             spacing: root.itemSpacing
             height: root.railHeight
@@ -864,7 +865,7 @@ PlasmoidItem {
             Item {
                 id: qsPillButton
                 readonly property real qsPadding: root.snap(root.effectiveHeight * 0.175) // 7 px on each side and between icons
-                readonly property real qsIconH: root.qsIconHeight // 16 px icon height
+                readonly property real qsIconH: root.qsIconHeight // 16 px box -> 20x15 Wi-Fi & 15 px Battery centered on y=13..27/28
 
                 height: root.railHeight // Normalized Quick Settings pill height
                 width: qsPadding + qsIconsRow.implicitWidth + qsPadding
