@@ -34,11 +34,12 @@ Item {
     implicitWidth: width
     implicitHeight: height
 
-    PillHighlight {
-        active: buttonRoot.isActive
-        hovered: buttonRoot.isHovered
-        activeColor: buttonRoot.highlightCapsuleColor
-        hoverColor: buttonRoot.contentColor
+    Rectangle {
+        anchors.fill: parent
+        radius: height / 2
+        color: buttonRoot.highlightCapsuleColor
+        opacity: buttonRoot.isActive ? 1.0 : (buttonRoot.isHovered ? 0.25 : 0.0)
+        Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration } }
     }
 
     StatusIcon {

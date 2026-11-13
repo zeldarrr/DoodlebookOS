@@ -807,12 +807,13 @@ PlasmoidItem {
                 readonly property bool isActive: notifMouse.pressed || notifDialog.visible
                 readonly property bool isHovered: notifMouse.containsMouse && !isActive
 
-                // Background highlight capsule (neutral translucent hover / accent active)
-                Components.PillHighlight {
-                    active: notifBellButton.isActive
-                    hovered: notifBellButton.isHovered
-                    activeColor: root.highlightCapsuleColor
-                    hoverColor: root.topBarContentColor
+                // Background highlight capsule
+                Rectangle {
+                    anchors.fill: parent
+                    radius: height / 2
+                    color: root.highlightCapsuleColor
+                    opacity: notifBellButton.isActive ? 1.0 : (notifBellButton.isHovered ? 0.25 : 0.0)
+                    Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration } }
                 }
 
                 Components.StatusIcon {
@@ -873,12 +874,12 @@ PlasmoidItem {
                 readonly property bool isActive: qsMouse.pressed || qsDialog.visible
                 readonly property bool isHovered: qsMouse.containsMouse && !isActive
 
-                // Background highlight capsule (neutral translucent hover / accent active)
-                Components.PillHighlight {
-                    active: qsPillButton.isActive
-                    hovered: qsPillButton.isHovered
-                    activeColor: root.highlightCapsuleColor
-                    hoverColor: root.topBarContentColor
+                Rectangle {
+                    anchors.fill: parent
+                    radius: height / 2
+                    color: root.highlightCapsuleColor
+                    opacity: qsPillButton.isActive ? 1.0 : (qsPillButton.isHovered ? 0.25 : 0.0)
+                    Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration } }
                 }
 
                 Row {
