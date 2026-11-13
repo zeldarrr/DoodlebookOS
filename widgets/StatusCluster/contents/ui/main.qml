@@ -22,7 +22,9 @@ import org.kde.plasma.private.clipboard as Klipper
 import org.kde.taskmanager as TaskManager
 
 // Sub-module UI components
+import "components" as Components
 import "media" as Media
+import "magicpointer" as MagicPointerUI
 import "notifications" as NotificationsUI
 import "notifications/global" as NotifGlobal
 import "quicksettings" as QuickSettingsUI
@@ -99,7 +101,7 @@ PlasmoidItem {
     readonly property real qsIconHeight: snap(effectiveHeight * 0.400)           // 16 px physical at 40 px panel height (12.8 dp)
     readonly property real railTopMargin: snap((effectiveHeight - railHeight) / 2) // 6.5 px physical (centered in rail)
     readonly property real clusterRightMargin: Math.max(0, snap(effectiveHeight * 0.67) - 4.0) // 22 px physical
-    readonly property real itemSpacing: snap(effectiveHeight * 0.20)            // 8 px physical
+    readonly property real itemSpacing: snap(effectiveHeight * 0.30)            // 12 px physical
 
     // Common Colors & Styling Tokens
     readonly property color topBarContentColor: {
@@ -512,6 +514,8 @@ PlasmoidItem {
         onTriggered: {
             if (targetPopup === "media") {
                 mediaDialog.visible = true;
+            } else if (targetPopup === "magicpointer") {
+                magicPointerDialog.visible = true;
             } else if (targetPopup === "notif") {
                 notifDialog.visible = true;
             } else if (targetPopup === "qs") {
@@ -524,6 +528,7 @@ PlasmoidItem {
     function closeAllPopups() {
         popupSwitchTimer.stop();
         mediaDialog.visible = false;
+        magicPointerDialog.visible = false;
         notifDialog.visible = false;
         qsDialog.visible = false;
     }
@@ -533,6 +538,7 @@ PlasmoidItem {
 
         var isTargetOpen = false;
         if (name === "media") isTargetOpen = mediaDialog.visible;
+        else if (name === "magicpointer") isTargetOpen = magicPointerDialog.visible;
         else if (name === "notif") isTargetOpen = notifDialog.visible;
         else if (name === "qs") isTargetOpen = qsDialog.visible;
 
@@ -541,7 +547,7 @@ PlasmoidItem {
             return;
         }
 
-        var anyOtherOpen = mediaDialog.visible || notifDialog.visible || qsDialog.visible;
+        var anyOtherOpen = mediaDialog.visible || magicPointerDialog.visible || notifDialog.visible || qsDialog.visible;
         closeAllPopups();
 
         if (anyOtherOpen) {
@@ -549,6 +555,7 @@ PlasmoidItem {
             popupSwitchTimer.restart();
         } else {
             if (name === "media") mediaDialog.visible = true;
+            else if (name === "magicpointer") magicPointerDialog.visible = true;
             else if (name === "notif") notifDialog.visible = true;
             else if (name === "qs") qsDialog.visible = true;
         }
@@ -764,6 +771,29 @@ PlasmoidItem {
             }
 
             // ----------------------------------------------------
+            // 1.5. MAGIC POINTER BUTTON
+            // ----------------------------------------------------
+            Components.RailIconButton {
+                id: magicPointerButton
+                iconSource: Qt.resolvedUrl("magicpointer/icons/arrow.svg")
+                railHeight: root.railHeight
+                iconSize: root.qsIconHeight
+                dpr: root.dpr
+                highlightCapsuleColor: root.highlightCapsuleColor
+                contentColor: root.topBarContentColor
+                highlightedContentColor: root.highlightedContentColor
+                expanded: magicPointerDialog.visible
+
+                onClicked: wasExpanded => {
+                    if (wasExpanded) {
+                        root.closeAllPopups();
+                    } else {
+                        root.requestTogglePopup("magicpointer");
+                    }
+                }
+            }
+
+            // ----------------------------------------------------
             // 2. NOTIFICATIONS BELL BUTTON
             // ----------------------------------------------------
             Item {
@@ -785,11 +815,12 @@ PlasmoidItem {
                     Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration } }
                 }
 
-                Image {
-                    id: bellIconImg
-                    anchors.centerIn: parent
-                    width: root.snap(root.effectiveHeight * 0.40)
-                    height: width
+                Components.StatusIcon {
+                    id: bellIcon
+                    x: root.snap((notifBellButton.width - width) / 2)
+                    y: root.snap((notifBellButton.height - height) / 2)
+                    dpr: root.dpr
+                    iconHeight: root.qsIconHeight
                     source: (root.unreadNotifCount > 0)
                         ? (root.isLightContent
                             ? Qt.resolvedUrl("notifications/icons/notifications_unread.svg")
@@ -797,20 +828,8 @@ PlasmoidItem {
                         : (root.isDndActive
                             ? Qt.resolvedUrl("notifications/icons/doodlebookos-notifications-disabled.svg")
                             : Qt.resolvedUrl("notifications/icons/notifications.svg"))
-                    sourceSize.width: Math.round(width * root.dpr)
-                    sourceSize.height: Math.round(height * root.dpr)
-                    fillMode: Image.PreserveAspectFit
-                    smooth: true
-                    visible: false
-                }
-
-                MultiEffect {
-                    anchors.fill: bellIconImg
-                    source: bellIconImg
-                    colorization: notifBellButton.isActive ? 1.0 : (root.unreadNotifCount > 0 ? 0.0 : 1.0)
-                    colorizationColor: notifBellButton.isActive ? root.highlightedContentColor : root.topBarContentColor
-                    Behavior on colorization { NumberAnimation { duration: Kirigami.Units.shortDuration } }
-                    Behavior on colorizationColor { ColorAnimation { duration: Kirigami.Units.shortDuration } }
+                    colorize: notifBellButton.isActive || root.unreadNotifCount === 0
+                    color: notifBellButton.isActive ? root.highlightedContentColor : root.topBarContentColor
                 }
 
                 property bool notifWasOpen: false
@@ -862,57 +881,26 @@ PlasmoidItem {
                     Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration } }
                 }
 
-                component QSIcon: Item {
-                    id: qsi
-                    property url source
-                    readonly property real iconHeight: qsPillButton.qsIconH
-
-                    // Hidden reader for original SVG aspect ratio (without sourceSize lock)
-                    Image {
-                        id: rawMetrics
-                        source: qsi.source
-                        visible: false
-                    }
-
-                    readonly property real svgAspect: (rawMetrics.implicitHeight > 0) ? (rawMetrics.implicitWidth / rawMetrics.implicitHeight) : 1.0
-                    readonly property real iconWidth: Math.round((iconHeight * svgAspect) * root.dpr) / root.dpr
-
-                    implicitWidth: iconWidth
-                    implicitHeight: iconHeight
-                    width: iconWidth
-                    height: iconHeight
-
-                    Image {
-                        id: srcImg
-                        anchors.fill: parent
-                        source: qsi.source
-                        sourceSize.width: Math.round(qsi.iconWidth * root.dpr)
-                        sourceSize.height: Math.round(qsi.iconHeight * root.dpr)
-                        fillMode: Image.PreserveAspectFit
-                        smooth: true
-                        visible: false
-                    }
-
-                    MultiEffect {
-                        anchors.fill: parent
-                        source: srcImg
-                        colorization: 1.0
-                        colorizationColor: qsPillButton.isActive ? root.highlightedContentColor : root.topBarContentColor
-                        Behavior on colorizationColor { ColorAnimation { duration: Kirigami.Units.shortDuration } }
-                    }
-                }
-
                 Row {
                     id: qsIconsRow
-                    anchors.centerIn: parent
+                    x: root.snap((qsPillButton.width - width) / 2)
+                    y: root.snap((qsPillButton.height - height) / 2)
                     spacing: qsPillButton.qsPadding
 
-                    QSIcon {
+                    Components.StatusIcon {
                         source: root.currentWifiIcon
+                        dpr: root.dpr
+                        iconHeight: qsPillButton.qsIconH
+                        preserveSvgAspect: true
+                        color: qsPillButton.isActive ? root.highlightedContentColor : root.topBarContentColor
                     }
 
-                    QSIcon {
+                    Components.StatusIcon {
                         source: root.currentBatteryIcon
+                        dpr: root.dpr
+                        iconHeight: qsPillButton.qsIconH
+                        preserveSvgAspect: true
+                        color: qsPillButton.isActive ? root.highlightedContentColor : root.topBarContentColor
                     }
                 }
 
@@ -960,6 +948,23 @@ PlasmoidItem {
         mainItem: Media.ExpandedRepresentation {
             id: mediaExpandedView
             root: mediaBackend
+        }
+    }
+
+    // 1.5. Magic Pointer Popup Dialog
+    PlasmaCore.AppletPopup {
+        id: magicPointerDialog
+        visualParent: magicPointerButton
+        popupDirection: Qt.BottomEdge
+        margin: 1
+        removeBorderStrategy: PlasmaCore.AppletPopup.Never
+        hideOnWindowDeactivate: true
+        backgroundHints: PlasmaCore.AppletPopup.StandardBackground
+        width: magicPointerView ? magicPointerView.implicitWidth : root.snap(160.0)
+        height: magicPointerView ? magicPointerView.implicitHeight : root.snap(56.0)
+
+        mainItem: MagicPointerUI.MagicPointerPopup {
+            id: magicPointerView
         }
     }
 
