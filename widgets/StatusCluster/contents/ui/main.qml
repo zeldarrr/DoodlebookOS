@@ -103,8 +103,9 @@ PlasmoidItem {
     readonly property real railHeight: snap(effectiveHeight * 0.675)             // 27 px physical at 40 px panel height (21.6 dp)
     readonly property real qsIconHeight: snap(effectiveHeight * 0.400)           // 16 px physical at 40 px panel height (12.8 dp)
     readonly property real railTopMargin: snap((effectiveHeight - railHeight) / 2) // 7 px physical at 40 px panel height (centered in rail)
-    readonly property real clusterRightMargin: Math.max(0, snap(effectiveHeight * 0.65) - 4.0) // 21 px physical (symmetrical 34 px screen edge margin)
+    readonly property real clusterRightMargin: Math.max(0, snap(effectiveHeight * 0.625) - 4.0) // 20 px physical (symmetrical 34 px screen edge margin)
     readonly property real itemSpacing: snap(effectiveHeight * 0.35)            // 14 px physical (28 px glyph-to-glyph gap)
+    readonly property real qsIconSpacing: snap(effectiveHeight * 0.20)          // 8 px physical between QS icons (6.4 dp)
     readonly property real keyboardLayoutFontSize: snap(effectiveHeight * 0.325) // 13 px physical at 40 px panel height (10.4 dp -> 10 px cap height)
 
     // Common Colors & Styling Tokens
@@ -834,7 +835,7 @@ PlasmoidItem {
                 id: keyboardLayoutButton
                 visible: root.hasMultipleKeyboardLayouts && root.activeKeyboardLayoutCode.length > 0
                 height: root.railHeight
-                readonly property real sidePadding: root.snap(root.effectiveHeight * 0.175)
+                readonly property real sidePadding: root.snap(root.effectiveHeight * 0.125)
                 width: visible ? Math.max(root.railHeight, root.snap(keyboardLayoutLabel.paintedWidth + sidePadding * 2)) : 0
                 implicitWidth: width
                 implicitHeight: height
@@ -852,10 +853,11 @@ PlasmoidItem {
 
                 Text {
                     id: keyboardLayoutLabel
-                    anchors.centerIn: parent
+                    x: root.snap((parent.width - width) / 2)
+                    y: root.snap((parent.height - height) / 2)
                     text: root.activeKeyboardLayoutCode
                     font {
-                        family: "Google Sans Flex"
+                        family: "Google Sans"
                         weight: 600
                         pointSize: root.keyboardLayoutFontSize * 0.75
                     }
@@ -939,6 +941,7 @@ PlasmoidItem {
                     y: root.snap((notifBellButton.height - height) / 2)
                     dpr: root.dpr
                     iconHeight: root.qsIconHeight
+                    preserveSvgAspect: true
                     source: (root.unreadNotifCount > 0)
                         ? (root.isLightContent
                             ? Qt.resolvedUrl("notifications/icons/notifications_unread.svg")
@@ -1001,7 +1004,7 @@ PlasmoidItem {
                     id: qsIconsRow
                     x: root.snap((qsPillButton.width - width) / 2)
                     y: root.snap((qsPillButton.height - height) / 2)
-                    spacing: qsPillButton.qsPadding
+                    spacing: root.qsIconSpacing
 
                     Components.StatusIcon {
                         visible: root.hasConnectedBluetoothDevice
@@ -1029,12 +1032,21 @@ PlasmoidItem {
                         color: qsPillButton.isActive ? root.highlightedContentColor : root.topBarContentColor
                     }
 
-                    Components.StatusIcon {
-                        source: root.currentBatteryIcon
-                        dpr: root.dpr
-                        iconHeight: qsPillButton.qsIconH
-                        preserveSvgAspect: true
-                        color: qsPillButton.isActive ? root.highlightedContentColor : root.topBarContentColor
+                    Item {
+                        id: batteryTrayWrapper
+                        readonly property real tightLeftOffset: Math.max(1.0 / root.dpr, root.snap(root.effectiveHeight * 0.025))
+                        width: batteryTrayIcon.width - batteryTrayWrapper.tightLeftOffset
+                        height: batteryTrayIcon.height
+
+                        Components.StatusIcon {
+                            id: batteryTrayIcon
+                            x: -batteryTrayWrapper.tightLeftOffset
+                            source: root.currentBatteryIcon
+                            dpr: root.dpr
+                            iconHeight: qsPillButton.qsIconH
+                            preserveSvgAspect: true
+                            color: qsPillButton.isActive ? root.highlightedContentColor : root.topBarContentColor
+                        }
                     }
                 }
 
