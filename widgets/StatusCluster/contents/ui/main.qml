@@ -20,9 +20,12 @@ import org.kde.plasma.private.battery as PlasmaBattery
 import org.kde.plasma.private.volume as Volume
 import org.kde.plasma.private.clipboard as Klipper
 import org.kde.taskmanager as TaskManager
+import org.kde.bluezqt as BluezQt
+import org.kde.plasma.workspace.keyboardlayout as KeyboardLayoutPlugin
 
 // Sub-module UI components
 import "components" as Components
+import "keyboardlayout" as KeyboardLayoutUI
 import "media" as Media
 import "magicpointer" as MagicPointerUI
 import "notifications" as NotificationsUI
@@ -102,6 +105,7 @@ PlasmoidItem {
     readonly property real railTopMargin: snap((effectiveHeight - railHeight) / 2) // 7 px physical at 40 px panel height (centered in rail)
     readonly property real clusterRightMargin: Math.max(0, snap(effectiveHeight * 0.65) - 4.0) // 21 px physical (symmetrical 34 px screen edge margin)
     readonly property real itemSpacing: snap(effectiveHeight * 0.35)            // 14 px physical (28 px glyph-to-glyph gap)
+    readonly property real keyboardLayoutFontSize: snap(effectiveHeight * 0.325) // 13 px physical at 40 px panel height (10.4 dp -> 10 px cap height)
 
     // Common Colors & Styling Tokens
     readonly property color topBarContentColor: {
@@ -504,6 +508,53 @@ PlasmoidItem {
     }
 
     // ==========================================
+    // 4. BLUETOOTH CONNECTED & KEYBOARD LAYOUT BACKEND
+    // ==========================================
+    property int _btConnTrigger: 0
+
+    Connections {
+        target: (typeof BluezQt !== "undefined" && BluezQt.Manager) ? BluezQt.Manager : null
+        function onConnectedDevicesChanged() { root._btConnTrigger++; }
+        function onDeviceAdded() { root._btConnTrigger++; }
+        function onDeviceRemoved() { root._btConnTrigger++; }
+        function onDeviceChanged() { root._btConnTrigger++; }
+        function onUsableAdapterChanged() { root._btConnTrigger++; }
+        function onBluetoothOperationalChanged() { root._btConnTrigger++; }
+    }
+
+    readonly property bool hasConnectedBluetoothDevice: {
+        var _t = _btConnTrigger;
+        if (typeof BluezQt === "undefined" || !BluezQt.Manager) return false;
+        if (BluezQt.Manager.bluetoothBlocked) return false;
+        if (BluezQt.Manager.usableAdapter && !BluezQt.Manager.usableAdapter.powered) return false;
+        if (!BluezQt.Manager.connectedDevices) return false;
+        return BluezQt.Manager.connectedDevices.length > 0;
+    }
+
+    KeyboardLayoutPlugin.KeyboardLayout {
+        id: keyboardLayoutBackend
+    }
+
+    readonly property bool hasMultipleKeyboardLayouts: Boolean(
+        keyboardLayoutBackend &&
+        keyboardLayoutBackend.layoutsList &&
+        keyboardLayoutBackend.layoutsList.length >= 2
+    )
+
+    readonly property string activeKeyboardLayoutCode: {
+        if (!keyboardLayoutBackend || !keyboardLayoutBackend.layoutsList || keyboardLayoutBackend.layoutsList.length === 0) {
+            return "";
+        }
+        var idx = keyboardLayoutBackend.layout;
+        if (idx < 0 || idx >= keyboardLayoutBackend.layoutsList.length) {
+            idx = 0;
+        }
+        var entry = keyboardLayoutBackend.layoutsList[idx];
+        var code = (entry && entry.shortName) ? String(entry.shortName) : "";
+        return code.trim().toUpperCase();
+    }
+
+    // ==========================================
     // POPUP MANAGEMENT (Handshake & Seamless Switching)
     // ==========================================
     Timer {
@@ -514,6 +565,8 @@ PlasmoidItem {
         onTriggered: {
             if (targetPopup === "media") {
                 mediaDialog.visible = true;
+            } else if (targetPopup === "keyboardlayout") {
+                keyboardLayoutDialog.visible = true;
             } else if (targetPopup === "magicpointer") {
                 magicPointerDialog.visible = true;
             } else if (targetPopup === "notif") {
@@ -528,6 +581,7 @@ PlasmoidItem {
     function closeAllPopups() {
         popupSwitchTimer.stop();
         mediaDialog.visible = false;
+        keyboardLayoutDialog.visible = false;
         magicPointerDialog.visible = false;
         notifDialog.visible = false;
         qsDialog.visible = false;
@@ -538,6 +592,7 @@ PlasmoidItem {
 
         var isTargetOpen = false;
         if (name === "media") isTargetOpen = mediaDialog.visible;
+        else if (name === "keyboardlayout") isTargetOpen = keyboardLayoutDialog.visible;
         else if (name === "magicpointer") isTargetOpen = magicPointerDialog.visible;
         else if (name === "notif") isTargetOpen = notifDialog.visible;
         else if (name === "qs") isTargetOpen = qsDialog.visible;
@@ -547,7 +602,7 @@ PlasmoidItem {
             return;
         }
 
-        var anyOtherOpen = mediaDialog.visible || magicPointerDialog.visible || notifDialog.visible || qsDialog.visible;
+        var anyOtherOpen = mediaDialog.visible || keyboardLayoutDialog.visible || magicPointerDialog.visible || notifDialog.visible || qsDialog.visible;
         closeAllPopups();
 
         if (anyOtherOpen) {
@@ -555,6 +610,7 @@ PlasmoidItem {
             popupSwitchTimer.restart();
         } else {
             if (name === "media") mediaDialog.visible = true;
+            else if (name === "keyboardlayout") keyboardLayoutDialog.visible = true;
             else if (name === "magicpointer") magicPointerDialog.visible = true;
             else if (name === "notif") notifDialog.visible = true;
             else if (name === "qs") qsDialog.visible = true;
@@ -772,6 +828,67 @@ PlasmoidItem {
             }
 
             // ----------------------------------------------------
+            // 1.25. KEYBOARD LAYOUT BUTTON
+            // ----------------------------------------------------
+            Item {
+                id: keyboardLayoutButton
+                visible: root.hasMultipleKeyboardLayouts && root.activeKeyboardLayoutCode.length > 0
+                height: root.railHeight
+                readonly property real sidePadding: root.snap(root.effectiveHeight * 0.175)
+                width: visible ? Math.max(root.railHeight, root.snap(keyboardLayoutLabel.paintedWidth + sidePadding * 2)) : 0
+                implicitWidth: width
+                implicitHeight: height
+
+                readonly property bool isActive: keyboardLayoutMouse.pressed || keyboardLayoutDialog.visible
+                readonly property bool isHovered: keyboardLayoutMouse.containsMouse && !isActive
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: height / 2
+                    color: root.highlightCapsuleColor
+                    opacity: keyboardLayoutButton.isActive ? 1.0 : (keyboardLayoutButton.isHovered ? 0.25 : 0.0)
+                    Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration } }
+                }
+
+                Text {
+                    id: keyboardLayoutLabel
+                    anchors.centerIn: parent
+                    text: root.activeKeyboardLayoutCode
+                    font {
+                        family: "Google Sans Flex"
+                        weight: 600
+                        pointSize: root.keyboardLayoutFontSize * 0.75
+                    }
+                    renderType: Text.CurveRendering
+                    color: keyboardLayoutButton.isActive ? root.highlightedContentColor : root.topBarContentColor
+                    Behavior on color { ColorAnimation { duration: Kirigami.Units.shortDuration } }
+                }
+
+                property bool layoutWasOpen: false
+
+                MouseArea {
+                    id: keyboardLayoutMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+
+                    onPressed: mouse => {
+                        keyboardLayoutButton.layoutWasOpen = keyboardLayoutDialog.visible;
+                    }
+
+                    onClicked: mouse => {
+                        if (mouse.button === Qt.LeftButton) {
+                            if (keyboardLayoutButton.layoutWasOpen) {
+                                root.closeAllPopups();
+                            } else {
+                                root.requestTogglePopup("keyboardlayout");
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ----------------------------------------------------
             // 1.5. MAGIC POINTER BUTTON
             // ----------------------------------------------------
             Components.RailIconButton {
@@ -826,9 +943,7 @@ PlasmoidItem {
                         ? (root.isLightContent
                             ? Qt.resolvedUrl("notifications/icons/notifications_unread.svg")
                             : Qt.resolvedUrl("notifications/icons/notifications_unread_dark.svg"))
-                        : (root.isDndActive
-                            ? Qt.resolvedUrl("notifications/icons/doodlebookos-notifications-disabled.svg")
-                            : Qt.resolvedUrl("notifications/icons/notifications.svg"))
+                        : Qt.resolvedUrl("notifications/icons/notifications.svg")
                     colorize: notifBellButton.isActive || root.unreadNotifCount === 0
                     color: notifBellButton.isActive ? root.highlightedContentColor : root.topBarContentColor
                 }
@@ -860,12 +975,12 @@ PlasmoidItem {
             }
 
             // ----------------------------------------------------
-            // 3. QUICK SETTINGS BUTTON (Wi-Fi + Power)
+            // 3. QUICK SETTINGS BUTTON (Bluetooth, DND, Wi-Fi, Power)
             // ----------------------------------------------------
             Item {
                 id: qsPillButton
                 readonly property real qsPadding: root.snap(root.effectiveHeight * 0.175) // 7 px on each side and between icons
-                readonly property real qsIconH: root.qsIconHeight // 16 px box -> 20x15 Wi-Fi & 15 px Battery centered on y=13..27/28
+                readonly property real qsIconH: root.qsIconHeight // 16 px box -> 14x15 BT, 15x15 DND, 20x15 Wi-Fi & 15 px Battery centered on y=13..27
 
                 height: root.railHeight // Normalized Quick Settings pill height
                 width: qsPadding + qsIconsRow.implicitWidth + qsPadding
@@ -887,6 +1002,24 @@ PlasmoidItem {
                     x: root.snap((qsPillButton.width - width) / 2)
                     y: root.snap((qsPillButton.height - height) / 2)
                     spacing: qsPillButton.qsPadding
+
+                    Components.StatusIcon {
+                        visible: root.hasConnectedBluetoothDevice
+                        source: Qt.resolvedUrl("quicksettings/icons/bluetooth_connected_tray.svg")
+                        dpr: root.dpr
+                        iconHeight: qsPillButton.qsIconH
+                        preserveSvgAspect: true
+                        color: qsPillButton.isActive ? root.highlightedContentColor : root.topBarContentColor
+                    }
+
+                    Components.StatusIcon {
+                        visible: root.isDndActive
+                        source: Qt.resolvedUrl("quicksettings/icons/dnd_tray.svg")
+                        dpr: root.dpr
+                        iconHeight: qsPillButton.qsIconH
+                        preserveSvgAspect: true
+                        color: qsPillButton.isActive ? root.highlightedContentColor : root.topBarContentColor
+                    }
 
                     Components.StatusIcon {
                         source: root.currentWifiIcon
@@ -949,6 +1082,23 @@ PlasmoidItem {
         mainItem: Media.ExpandedRepresentation {
             id: mediaExpandedView
             root: mediaBackend
+        }
+    }
+
+    // 1.25. Keyboard Layout Popup Dialog
+    PlasmaCore.AppletPopup {
+        id: keyboardLayoutDialog
+        visualParent: keyboardLayoutButton
+        popupDirection: Qt.BottomEdge
+        margin: 1
+        removeBorderStrategy: PlasmaCore.AppletPopup.Never
+        hideOnWindowDeactivate: true
+        backgroundHints: PlasmaCore.AppletPopup.StandardBackground
+        width: keyboardLayoutView ? keyboardLayoutView.implicitWidth : root.snap(128.0)
+        height: keyboardLayoutView ? keyboardLayoutView.implicitHeight : root.snap(44.8)
+
+        mainItem: KeyboardLayoutUI.KeyboardLayoutPopup {
+            id: keyboardLayoutView
         }
     }
 
