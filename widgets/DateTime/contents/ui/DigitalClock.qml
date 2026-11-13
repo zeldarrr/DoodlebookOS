@@ -347,14 +347,26 @@ MouseArea {
         height: main.isVert ? (contentItem.height + main.pillSidePadding * 2) : main.pillHeight
         z: -1
 
-        // Hover / Pressed background highlight
-        Rectangle {
+        // Hover (neutral translucent) / Active (accent) background highlight
+        Item {
             id: highlightRect
             anchors.fill: parent
-            radius: height / 2
-            color: main.highlightCapsuleColor
-            opacity: main.isActive ? 1.0 : (main.isHovered ? 0.25 : 0.0)
-            Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration } }
+
+            Rectangle {
+                anchors.fill: parent
+                radius: height / 2
+                color: main.baseContentColor
+                opacity: main.isHovered ? 0.282 : 0.0
+                Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration } }
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                radius: height / 2
+                color: main.highlightCapsuleColor
+                opacity: main.isActive ? 1.0 : 0.0
+                Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration } }
+            }
         }
     }
 
