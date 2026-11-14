@@ -28,6 +28,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         x: 0
         textFormat: Text.PlainText
+        renderType: Text.CurveRendering
         width: implicitWidth
         elide: Text.ElideNone
 

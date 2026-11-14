@@ -106,7 +106,7 @@ PlasmoidItem {
     readonly property real clusterRightMargin: Math.max(0, snap(effectiveHeight * 0.625) - 4.0) // 20 px physical (symmetrical 34 px screen edge margin)
     readonly property real itemSpacing: snap(effectiveHeight * 0.35)            // 14 px physical (28 px glyph-to-glyph gap)
     readonly property real qsIconSpacing: snap(effectiveHeight * 0.20)          // 8 px physical between QS icons (6.4 dp)
-    readonly property real keyboardLayoutFontSize: snap(effectiveHeight * 0.325) // 13 px physical at 40 px panel height (10.4 dp -> 10 px cap height)
+    readonly property real keyboardLayoutFontSize: effectiveHeight * 0.3125       // 12.5 px physical at 40 px panel height (10.0 dp -> 9 px cap height)
 
     // Common Colors & Styling Tokens
     readonly property color topBarContentColor: {
@@ -667,16 +667,17 @@ PlasmoidItem {
                 radius: height / 2
 
                 readonly property bool isPillHovered: mediaMouse.containsMouse || ppMouse.containsMouse
-                width: visible ? root.snap(128) : 0
+                width: visible ? root.snap(126.4) : 0
                 implicitWidth: width
                 implicitHeight: height
 
                 readonly property bool isExpanded: mediaDialog.visible
+                readonly property color pillSurfaceColor: isExpanded ? root.effectiveAccentColor : "#000000"
 
-                color: isExpanded ? root.effectiveAccentColor : "#000000"
+                color: pillSurfaceColor
 
-                border.color: "#46484d"
-                border.width: 1
+                border.color: isExpanded ? "transparent" : "#42494f"
+                border.width: root.snap(1.6)
 
                 Behavior on color { ColorAnimation { duration: Kirigami.Units.shortDuration } }
                 Behavior on border.color { ColorAnimation { duration: Kirigami.Units.shortDuration } }
@@ -716,9 +717,9 @@ PlasmoidItem {
                 Rectangle {
                     id: playPauseCircle
                     anchors.left: parent.left
-                    anchors.leftMargin: (Math.round(((mediaPillButton.height - height) / 2) * root.dpr) + 1) / root.dpr
+                    anchors.leftMargin: root.snap(4.8)
                     anchors.verticalCenter: parent.verticalCenter
-                    readonly property real baseTargetSize: root.snap(Math.round((mediaPillButton.height - root.snap(root.railHeight * 0.19)) * 0.78 * root.dpr) / root.dpr)
+                    readonly property real baseTargetSize: root.snap(root.effectiveHeight * 0.45)
                     width: baseTargetSize
                     height: width
                     radius: width / 2
@@ -744,8 +745,9 @@ PlasmoidItem {
                     Media.PlayPauseIcon {
                         id: playPauseSymbol
                         anchors.centerIn: parent
+                        anchors.horizontalCenterOffset: mediaBackend.isPlaying ? 0 : root.snap(0.8)
                         isPlaying: mediaBackend.isPlaying
-                        iconSize: root.snap(5.6)
+                        iconSize: root.snap(playPauseCircle.baseTargetSize * 0.5)
                         color: mediaPillButton.isExpanded
                             ? root.effectiveAccentColor
                             : (root.isLightContent ? "#18181c" : "#ffffff")
@@ -768,19 +770,20 @@ PlasmoidItem {
                 Media.MarqueeText {
                     id: marqueeTitle
                     anchors.left: playPauseCircle.right
-                    anchors.leftMargin: Kirigami.Units.smallSpacing * 1.5
+                    anchors.leftMargin: root.snap(5.6)
                     anchors.right: parent.right
-                    anchors.rightMargin: Kirigami.Units.smallSpacing * 1.5
+                    anchors.rightMargin: root.snap(7.2)
                     anchors.verticalCenter: parent.verticalCenter
+                    anchors.verticalCenterOffset: root.snap(0.8)
                     height: parent.height
 
                     text: mediaBackend.track
                     font.family: "Google Sans Flex"
                     font.weight: Font.DemiBold
-                    font.pixelSize: root.snap(10.4)
+                    font.pixelSize: root.snap(root.effectiveHeight * 0.40)
                     color: mediaPillButton.isExpanded
                         ? root.highlightedContentColor
-                        : "#ffffff"
+                        : "#e0e6ee"
                     scrollOnClickOnly: false
                     scrollOnHoverOnly: true
                     hovered: mediaPillButton.isPillHovered
@@ -791,16 +794,16 @@ PlasmoidItem {
                     anchors.left: marqueeTitle.left
                     anchors.top: parent.top
                     anchors.bottom: parent.bottom
-                    anchors.topMargin: 2
-                    anchors.bottomMargin: 2
-                    width: root.snap(18)
+                    anchors.topMargin: mediaPillButton.border.width
+                    anchors.bottomMargin: mediaPillButton.border.width
+                    width: root.snap(14.4)
                     z: 5
                     opacity: (marqueeTitle.textOffset < -1.0) ? 1.0 : 0.0
                     Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration } }
 
                     gradient: Gradient {
                         orientation: Gradient.Horizontal
-                        GradientStop { position: 0.0; color: mediaPillButton.isExpanded ? root.effectiveAccentColor : "#000000" }
+                        GradientStop { position: 0.0; color: mediaPillButton.pillSurfaceColor }
                         GradientStop { position: 1.0; color: "#00000000" }
                     }
                 }
@@ -808,12 +811,12 @@ PlasmoidItem {
                 // Right fade overlay (visible when text overflows the right boundary)
                 Rectangle {
                     anchors.right: parent.right
-                    anchors.rightMargin: 1
+                    anchors.rightMargin: mediaPillButton.border.width
                     anchors.top: parent.top
                     anchors.bottom: parent.bottom
-                    anchors.topMargin: 1
-                    anchors.bottomMargin: 1
-                    width: root.snap(24)
+                    anchors.topMargin: mediaPillButton.border.width
+                    anchors.bottomMargin: mediaPillButton.border.width
+                    width: root.snap(14.4)
                     radius: height / 2
                     z: 5
                     opacity: marqueeTitle.overflowing ? 1.0 : 0.0
@@ -822,8 +825,8 @@ PlasmoidItem {
                     gradient: Gradient {
                         orientation: Gradient.Horizontal
                         GradientStop { position: 0.0; color: "#00000000" }
-                        GradientStop { position: 0.75; color: mediaPillButton.isExpanded ? root.effectiveAccentColor : "#000000" }
-                        GradientStop { position: 1.0; color: mediaPillButton.isExpanded ? root.effectiveAccentColor : "#000000" }
+                        GradientStop { position: 0.85; color: mediaPillButton.pillSurfaceColor }
+                        GradientStop { position: 1.0; color: mediaPillButton.pillSurfaceColor }
                     }
                 }
             }
@@ -854,12 +857,13 @@ PlasmoidItem {
                 Text {
                     id: keyboardLayoutLabel
                     x: root.snap((parent.width - width) / 2)
-                    y: root.snap((parent.height - height) / 2)
+                    y: root.snap((parent.height - height) / 2) + 0.4
                     text: root.activeKeyboardLayoutCode
                     font {
                         family: "Google Sans"
-                        weight: 600
+                        weight: 700
                         pointSize: root.keyboardLayoutFontSize * 0.75
+                        letterSpacing: 0.4
                     }
                     renderType: Text.CurveRendering
                     color: keyboardLayoutButton.isActive ? root.highlightedContentColor : root.topBarContentColor
