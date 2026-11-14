@@ -541,8 +541,8 @@ Item {
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {
                                     KCMUtils.KCMLauncher.openSystemSettings("kcm_networkmanagement");
-                                    if (wifiViewRoot.fullRep && wifiViewRoot.fullRep.appletRoot) {
-                                        wifiViewRoot.fullRep.appletRoot.expanded = false;
+                                    if (wifiViewRoot.fullRep) {
+                                        wifiViewRoot.fullRep.closeDrawer();
                                     }
                                 }
                             }
@@ -870,8 +870,8 @@ Item {
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
                         KCMUtils.KCMLauncher.openSystemSettings("kcm_networkmanagement");
-                        if (wifiViewRoot.fullRep && wifiViewRoot.fullRep.appletRoot) {
-                            wifiViewRoot.fullRep.appletRoot.expanded = false;
+                        if (wifiViewRoot.fullRep) {
+                            wifiViewRoot.fullRep.closeDrawer();
                         }
                     }
                 }

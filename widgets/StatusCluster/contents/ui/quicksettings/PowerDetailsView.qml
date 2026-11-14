@@ -314,8 +314,8 @@ Item {
                     hoverEnabled: true
                     onClicked: {
                         KCMUtils.KCMLauncher.openSystemSettings("kcm_powerdevilprofilesconfig");
-                        if (powerViewRoot.fullRep && powerViewRoot.fullRep.appletRoot) {
-                            powerViewRoot.fullRep.appletRoot.expanded = false;
+                        if (powerViewRoot.fullRep) {
+                            powerViewRoot.fullRep.closeDrawer();
                         }
                     }
                 }

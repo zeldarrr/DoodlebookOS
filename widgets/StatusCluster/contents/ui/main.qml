@@ -7,7 +7,6 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Effects
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
 import org.kde.kirigami as Kirigami
@@ -558,22 +557,23 @@ PlasmoidItem {
     // ==========================================
     // POPUP MANAGEMENT (Handshake & Seamless Switching)
     // ==========================================
+    readonly property var popupDialogs: ({
+        "media": mediaDialog,
+        "keyboardlayout": keyboardLayoutDialog,
+        "magicpointer": magicPointerDialog,
+        "notif": notifDialog,
+        "qs": qsDialog
+    })
+
     Timer {
         id: popupSwitchTimer
         interval: 35
         repeat: false
         property string targetPopup: ""
         onTriggered: {
-            if (targetPopup === "media") {
-                mediaDialog.visible = true;
-            } else if (targetPopup === "keyboardlayout") {
-                keyboardLayoutDialog.visible = true;
-            } else if (targetPopup === "magicpointer") {
-                magicPointerDialog.visible = true;
-            } else if (targetPopup === "notif") {
-                notifDialog.visible = true;
-            } else if (targetPopup === "qs") {
-                qsDialog.visible = true;
+            var dlg = root.popupDialogs[targetPopup];
+            if (dlg) {
+                dlg.visible = true;
             }
             targetPopup = "";
         }
@@ -581,40 +581,42 @@ PlasmoidItem {
 
     function closeAllPopups() {
         popupSwitchTimer.stop();
-        mediaDialog.visible = false;
-        keyboardLayoutDialog.visible = false;
-        magicPointerDialog.visible = false;
-        notifDialog.visible = false;
-        qsDialog.visible = false;
+        for (var key in root.popupDialogs) {
+            var dlg = root.popupDialogs[key];
+            if (dlg) {
+                dlg.visible = false;
+            }
+        }
     }
 
     function requestTogglePopup(name) {
         popupSwitchTimer.stop();
 
-        var isTargetOpen = false;
-        if (name === "media") isTargetOpen = mediaDialog.visible;
-        else if (name === "keyboardlayout") isTargetOpen = keyboardLayoutDialog.visible;
-        else if (name === "magicpointer") isTargetOpen = magicPointerDialog.visible;
-        else if (name === "notif") isTargetOpen = notifDialog.visible;
-        else if (name === "qs") isTargetOpen = qsDialog.visible;
+        var targetDlg = root.popupDialogs[name];
+        if (!targetDlg) {
+            return;
+        }
 
-        if (isTargetOpen) {
+        if (targetDlg.visible) {
             closeAllPopups();
             return;
         }
 
-        var anyOtherOpen = mediaDialog.visible || keyboardLayoutDialog.visible || magicPointerDialog.visible || notifDialog.visible || qsDialog.visible;
+        var anyOtherOpen = false;
+        for (var key in root.popupDialogs) {
+            var dlg = root.popupDialogs[key];
+            if (dlg && dlg.visible) {
+                anyOtherOpen = true;
+                break;
+            }
+        }
         closeAllPopups();
 
         if (anyOtherOpen) {
             popupSwitchTimer.targetPopup = name;
             popupSwitchTimer.restart();
         } else {
-            if (name === "media") mediaDialog.visible = true;
-            else if (name === "keyboardlayout") keyboardLayoutDialog.visible = true;
-            else if (name === "magicpointer") magicPointerDialog.visible = true;
-            else if (name === "notif") notifDialog.visible = true;
-            else if (name === "qs") qsDialog.visible = true;
+            targetDlg.visible = true;
         }
     }
 
@@ -657,246 +659,22 @@ PlasmoidItem {
             spacing: root.itemSpacing
             height: root.railHeight
 
-            // ----------------------------------------------------
             // 1. MEDIA PILL BUTTON
-            // ----------------------------------------------------
-            Rectangle {
+            Media.MediaPill {
                 id: mediaPillButton
-                visible: mediaBackend.effectiveVisible && mediaBackend.hasMedia
-                height: root.railHeight
-                radius: height / 2
-
-                readonly property bool isPillHovered: mediaMouse.containsMouse || ppMouse.containsMouse
-                width: visible ? root.snap(126.4) : 0
-                implicitWidth: width
-                implicitHeight: height
-
-                readonly property bool isExpanded: mediaDialog.visible
-                readonly property color pillSurfaceColor: isExpanded ? root.effectiveAccentColor : "#000000"
-
-                color: pillSurfaceColor
-
-                border.color: isExpanded ? "transparent" : "#42494f"
-                border.width: root.snap(1.6)
-
-                Behavior on color { ColorAnimation { duration: Kirigami.Units.shortDuration } }
-                Behavior on border.color { ColorAnimation { duration: Kirigami.Units.shortDuration } }
-
-                property bool mediaWasOpen: false
-
-                MouseArea {
-                    id: mediaMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-
-                    onPressed: mouse => {
-                        mediaPillButton.mediaWasOpen = mediaDialog.visible;
-                    }
-
-                    onClicked: mouse => {
-                        if (mouse.button === Qt.MiddleButton) {
-                            mediaBackend.togglePlaying();
-                        } else if (mouse.button === Qt.LeftButton) {
-                            if (mediaPillButton.mediaWasOpen) {
-                                root.closeAllPopups();
-                            } else {
-                                root.requestTogglePopup("media");
-                            }
-                        }
-                    }
-
-                    onWheel: wheel => {
-                        var delta = (wheel.inverted ? -1 : 1) * (wheel.angleDelta.y ? wheel.angleDelta.y : -wheel.angleDelta.x);
-                        if (delta > 0) mediaBackend.changeVolume(0.05);
-                        else if (delta < 0) mediaBackend.changeVolume(-0.05);
-                    }
-                }
-
-                // Left play/pause circular button
-                Rectangle {
-                    id: playPauseCircle
-                    anchors.left: parent.left
-                    anchors.leftMargin: root.snap(4.8)
-                    anchors.verticalCenter: parent.verticalCenter
-                    readonly property real baseTargetSize: root.snap(root.effectiveHeight * 0.45)
-                    width: baseTargetSize
-                    height: width
-                    radius: width / 2
-                    color: mediaPillButton.isExpanded
-                        ? root.highlightedContentColor
-                        : (mediaPillButton.isPillHovered ? (root.isLightContent ? "#ffffff" : "#18181c") : "transparent")
-                    Behavior on color { ColorAnimation { duration: Kirigami.Units.shortDuration } }
-
-                    scale: ppMouse.pressed ? 0.92 : (ppMouse.containsMouse ? 1.08 : 1.0)
-                    Behavior on scale { NumberAnimation { duration: Kirigami.Units.shortDuration; easing.type: Easing.OutQuad } }
-
-                    // App Logo (stan spoczynku: widoczny, gdy NIE najechano i NIE jest otwarte okno)
-                    Kirigami.Icon {
-                        id: appLogoIcon
-                        anchors.fill: parent
-                        source: mediaBackend.appIcon
-                        opacity: (mediaPillButton.isPillHovered || mediaPillButton.isExpanded) ? 0.0 : 1.0
-                        visible: opacity > 0.0
-                        Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration } }
-                    }
-
-                    // Play/Pause Icon (widoczny, gdy najechano LUB otwarte jest okno dialogowe)
-                    Media.PlayPauseIcon {
-                        id: playPauseSymbol
-                        anchors.centerIn: parent
-                        anchors.horizontalCenterOffset: mediaBackend.isPlaying ? 0 : root.snap(0.8)
-                        isPlaying: mediaBackend.isPlaying
-                        iconSize: root.snap(playPauseCircle.baseTargetSize * 0.5)
-                        color: mediaPillButton.isExpanded
-                            ? root.effectiveAccentColor
-                            : (root.isLightContent ? "#18181c" : "#ffffff")
-                        opacity: (mediaPillButton.isPillHovered || mediaPillButton.isExpanded) ? 1.0 : 0.0
-                        visible: opacity > 0.0
-                        Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration } }
-                    }
-
-                    MouseArea {
-                        id: ppMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        onClicked: {
-                            mediaBackend.togglePlaying();
-                        }
-                    }
-                }
-
-                // Scrolling Title Text
-                Media.MarqueeText {
-                    id: marqueeTitle
-                    anchors.left: playPauseCircle.right
-                    anchors.leftMargin: root.snap(5.6)
-                    anchors.right: parent.right
-                    anchors.rightMargin: root.snap(7.2)
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.verticalCenterOffset: root.snap(0.8)
-                    height: parent.height
-
-                    text: mediaBackend.track
-                    font.family: "Google Sans Flex"
-                    font.weight: Font.DemiBold
-                    font.pixelSize: root.snap(root.effectiveHeight * 0.40)
-                    color: mediaPillButton.isExpanded
-                        ? root.highlightedContentColor
-                        : "#e0e6ee"
-                    scrollOnClickOnly: false
-                    scrollOnHoverOnly: true
-                    hovered: mediaPillButton.isPillHovered
-                }
-
-                // Left fade overlay (visible when text is scrolled to the left)
-                Rectangle {
-                    anchors.left: marqueeTitle.left
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
-                    anchors.topMargin: mediaPillButton.border.width
-                    anchors.bottomMargin: mediaPillButton.border.width
-                    width: root.snap(14.4)
-                    z: 5
-                    opacity: (marqueeTitle.textOffset < -1.0) ? 1.0 : 0.0
-                    Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration } }
-
-                    gradient: Gradient {
-                        orientation: Gradient.Horizontal
-                        GradientStop { position: 0.0; color: mediaPillButton.pillSurfaceColor }
-                        GradientStop { position: 1.0; color: "#00000000" }
-                    }
-                }
-
-                // Right fade overlay (visible when text overflows the right boundary)
-                Rectangle {
-                    anchors.right: parent.right
-                    anchors.rightMargin: mediaPillButton.border.width
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
-                    anchors.topMargin: mediaPillButton.border.width
-                    anchors.bottomMargin: mediaPillButton.border.width
-                    width: root.snap(14.4)
-                    radius: height / 2
-                    z: 5
-                    opacity: marqueeTitle.overflowing ? 1.0 : 0.0
-                    Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration } }
-
-                    gradient: Gradient {
-                        orientation: Gradient.Horizontal
-                        GradientStop { position: 0.0; color: "#00000000" }
-                        GradientStop { position: 0.85; color: mediaPillButton.pillSurfaceColor }
-                        GradientStop { position: 1.0; color: mediaPillButton.pillSurfaceColor }
-                    }
-                }
+                appletRoot: root
+                mediaBackend: mediaBackend
+                expanded: mediaDialog.visible
             }
 
-            // ----------------------------------------------------
             // 1.25. KEYBOARD LAYOUT BUTTON
-            // ----------------------------------------------------
-            Item {
+            KeyboardLayoutUI.KeyboardLayoutPill {
                 id: keyboardLayoutButton
-                visible: root.hasMultipleKeyboardLayouts && root.activeKeyboardLayoutCode.length > 0
-                height: root.railHeight
-                readonly property real sidePadding: root.snap(root.effectiveHeight * 0.125)
-                width: visible ? Math.max(root.railHeight, root.snap(keyboardLayoutLabel.paintedWidth + sidePadding * 2)) : 0
-                implicitWidth: width
-                implicitHeight: height
-
-                readonly property bool isActive: keyboardLayoutMouse.pressed || keyboardLayoutDialog.visible
-                readonly property bool isHovered: keyboardLayoutMouse.containsMouse && !isActive
-
-                Rectangle {
-                    anchors.fill: parent
-                    radius: height / 2
-                    color: root.highlightCapsuleColor
-                    opacity: keyboardLayoutButton.isActive ? 1.0 : (keyboardLayoutButton.isHovered ? 0.25 : 0.0)
-                    Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration } }
-                }
-
-                Text {
-                    id: keyboardLayoutLabel
-                    x: root.snap((parent.width - width) / 2)
-                    y: root.snap((parent.height - height) / 2) + 0.4
-                    text: root.activeKeyboardLayoutCode
-                    font {
-                        family: "Google Sans"
-                        weight: 700
-                        pointSize: root.keyboardLayoutFontSize * 0.75
-                        letterSpacing: 0.4
-                    }
-                    renderType: Text.CurveRendering
-                    color: keyboardLayoutButton.isActive ? root.highlightedContentColor : root.topBarContentColor
-                    Behavior on color { ColorAnimation { duration: Kirigami.Units.shortDuration } }
-                }
-
-                property bool layoutWasOpen: false
-
-                MouseArea {
-                    id: keyboardLayoutMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    acceptedButtons: Qt.LeftButton | Qt.RightButton
-
-                    onPressed: mouse => {
-                        keyboardLayoutButton.layoutWasOpen = keyboardLayoutDialog.visible;
-                    }
-
-                    onClicked: mouse => {
-                        if (mouse.button === Qt.LeftButton) {
-                            if (keyboardLayoutButton.layoutWasOpen) {
-                                root.closeAllPopups();
-                            } else {
-                                root.requestTogglePopup("keyboardlayout");
-                            }
-                        }
-                    }
-                }
+                appletRoot: root
+                expanded: keyboardLayoutDialog.visible
             }
 
-            // ----------------------------------------------------
             // 1.5. MAGIC POINTER BUTTON
-            // ----------------------------------------------------
             Components.RailIconButton {
                 id: magicPointerButton
                 iconSource: Qt.resolvedUrl("magicpointer/icons/arrow.svg")
@@ -917,171 +695,24 @@ PlasmoidItem {
                 }
             }
 
-            // ----------------------------------------------------
             // 2. NOTIFICATIONS BELL BUTTON
-            // ----------------------------------------------------
-            Item {
+            NotificationsUI.NotifBellPill {
                 id: notifBellButton
-                height: root.railHeight
-                width: height
-                implicitWidth: width
-                implicitHeight: height
-
-                readonly property bool isActive: notifMouse.pressed || notifDialog.visible
-                readonly property bool isHovered: notifMouse.containsMouse && !isActive
-
-                // Background highlight capsule
-                Rectangle {
-                    anchors.fill: parent
-                    radius: height / 2
-                    color: root.highlightCapsuleColor
-                    opacity: notifBellButton.isActive ? 1.0 : (notifBellButton.isHovered ? 0.25 : 0.0)
-                    Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration } }
-                }
-
-                Components.StatusIcon {
-                    id: bellIcon
-                    x: root.snap((notifBellButton.width - width) / 2)
-                    y: root.snap((notifBellButton.height - height) / 2)
-                    dpr: root.dpr
-                    iconHeight: root.qsIconHeight
-                    preserveSvgAspect: true
-                    source: (root.unreadNotifCount > 0)
-                        ? (root.isLightContent
-                            ? Qt.resolvedUrl("notifications/icons/notifications_unread.svg")
-                            : Qt.resolvedUrl("notifications/icons/notifications_unread_dark.svg"))
-                        : Qt.resolvedUrl("notifications/icons/notifications.svg")
-                    colorize: notifBellButton.isActive || root.unreadNotifCount === 0
-                    color: notifBellButton.isActive ? root.highlightedContentColor : root.topBarContentColor
-                }
-
-                property bool notifWasOpen: false
-
-                MouseArea {
-                    id: notifMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-
-                    onPressed: mouse => {
-                        notifBellButton.notifWasOpen = notifDialog.visible;
-                    }
-
-                    onClicked: mouse => {
-                        if (mouse.button === Qt.MiddleButton) {
-                            root.toggleDoNotDisturbMode();
-                        } else if (mouse.button === Qt.LeftButton) {
-                            if (notifBellButton.notifWasOpen) {
-                                root.closeAllPopups();
-                            } else {
-                                root.requestTogglePopup("notif");
-                            }
-                        }
-                    }
-                }
+                appletRoot: root
+                expanded: notifDialog.visible
             }
 
-            // ----------------------------------------------------
             // 3. QUICK SETTINGS BUTTON (Bluetooth, DND, Wi-Fi, Power)
-            // ----------------------------------------------------
-            Item {
+            QuickSettingsUI.QuickSettingsPill {
                 id: qsPillButton
-                readonly property real qsPadding: root.snap(root.effectiveHeight * 0.175) // 7 px on each side and between icons
-                readonly property real qsIconH: root.qsIconHeight // 16 px box -> 14x15 BT, 15x15 DND, 20x15 Wi-Fi & 15 px Battery centered on y=13..27
-
-                height: root.railHeight // Normalized Quick Settings pill height
-                width: qsPadding + qsIconsRow.implicitWidth + qsPadding
-                implicitWidth: width
-                implicitHeight: height
-                readonly property bool isActive: qsMouse.pressed || qsDialog.visible
-                readonly property bool isHovered: qsMouse.containsMouse && !isActive
-
-                Rectangle {
-                    anchors.fill: parent
-                    radius: height / 2
-                    color: root.highlightCapsuleColor
-                    opacity: qsPillButton.isActive ? 1.0 : (qsPillButton.isHovered ? 0.25 : 0.0)
-                    Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration } }
-                }
-
-                Row {
-                    id: qsIconsRow
-                    x: root.snap((qsPillButton.width - width) / 2)
-                    y: root.snap((qsPillButton.height - height) / 2)
-                    spacing: root.qsIconSpacing
-
-                    Components.StatusIcon {
-                        visible: root.hasConnectedBluetoothDevice
-                        source: Qt.resolvedUrl("quicksettings/icons/bluetooth_connected_tray.svg")
-                        dpr: root.dpr
-                        iconHeight: qsPillButton.qsIconH
-                        preserveSvgAspect: true
-                        color: qsPillButton.isActive ? root.highlightedContentColor : root.topBarContentColor
-                    }
-
-                    Components.StatusIcon {
-                        visible: root.isDndActive
-                        source: Qt.resolvedUrl("quicksettings/icons/dnd_tray.svg")
-                        dpr: root.dpr
-                        iconHeight: qsPillButton.qsIconH
-                        preserveSvgAspect: true
-                        color: qsPillButton.isActive ? root.highlightedContentColor : root.topBarContentColor
-                    }
-
-                    Components.StatusIcon {
-                        source: root.currentWifiIcon
-                        dpr: root.dpr
-                        iconHeight: qsPillButton.qsIconH
-                        preserveSvgAspect: true
-                        color: qsPillButton.isActive ? root.highlightedContentColor : root.topBarContentColor
-                    }
-
-                    Item {
-                        id: batteryTrayWrapper
-                        readonly property real tightLeftOffset: Math.max(1.0 / root.dpr, root.snap(root.effectiveHeight * 0.025))
-                        width: batteryTrayIcon.width - batteryTrayWrapper.tightLeftOffset
-                        height: batteryTrayIcon.height
-
-                        Components.StatusIcon {
-                            id: batteryTrayIcon
-                            x: -batteryTrayWrapper.tightLeftOffset
-                            source: root.currentBatteryIcon
-                            dpr: root.dpr
-                            iconHeight: qsPillButton.qsIconH
-                            preserveSvgAspect: true
-                            color: qsPillButton.isActive ? root.highlightedContentColor : root.topBarContentColor
-                        }
-                    }
-                }
-
-                property bool qsWasOpen: false
-
-                MouseArea {
-                    id: qsMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    acceptedButtons: Qt.LeftButton | Qt.RightButton
-
-                    onPressed: mouse => {
-                        qsPillButton.qsWasOpen = qsDialog.visible;
-                    }
-
-                    onClicked: mouse => {
-                        if (mouse.button === Qt.LeftButton) {
-                            if (qsPillButton.qsWasOpen) {
-                                root.closeAllPopups();
-                            } else {
-                                root.requestTogglePopup("qs");
-                            }
-                        }
-                    }
-                }
+                appletRoot: root
+                expanded: qsDialog.visible
             }
         }
     }
 
     // ==========================================
-    // POPUP DIALOGS (PlasmaCore.Dialog)
+    // POPUP DIALOGS
     // ==========================================
 
     // 1. Media Popup Dialog
@@ -1105,6 +736,7 @@ PlasmoidItem {
     PlasmaCore.AppletPopup {
         id: keyboardLayoutDialog
         visualParent: keyboardLayoutButton
+        appletInterface: root
         popupDirection: Qt.BottomEdge
         margin: 1
         removeBorderStrategy: PlasmaCore.AppletPopup.Never
@@ -1122,6 +754,7 @@ PlasmoidItem {
     PlasmaCore.AppletPopup {
         id: magicPointerDialog
         visualParent: magicPointerButton
+        appletInterface: root
         popupDirection: Qt.BottomEdge
         margin: 1
         removeBorderStrategy: PlasmaCore.AppletPopup.Never
@@ -1139,6 +772,7 @@ PlasmoidItem {
     PlasmaCore.AppletPopup {
         id: notifDialog
         visualParent: notifBellButton
+        appletInterface: root
         popupDirection: Qt.BottomEdge
         margin: 1
         removeBorderStrategy: PlasmaCore.AppletPopup.Never
@@ -1178,6 +812,7 @@ PlasmoidItem {
     PlasmaCore.AppletPopup {
         id: qsDialog
         visualParent: qsPillButton
+        appletInterface: root
         popupDirection: Qt.BottomEdge
         margin: 1
         removeBorderStrategy: PlasmaCore.AppletPopup.Never

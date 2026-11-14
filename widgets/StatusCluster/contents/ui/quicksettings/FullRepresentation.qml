@@ -297,11 +297,17 @@ PlasmaExtras.Representation {
         id: sessionManagement
     }
 
-    function requestLogout() {
-        fullRep.powerMenuOpen = false;
-        if (fullRep.appletRoot) {
+    function closeDrawer() {
+        if (fullRep.appletRoot && typeof fullRep.appletRoot.closeAllPopups === "function") {
+            fullRep.appletRoot.closeAllPopups();
+        } else if (fullRep.appletRoot) {
             fullRep.appletRoot.expanded = false;
         }
+    }
+
+    function requestLogout() {
+        fullRep.powerMenuOpen = false;
+        fullRep.closeDrawer();
         try {
             if (sessionManagement && typeof sessionManagement.requestLogout === "function") {
                 sessionManagement.requestLogout();
@@ -315,9 +321,7 @@ PlasmaExtras.Representation {
 
     function requestReboot() {
         fullRep.powerMenuOpen = false;
-        if (fullRep.appletRoot) {
-            fullRep.appletRoot.expanded = false;
-        }
+        fullRep.closeDrawer();
         try {
             if (sessionManagement && typeof sessionManagement.requestReboot === "function") {
                 sessionManagement.requestReboot();
@@ -331,9 +335,7 @@ PlasmaExtras.Representation {
 
     function requestShutdown() {
         fullRep.powerMenuOpen = false;
-        if (fullRep.appletRoot) {
-            fullRep.appletRoot.expanded = false;
-        }
+        fullRep.closeDrawer();
         try {
             if (sessionManagement && typeof sessionManagement.requestShutdown === "function") {
                 sessionManagement.requestShutdown();
@@ -352,18 +354,17 @@ PlasmaExtras.Representation {
         value: 1
     }
 
-    Binding {
-        when: Boolean(fullRep.Window && fullRep.Window.window !== null && fullRep.Window.window.hasOwnProperty("visualParent") && fullRep.appletRoot && fullRep.appletRoot.popupAnchorItem !== null)
-        target: fullRep.Window ? fullRep.Window.window : null
-        property: "visualParent"
-        value: fullRep.appletRoot ? fullRep.appletRoot.popupAnchorItem : null
-    }
-
     Connections {
         target: fullRep.Window ? fullRep.Window.window : null
         function onVisibleChanged() {
             var win = fullRep.Window ? fullRep.Window.window : null;
             if (win && win.visible) {
+                if (typeof slider1Item !== "undefined" && slider1Item) {
+                    slider1Item.syncFromSystem();
+                }
+                if (typeof slider2Item !== "undefined" && slider2Item) {
+                    slider2Item.syncFromSystem();
+                }
                 Qt.callLater(() => {
                     if (!win || !win.visible || !win.screen) return;
                     var screenW = win.screen.geometry.width;
@@ -374,6 +375,10 @@ PlasmaExtras.Representation {
                         win.x = rightEdge - win.width - offset;
                     }
                 });
+            } else {
+                fullRep.powerMenuOpen = false;
+                fullRep.isEditingTiles = false;
+                fullRep.activeSubView = "";
             }
         }
     }
@@ -521,8 +526,12 @@ PlasmaExtras.Representation {
         target: fullRep.appletRoot
         function onExpandedChanged() {
             if (fullRep.appletRoot && fullRep.appletRoot.expanded) {
-                slider1Item.syncFromSystem();
-                slider2Item.syncFromSystem();
+                if (typeof slider1Item !== "undefined" && slider1Item) {
+                    slider1Item.syncFromSystem();
+                }
+                if (typeof slider2Item !== "undefined" && slider2Item) {
+                    slider2Item.syncFromSystem();
+                }
             } else {
                 fullRep.powerMenuOpen = false;
                 fullRep.isEditingTiles = false;

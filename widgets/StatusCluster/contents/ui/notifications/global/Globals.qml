@@ -188,7 +188,7 @@ QtObject {
             }
 
             // Prefer iconified plasmoids
-            if (!plasmoidItem.expanded) {
+            if (!plasmoidItem.expanded && !plasmoidItem.notifPopupVisible) {
                 ++score;
             }
 

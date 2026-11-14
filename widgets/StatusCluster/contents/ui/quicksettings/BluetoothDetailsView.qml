@@ -563,8 +563,8 @@ Item {
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {
                                     KCMUtils.KCMLauncher.openSystemSettings("kcm_bluetooth");
-                                    if (bluetoothViewRoot.fullRep && bluetoothViewRoot.fullRep.appletRoot) {
-                                        bluetoothViewRoot.fullRep.appletRoot.expanded = false;
+                                    if (bluetoothViewRoot.fullRep) {
+                                        bluetoothViewRoot.fullRep.closeDrawer();
                                     }
                                 }
                             }
@@ -770,8 +770,8 @@ Item {
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
                         KCMUtils.KCMLauncher.openSystemSettings("kcm_bluetooth");
-                        if (bluetoothViewRoot.fullRep && bluetoothViewRoot.fullRep.appletRoot) {
-                            bluetoothViewRoot.fullRep.appletRoot.expanded = false;
+                        if (bluetoothViewRoot.fullRep) {
+                            bluetoothViewRoot.fullRep.closeDrawer();
                         }
                     }
                 }
