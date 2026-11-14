@@ -22,10 +22,39 @@ Item {
     property bool showHiddenApps: false
 
     property var hiddenApps: []
+    property var hiddenLookup: ({})
+
+    function buildHiddenLookup(appsList) {
+        var map = Object.create(null);
+        if (!appsList || appsList.length === 0) return map;
+        for (var i = 0; i < appsList.length; ++i) {
+            var raw = (appsList[i] || "").toString().toLowerCase().trim();
+            if (!raw) continue;
+            map[raw] = true;
+
+            var base = raw.replace("applications:", "").replace(".desktop", "").replace("file://", "");
+            if (base.length > 0) {
+                map[base] = true;
+                if (base.indexOf("/") !== -1) {
+                    var slashSub = base.substring(base.lastIndexOf("/") + 1);
+                    map[slashSub] = true;
+                    base = slashSub;
+                }
+                var dotParts = base.split(".");
+                if (dotParts.length > 1) {
+                    for (var d = 1; d < dotParts.length; d++) {
+                        map[dotParts.slice(d).join(".")] = true;
+                    }
+                }
+            }
+        }
+        return map;
+    }
 
     function refreshHiddenApps() {
         var cfg = (typeof root !== "undefined" && root && root.plasmoidConfiguration) ? root.plasmoidConfiguration : (typeof Plasmoid !== "undefined" ? Plasmoid.configuration : null);
         var raw = (cfg && cfg.hiddenApps) ? Array.from(cfg.hiddenApps) : [];
+        hiddenLookup = buildHiddenLookup(raw);
         hiddenApps = raw;
         filteredMainModel.invalidateFilter();
         filteredRecentModel.invalidateFilter();
@@ -39,6 +68,7 @@ Item {
         if (idStr && list.indexOf(idStr) === -1) {
             list.push(idStr);
         }
+        hiddenLookup = buildHiddenLookup(list);
         hiddenApps = list;
         if (cfg) {
             cfg.hiddenApps = list;
@@ -61,6 +91,7 @@ Item {
             if (nameStr && (it === nameStr || it.indexOf(nameStr) !== -1 || nameStr.indexOf(it) !== -1)) return false;
             return true;
         });
+        hiddenLookup = buildHiddenLookup(list);
         hiddenApps = list;
         if (cfg) {
             cfg.hiddenApps = list;
@@ -82,33 +113,30 @@ Item {
 
     function isRowHidden(srcModel, row, parentIdx) {
         if (!srcModel || !hiddenApps || hiddenApps.length === 0) return false;
+        if (!hiddenLookup) return false;
         var idx = srcModel.index(row, 0, parentIdx);
 
-        var candidates = [];
         var rolesToCheck = [0, 257, 258, 259, 266, 270];
         for (var r = 0; r < rolesToCheck.length; r++) {
             var d = srcModel.data(idx, rolesToCheck[r]);
-            if (d !== undefined && d !== null) {
-                var str = d.toString().toLowerCase().trim();
-                if (str.length > 0 && candidates.indexOf(str) === -1) {
-                    candidates.push(str);
+            if (d === undefined || d === null) continue;
+            var c = d.toString().toLowerCase().trim();
+            if (c.length === 0) continue;
+
+            if (hiddenLookup[c] === true) return true;
+
+            var base = c.replace("applications:", "").replace(".desktop", "").replace("file://", "");
+            if (base.length > 0) {
+                if (hiddenLookup[base] === true) return true;
+                if (base.indexOf("/") !== -1) {
+                    var slashSub = base.substring(base.lastIndexOf("/") + 1);
+                    if (hiddenLookup[slashSub] === true) return true;
+                    base = slashSub;
                 }
-            }
-        }
-
-        for (var i = 0; i < hiddenApps.length; ++i) {
-            var h = (hiddenApps[i] || "").toString().toLowerCase().trim();
-            if (!h) continue;
-            for (var c = 0; c < candidates.length; c++) {
-                var cand = candidates[c];
-                if (cand === h) return true;
-                if (cand.endsWith("/" + h) || h.endsWith("/" + cand)) return true;
-
-                var baseH = h.replace("applications:", "").replace(".desktop", "").replace("file://", "");
-                var baseC = cand.replace("applications:", "").replace(".desktop", "").replace("file://", "");
-                if (baseH.length > 0 && baseC.length > 0) {
-                    if (baseH === baseC || baseH.endsWith("/" + baseC) || baseC.endsWith("/" + baseH) || baseH.endsWith("." + baseC) || baseC.endsWith("." + baseH)) {
-                        return true;
+                var dotParts = base.split(".");
+                if (dotParts.length > 1) {
+                    for (var i = 1; i < dotParts.length; i++) {
+                        if (hiddenLookup[dotParts.slice(i).join(".")] === true) return true;
                     }
                 }
             }
@@ -205,6 +233,7 @@ Item {
     }
 
     onHiddenAppsChanged: {
+        hiddenLookup = buildHiddenLookup(hiddenApps);
         filteredMainModel.invalidateFilter();
         filteredRecentModel.invalidateFilter();
         hiddenAppsModel.invalidateFilter();
