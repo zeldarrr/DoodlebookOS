@@ -6,6 +6,7 @@
 import QtQuick
 import QtQuick.Layouts
 import org.kde.plasma.core as PlasmaCore
+import "metrics" as LocalMetrics
 
 PlasmaCore.Dialog {
     id: root
@@ -21,22 +22,22 @@ PlasmaCore.Dialog {
 
     visualParent: visualParentItem
     location: (typeof Plasmoid !== "undefined" && Plasmoid.location !== undefined) ? Plasmoid.location : PlasmaCore.Types.BottomEdge
-    floating: 12
+    floating: LocalMetrics.Metrics.px(9.0)
     hideOnWindowDeactivate: true
 
     backgroundHints: PlasmaCore.Types.StandardBackground
 
-    property int popupWidth: 680
-    property int popupHeight: Math.round(Screen.height * 0.66)
-    property real panelHeight: 52
+    property real popupWidth: LocalMetrics.Metrics.px(888.0)
+    property real popupHeight: LocalMetrics.Metrics.snap(Screen.height * (2.0 / 3.0) * LocalMetrics.Metrics.clampedScale)
+    property real panelHeight: LocalMetrics.Metrics.px(56.0)
 
     width: popupWidth
     height: popupHeight
 
-    property int iconSize: 50
-    readonly property real containerInnerPadding: 20
+    property real iconSize: LocalMetrics.Metrics.legacyDp(50)
+    readonly property real containerInnerPadding: LocalMetrics.Metrics.px(30.0)
     readonly property real cellSizeWidth: Math.floor((popupWidth - (containerInnerPadding * 2)) / ((root.plasmoidConfiguration && root.plasmoidConfiguration.numberColumns) || (typeof Plasmoid !== "undefined" && Plasmoid.configuration ? Plasmoid.configuration.numberColumns : 6)))
-    readonly property real cellSizeHeight: 102
+    readonly property real cellSizeHeight: LocalMetrics.Metrics.legacyDp(102)
 
     property alias launcherContainer: launcherBox.card
     property alias launcherContextMenu: launcherContextMenu
@@ -56,10 +57,10 @@ PlasmaCore.Dialog {
                 effPanelHeight = visualParentItem.Window.window.height;
             }
 
-            var bottomGap = 12;
+            var bottomGap = LocalMetrics.Metrics.px(9.0);
             var panelTop = scrY + scrHeight - effPanelHeight;
             var targetX = scrX + Math.round((Screen.width - popupWidth) / 2);
-            var targetY = Math.max(24, Math.round(panelTop - popupHeight - bottomGap));
+            var targetY = Math.max(LocalMetrics.Metrics.px(24.0), Math.round(panelTop - popupHeight - bottomGap));
 
             if (root.x !== targetX) {
                 root.x = targetX;

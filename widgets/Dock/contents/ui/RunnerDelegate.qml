@@ -10,6 +10,7 @@ import QtQuick.Shapes
 import QtQuick.Controls as QQC2
 import org.kde.kirigami as Kirigami
 import "i18n.js" as I18n
+import "metrics" as LocalMetrics
 
 Item {
     id: delegateRoot
@@ -105,7 +106,7 @@ Item {
     }
 
     width: ListView.view ? ListView.view.width : 0
-    implicitHeight: 46
+    implicitHeight: LocalMetrics.Metrics.legacyDp(46)
     height: implicitHeight
 
     function runPrimary() {
@@ -173,11 +174,11 @@ Item {
     Rectangle {
         id: bgCard
         anchors.fill: parent
-        anchors.leftMargin: 6
-        anchors.rightMargin: 6
-        anchors.topMargin: 2
-        anchors.bottomMargin: 2
-        radius: 8
+        anchors.leftMargin: LocalMetrics.Metrics.legacyDp(6)
+        anchors.rightMargin: LocalMetrics.Metrics.legacyDp(6)
+        anchors.topMargin: LocalMetrics.Metrics.legacyDp(2)
+        anchors.bottomMargin: LocalMetrics.Metrics.legacyDp(2)
+        radius: LocalMetrics.Metrics.legacyDp(8)
         color: {
             if (delegateRoot.isCurrent) {
                 return Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.22);
@@ -217,15 +218,15 @@ Item {
 
     RowLayout {
         anchors.fill: parent
-        anchors.leftMargin: 16
-        anchors.rightMargin: 16
-        spacing: 12
+        anchors.leftMargin: LocalMetrics.Metrics.legacyDp(16)
+        anchors.rightMargin: LocalMetrics.Metrics.legacyDp(16)
+        spacing: LocalMetrics.Metrics.legacyDp(12)
 
         // Icon
         Kirigami.Icon {
             id: resultIcon
-            Layout.preferredWidth: 26
-            Layout.preferredHeight: 26
+            Layout.preferredWidth: LocalMetrics.Metrics.legacyDp(26)
+            Layout.preferredHeight: LocalMetrics.Metrics.legacyDp(26)
             Layout.alignment: Qt.AlignVCenter
             source: (typeof delegateRoot.model !== "undefined" && delegateRoot.model && delegateRoot.model.decoration) ? delegateRoot.model.decoration : "system-run"
             smooth: true
@@ -235,7 +236,7 @@ Item {
         ColumnLayout {
             Layout.fillWidth: true
             Layout.alignment: Qt.AlignVCenter
-            spacing: 1
+            spacing: LocalMetrics.Metrics.legacyDp(1)
 
             // Title / display
             QQC2.Label {
@@ -243,7 +244,7 @@ Item {
                 Layout.fillWidth: true
                 text: (typeof delegateRoot.model !== "undefined" && delegateRoot.model && delegateRoot.model.display) ? delegateRoot.model.display.toString() : ""
                 font.family: (typeof main !== "undefined" && main) ? main.textFont : Kirigami.Theme.defaultFont.family
-                font.pointSize: (typeof main !== "undefined" && main) ? main.textSize + 1 : 11
+                font.pointSize: (typeof main !== "undefined" && main) ? (main.textSize + (1 * (8.0 / 9.0) * LocalMetrics.Metrics.clampedScale)) : (11 * (8.0 / 9.0) * LocalMetrics.Metrics.clampedScale)
                 font.weight: Font.DemiBold
                 color: delegateRoot.isCurrent ? Kirigami.Theme.highlightColor : ((typeof main !== "undefined" && main) ? main.textColor : Kirigami.Theme.textColor)
                 elide: Text.ElideRight
@@ -265,7 +266,7 @@ Item {
                 }
                 visible: text.length > 0 && text !== titleLabel.text
                 font.family: (typeof main !== "undefined" && main) ? main.textFont : Kirigami.Theme.defaultFont.family
-                font.pointSize: (typeof main !== "undefined" && main) ? Math.max(8, main.textSize - 1) : 9
+                font.pointSize: (typeof main !== "undefined" && main) ? Math.max(7 * LocalMetrics.Metrics.clampedScale, main.textSize - (1 * (8.0 / 9.0) * LocalMetrics.Metrics.clampedScale)) : (9 * (8.0 / 9.0) * LocalMetrics.Metrics.clampedScale)
                 color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.6)
                 elide: Text.ElideMiddle
                 verticalAlignment: Text.AlignVCenter
@@ -276,7 +277,7 @@ Item {
         RowLayout {
             id: actionsRow
             Layout.alignment: Qt.AlignVCenter
-            spacing: 6
+            spacing: LocalMetrics.Metrics.legacyDp(6)
             visible: (delegateRoot.isCurrent || rowHoverHandler.hovered) && actionsRepeater.count > 0
 
             Repeater {
@@ -288,20 +289,20 @@ Item {
                     required property var modelData
                     required property int index
 
-                    Layout.preferredWidth: 28
-                    Layout.preferredHeight: 28
+                    Layout.preferredWidth: LocalMetrics.Metrics.legacyDp(28)
+                    Layout.preferredHeight: LocalMetrics.Metrics.legacyDp(28)
 
                     contentItem: Kirigami.Icon {
                         anchors.centerIn: parent
-                        implicitWidth: 16
-                        implicitHeight: 16
+                        implicitWidth: LocalMetrics.Metrics.legacyDp(16)
+                        implicitHeight: LocalMetrics.Metrics.legacyDp(16)
                         source: delegateRoot.resolveActionIcon(actBtn.modelData)
                         isMask: true
                         color: Kirigami.Theme.textColor
                     }
 
                     background: Rectangle {
-                        radius: 6
+                        radius: LocalMetrics.Metrics.legacyDp(6)
                         color: actBtn.hovered ? Qt.rgba(1, 1, 1, 0.15) : "transparent"
                     }
 
@@ -311,7 +312,7 @@ Item {
                         delay: 350
                         timeout: -1
 
-                        y: -implicitHeight - 6
+                        y: -implicitHeight - LocalMetrics.Metrics.legacyDp(6)
                         x: Math.round((actBtn.width - implicitWidth) / 2)
 
                         contentItem: Text {
@@ -328,7 +329,7 @@ Item {
                                 return isDark ? "#F4F4F8" : "#1F1F24";
                             }
                             font.family: (typeof main !== "undefined" && main) ? main.textFont : Kirigami.Theme.defaultFont.family
-                            font.pixelSize: 12
+                            font.pixelSize: LocalMetrics.Metrics.legacyDp(12)
                             font.weight: Font.Medium
                             renderType: Text.NativeRendering
                             horizontalAlignment: Text.AlignHCenter
@@ -337,8 +338,8 @@ Item {
 
                         background: Item {
                             id: tipBgItem
-                            implicitWidth: Math.max(48, actToolTip.contentItem.implicitWidth + 28)
-                            implicitHeight: 34
+                            implicitWidth: Math.max(LocalMetrics.Metrics.legacyDp(48), actToolTip.contentItem.implicitWidth + LocalMetrics.Metrics.legacyDp(28))
+                            implicitHeight: LocalMetrics.Metrics.legacyDp(34)
 
                             readonly property bool isDarkTheme: Kirigami.Theme.textColor.r > 0.5 || Kirigami.Theme.textColor.g > 0.5 || Kirigami.Theme.textColor.b > 0.5
                             readonly property color bubbleColor: {
@@ -350,8 +351,8 @@ Item {
                             // Pill bubble
                             Rectangle {
                                 width: parent.width
-                                height: 28
-                                radius: 14
+                                height: LocalMetrics.Metrics.legacyDp(28)
+                                radius: LocalMetrics.Metrics.legacyDp(14)
                                 color: tipBgItem.bubbleColor
                                 border.width: 0
                             }
@@ -362,17 +363,20 @@ Item {
                                 anchors.fill: parent
                                 containsMode: Shape.FillContains
                                 readonly property real midX: Math.round(width / 2)
+                                readonly property real arrowHalfW: LocalMetrics.Metrics.legacyDp(6)
+                                readonly property real arrowTopY: Math.max(0, tipBubble.height - LocalMetrics.Metrics.legacyDp(1))
+                                readonly property real arrowTipY: LocalMetrics.Metrics.legacyDp(33)
 
                                 ShapePath {
                                     strokeWidth: 0
                                     fillColor: tipBgItem.bubbleColor
 
-                                    startX: arrowShape.midX - 6
-                                    startY: 27
+                                    startX: arrowShape.midX - arrowShape.arrowHalfW
+                                    startY: arrowShape.arrowTopY
 
-                                    PathLine { x: arrowShape.midX; y: 33 }
-                                    PathLine { x: arrowShape.midX + 6; y: 27 }
-                                    PathLine { x: arrowShape.midX - 6; y: 27 }
+                                    PathLine { x: arrowShape.midX; y: arrowShape.arrowTipY }
+                                    PathLine { x: arrowShape.midX + arrowShape.arrowHalfW; y: arrowShape.arrowTopY }
+                                    PathLine { x: arrowShape.midX - arrowShape.arrowHalfW; y: arrowShape.arrowTopY }
                                 }
                             }
                         }
@@ -396,10 +400,10 @@ Item {
             id: groupBadge
             Layout.alignment: Qt.AlignVCenter
             visible: !actionsRow.visible && badgeLabel.text.length > 0
-            radius: 4
+            radius: LocalMetrics.Metrics.legacyDp(4)
             color: Qt.rgba(1, 1, 1, 0.08)
-            implicitWidth: badgeLabel.implicitWidth + 12
-            implicitHeight: badgeLabel.implicitHeight + 6
+            implicitWidth: badgeLabel.implicitWidth + LocalMetrics.Metrics.legacyDp(12)
+            implicitHeight: badgeLabel.implicitHeight + LocalMetrics.Metrics.legacyDp(6)
 
             QQC2.Label {
                 id: badgeLabel
@@ -413,7 +417,7 @@ Item {
                     }
                     return "";
                 }
-                font.pointSize: 8
+                font.pointSize: 8 * (8.0 / 9.0) * LocalMetrics.Metrics.clampedScale
                 font.weight: Font.Normal
                 color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.5)
             }

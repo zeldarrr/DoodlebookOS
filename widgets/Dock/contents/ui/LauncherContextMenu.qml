@@ -8,6 +8,7 @@ import QtQuick.Layouts
 import QtQuick.Effects
 import org.kde.plasma.plasma5support as Plasma5Support
 import "i18n.js" as I18n
+import "metrics" as LocalMetrics
 
 Item {
     id: root
@@ -62,14 +63,14 @@ Item {
             var targetX = pos.x;
             var targetY = pos.y;
 
-            if (targetX + menuCard.width > root.width - 10) {
-                targetX = root.width - menuCard.width - 10;
+            if (targetX + menuCard.width > root.width - LocalMetrics.Metrics.legacyDp(10)) {
+                targetX = root.width - menuCard.width - LocalMetrics.Metrics.legacyDp(10);
             }
             if (targetX < 10) {
                 targetX = 10;
             }
 
-            if (targetY + menuCard.height > root.height - 10) {
+            if (targetY + menuCard.height > root.height - LocalMetrics.Metrics.legacyDp(10)) {
                 targetY = pos.y - menuCard.height;
             }
             if (targetY < 10) {
@@ -97,7 +98,7 @@ Item {
     Rectangle {
         id: shadowRect
         x: menuCard.x
-        y: menuCard.y + 2
+        y: menuCard.y + LocalMetrics.Metrics.legacyDp(2)
         width: menuCard.width
         height: menuCard.height
         radius: menuCard.radius
@@ -108,9 +109,9 @@ Item {
     Rectangle {
         id: menuCard
         z: 2
-        width: 190
-        height: contentCol.implicitHeight + 12
-        radius: 18
+        width: LocalMetrics.Metrics.legacyDp(190)
+        height: contentCol.implicitHeight + LocalMetrics.Metrics.legacyDp(12)
+        radius: LocalMetrics.Metrics.legacyDp(18)
         color: root.cBg
         border.color: Qt.rgba(1, 1, 1, 0.12)
         border.width: 1
@@ -126,32 +127,32 @@ Item {
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.right: parent.right
-            anchors.margins: 6
-            spacing: 2
+            anchors.margins: LocalMetrics.Metrics.legacyDp(6)
+            spacing: LocalMetrics.Metrics.legacyDp(2)
 
             // 1. App info
             Rectangle {
                 width: parent.width
-                height: 38
-                radius: 12
+                height: LocalMetrics.Metrics.legacyDp(38)
+                radius: LocalMetrics.Metrics.legacyDp(12)
                 color: infoMouse.pressed ? root.cPress : (infoMouse.containsMouse ? root.cHover : "transparent")
 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.leftMargin: 12
-                    anchors.rightMargin: 12
-                    spacing: 12
+                    anchors.leftMargin: LocalMetrics.Metrics.legacyDp(12)
+                    anchors.rightMargin: LocalMetrics.Metrics.legacyDp(12)
+                    spacing: LocalMetrics.Metrics.legacyDp(12)
 
                     Item {
-                        Layout.preferredWidth: 20
-                        Layout.preferredHeight: 20
+                        Layout.preferredWidth: LocalMetrics.Metrics.legacyDp(20)
+                        Layout.preferredHeight: LocalMetrics.Metrics.legacyDp(20)
 
                         Image {
                             id: infoIconImg
                             anchors.centerIn: parent
-                            width: 20
-                            height: 20
-                            sourceSize: Qt.size(40, 40)
+                            width: LocalMetrics.Metrics.legacyDp(20)
+                            height: LocalMetrics.Metrics.legacyDp(20)
+                            sourceSize: Qt.size(Math.round(LocalMetrics.Metrics.legacyDp(20) * 2), Math.round(LocalMetrics.Metrics.legacyDp(20) * 2))
                             fillMode: Image.PreserveAspectFit
                             source: Qt.resolvedUrl("icons/info.svg")
                             visible: false
@@ -169,7 +170,7 @@ Item {
                         Layout.fillWidth: true
                         text: i18n("App info")
                         font.family: "Google Sans Flex"
-                        font.pixelSize: 13
+                        font.pixelSize: LocalMetrics.Metrics.legacyDp(13)
                         font.weight: Font.Medium
                         color: root.cText
                         elide: Text.ElideRight
@@ -211,27 +212,27 @@ Item {
             // 2. Pin to taskbar (only when not pinned)
             Rectangle {
                 width: parent.width
-                height: 38
-                radius: 12
+                height: LocalMetrics.Metrics.legacyDp(38)
+                radius: LocalMetrics.Metrics.legacyDp(12)
                 visible: !root.isPinnedToDock
                 color: pinMouse.pressed ? root.cPress : (pinMouse.containsMouse ? root.cHover : "transparent")
 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.leftMargin: 12
-                    anchors.rightMargin: 12
-                    spacing: 12
+                    anchors.leftMargin: LocalMetrics.Metrics.legacyDp(12)
+                    anchors.rightMargin: LocalMetrics.Metrics.legacyDp(12)
+                    spacing: LocalMetrics.Metrics.legacyDp(12)
 
                     Item {
-                        Layout.preferredWidth: 20
-                        Layout.preferredHeight: 20
+                        Layout.preferredWidth: LocalMetrics.Metrics.legacyDp(20)
+                        Layout.preferredHeight: LocalMetrics.Metrics.legacyDp(20)
 
                         Image {
                             id: pinIconImg
                             anchors.centerIn: parent
-                            width: 20
-                            height: 20
-                            sourceSize: Qt.size(40, 40)
+                            width: LocalMetrics.Metrics.legacyDp(20)
+                            height: LocalMetrics.Metrics.legacyDp(20)
+                            sourceSize: Qt.size(Math.round(LocalMetrics.Metrics.legacyDp(20) * 2), Math.round(LocalMetrics.Metrics.legacyDp(20) * 2))
                             fillMode: Image.PreserveAspectFit
                             source: Qt.resolvedUrl("icons/keep.svg")
                             visible: false
@@ -249,7 +250,7 @@ Item {
                         Layout.fillWidth: true
                         text: i18n("Pin to Taskbar")
                         font.family: "Google Sans Flex"
-                        font.pixelSize: 13
+                        font.pixelSize: LocalMetrics.Metrics.legacyDp(13)
                         font.weight: Font.Medium
                         color: root.cText
                         elide: Text.ElideRight
@@ -273,26 +274,26 @@ Item {
             // 3. Hide / Un-hide
             Rectangle {
                 width: parent.width
-                height: 38
-                radius: 12
+                height: LocalMetrics.Metrics.legacyDp(38)
+                radius: LocalMetrics.Metrics.legacyDp(12)
                 color: hideMouse.pressed ? root.cPress : (hideMouse.containsMouse ? root.cHover : "transparent")
 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.leftMargin: 12
-                    anchors.rightMargin: 12
-                    spacing: 12
+                    anchors.leftMargin: LocalMetrics.Metrics.legacyDp(12)
+                    anchors.rightMargin: LocalMetrics.Metrics.legacyDp(12)
+                    spacing: LocalMetrics.Metrics.legacyDp(12)
 
                     Item {
-                        Layout.preferredWidth: 20
-                        Layout.preferredHeight: 20
+                        Layout.preferredWidth: LocalMetrics.Metrics.legacyDp(20)
+                        Layout.preferredHeight: LocalMetrics.Metrics.legacyDp(20)
 
                         Image {
                             id: hideIconImg
                             anchors.centerIn: parent
-                            width: 20
-                            height: 20
-                            sourceSize: Qt.size(40, 40)
+                            width: LocalMetrics.Metrics.legacyDp(20)
+                            height: LocalMetrics.Metrics.legacyDp(20)
+                            sourceSize: Qt.size(Math.round(LocalMetrics.Metrics.legacyDp(20) * 2), Math.round(LocalMetrics.Metrics.legacyDp(20) * 2))
                             fillMode: Image.PreserveAspectFit
                             source: Qt.resolvedUrl("icons/visibility.svg")
                             visible: false
@@ -310,7 +311,7 @@ Item {
                         Layout.fillWidth: true
                         text: root.isHidden ? i18n("Un-hide") : i18n("Hide")
                         font.family: "Google Sans Flex"
-                        font.pixelSize: 13
+                        font.pixelSize: LocalMetrics.Metrics.legacyDp(13)
                         font.weight: Font.Medium
                         color: root.cText
                         elide: Text.ElideRight

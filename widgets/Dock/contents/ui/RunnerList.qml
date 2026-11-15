@@ -11,6 +11,7 @@ import org.kde.kirigami as Kirigami
 import org.kde.kitemmodels as KItemModels
 import org.kde.plasma.plasma5support as Plasma5Support
 import "i18n.js" as I18n
+import "metrics" as LocalMetrics
 
 Item {
     id: searchListRoot
@@ -107,10 +108,10 @@ Item {
     ListView {
         id: searchListView
         anchors.fill: parent
-        anchors.topMargin: 4
-        anchors.bottomMargin: 8
-        anchors.leftMargin: 8
-        anchors.rightMargin: 8
+        anchors.topMargin: LocalMetrics.Metrics.legacyDp(4)
+        anchors.bottomMargin: LocalMetrics.Metrics.legacyDp(8)
+        anchors.leftMargin: LocalMetrics.Metrics.legacyDp(8)
+        anchors.rightMargin: LocalMetrics.Metrics.legacyDp(8)
         clip: true
         focus: true
 
@@ -119,7 +120,7 @@ Item {
         keyNavigationEnabled: false
         keyNavigationWraps: false
         highlightMoveDuration: 0
-        spacing: 2
+        spacing: LocalMetrics.Metrics.legacyDp(2)
 
         section.property: "group"
         section.criteria: ViewSection.FullString
@@ -129,16 +130,16 @@ Item {
                 id: sectionHeader
                 required property string section
                 width: ListView.view ? ListView.view.width : 0
-                height: 28
+                height: LocalMetrics.Metrics.legacyDp(28)
 
                 QQC2.Label {
                     anchors.left: parent.left
-                    anchors.leftMargin: 12
+                    anchors.leftMargin: LocalMetrics.Metrics.legacyDp(12)
                     anchors.bottom: parent.bottom
-                    anchors.bottomMargin: 4
+                    anchors.bottomMargin: LocalMetrics.Metrics.legacyDp(4)
                     text: sectionHeader.section
                     font.family: (typeof main !== "undefined" && main) ? main.textFont : Kirigami.Theme.defaultFont.family
-                    font.pointSize: 9
+                    font.pointSize: 9 * (8.0 / 9.0) * LocalMetrics.Metrics.clampedScale
                     font.weight: Font.DemiBold
                     color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.45)
                     elide: Text.ElideRight
@@ -155,7 +156,7 @@ Item {
             Item {
                 id: footerRoot
                 width: ListView.view ? ListView.view.width : 0
-                height: (typeof runnerModel !== "undefined" && runnerModel && runnerModel.query && runnerModel.query.trim().length > 0) ? 46 : 0
+                height: (typeof runnerModel !== "undefined" && runnerModel && runnerModel.query && runnerModel.query.trim().length > 0) ? LocalMetrics.Metrics.legacyDp(46) : 0
                 visible: height > 0
 
                 readonly property bool isSelected: searchListRoot.footerSelected
@@ -163,11 +164,11 @@ Item {
 
                 Rectangle {
                     anchors.fill: parent
-                    anchors.leftMargin: 6
-                    anchors.rightMargin: 6
-                    anchors.topMargin: 2
-                    anchors.bottomMargin: 2
-                    radius: 8
+                    anchors.leftMargin: LocalMetrics.Metrics.legacyDp(6)
+                    anchors.rightMargin: LocalMetrics.Metrics.legacyDp(6)
+                    anchors.topMargin: LocalMetrics.Metrics.legacyDp(2)
+                    anchors.bottomMargin: LocalMetrics.Metrics.legacyDp(2)
+                    radius: LocalMetrics.Metrics.legacyDp(8)
                     color: footerRoot.isSelected ? Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.22)
                                                  : (footerRoot.isHovered ? Qt.rgba(1, 1, 1, 0.08) : "transparent")
                     border.width: footerRoot.isSelected ? 1 : 0
@@ -187,17 +188,17 @@ Item {
 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.leftMargin: 16
-                    anchors.rightMargin: 16
-                    spacing: 12
+                    anchors.leftMargin: LocalMetrics.Metrics.legacyDp(16)
+                    anchors.rightMargin: LocalMetrics.Metrics.legacyDp(16)
+                    spacing: LocalMetrics.Metrics.legacyDp(12)
 
                     Image {
-                        Layout.preferredWidth: 20
-                        Layout.preferredHeight: 20
+                        Layout.preferredWidth: LocalMetrics.Metrics.legacyDp(20)
+                        Layout.preferredHeight: LocalMetrics.Metrics.legacyDp(20)
                         Layout.alignment: Qt.AlignVCenter
                         source: (typeof runnerModel !== "undefined" && runnerModel && searchListRoot.isDirectUrl(runnerModel.query)) ? "internet-web-browser" : Qt.resolvedUrl("icons/google_g.svg")
-                        sourceSize.width: 40
-                        sourceSize.height: 40
+                        sourceSize.width: Math.round(LocalMetrics.Metrics.legacyDp(20) * 2)
+                        sourceSize.height: Math.round(LocalMetrics.Metrics.legacyDp(20) * 2)
                         fillMode: Image.PreserveAspectFit
                         smooth: true
                     }
@@ -205,7 +206,7 @@ Item {
                     ColumnLayout {
                         Layout.fillWidth: true
                         Layout.alignment: Qt.AlignVCenter
-                        spacing: 1
+                        spacing: LocalMetrics.Metrics.legacyDp(1)
 
                         QQC2.Label {
                             Layout.fillWidth: true
@@ -217,7 +218,7 @@ Item {
                                 return searchListRoot.i18n("Search Google for: ") + "\"" + q + "\"";
                             }
                             font.family: (typeof main !== "undefined" && main) ? main.textFont : Kirigami.Theme.defaultFont.family
-                            font.pointSize: (typeof main !== "undefined" && main) ? main.textSize + 1 : 11
+                            font.pointSize: (typeof main !== "undefined" && main) ? (main.textSize + (1 * (8.0 / 9.0) * LocalMetrics.Metrics.clampedScale)) : (11 * (8.0 / 9.0) * LocalMetrics.Metrics.clampedScale)
                             font.weight: Font.DemiBold
                             color: footerRoot.isSelected ? Kirigami.Theme.highlightColor : ((typeof main !== "undefined" && main) ? main.textColor : Kirigami.Theme.textColor)
                             elide: Text.ElideRight
@@ -227,7 +228,7 @@ Item {
                             Layout.fillWidth: true
                             text: (typeof runnerModel !== "undefined" && runnerModel && searchListRoot.isDirectUrl(runnerModel.query)) ? searchListRoot.i18n("Open in browser") : searchListRoot.i18n("Web search")
                             font.family: (typeof main !== "undefined" && main) ? main.textFont : Kirigami.Theme.defaultFont.family
-                            font.pointSize: (typeof main !== "undefined" && main) ? Math.max(8, main.textSize - 1) : 9
+                            font.pointSize: (typeof main !== "undefined" && main) ? Math.max(7 * LocalMetrics.Metrics.clampedScale, main.textSize - (1 * (8.0 / 9.0) * LocalMetrics.Metrics.clampedScale)) : (9 * (8.0 / 9.0) * LocalMetrics.Metrics.clampedScale)
                             color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.6)
                             elide: Text.ElideRight
                         }
@@ -235,16 +236,16 @@ Item {
 
                     Rectangle {
                         Layout.alignment: Qt.AlignVCenter
-                        radius: 4
+                        radius: LocalMetrics.Metrics.legacyDp(4)
                         color: Qt.rgba(1, 1, 1, 0.08)
-                        implicitWidth: footerBadge.implicitWidth + 12
-                        implicitHeight: footerBadge.implicitHeight + 6
+                        implicitWidth: footerBadge.implicitWidth + LocalMetrics.Metrics.legacyDp(12)
+                        implicitHeight: footerBadge.implicitHeight + LocalMetrics.Metrics.legacyDp(6)
 
                         QQC2.Label {
                             id: footerBadge
                             anchors.centerIn: parent
                             text: (typeof runnerModel !== "undefined" && runnerModel && searchListRoot.isDirectUrl(runnerModel.query)) ? "WWW" : "Google"
-                            font.pointSize: 8
+                            font.pointSize: 8 * (8.0 / 9.0) * LocalMetrics.Metrics.clampedScale
                             font.weight: Font.Normal
                             color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.5)
                         }

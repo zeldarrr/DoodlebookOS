@@ -5,16 +5,31 @@
 
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Window
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
 import org.kde.taskmanager as TaskManager
 import org.kde.plasma.private.kicker 0.1 as Kicker
 import org.kde.plasma.workspace.dbus 1.0 as DBus
+import "metrics" as LocalMetrics
 
 PlasmoidItem {
     id: kicker
 
     Plasmoid.backgroundHints: PlasmaCore.Types.NoBackground
+
+    Binding {
+        target: LocalMetrics.Metrics
+        property: "hostDpr"
+        value: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
+    }
+    Binding {
+        target: LocalMetrics.Metrics
+        property: "uiScale"
+        value: (Plasmoid.configuration && typeof Plasmoid.configuration.shellScale === "number" && Plasmoid.configuration.shellScale > 0)
+            ? Plasmoid.configuration.shellScale
+            : 1.0
+    }
 
     property alias tasksModel: tasksModel
     property alias rootModel: rootModel
@@ -173,13 +188,14 @@ PlasmoidItem {
     PhoneHubPopup {
         id: phoneHubPopup
         visualParentItem: (kicker.compactRepItem && kicker.compactRepItem.phoneHubBtn) ? kicker.compactRepItem.phoneHubBtn : null
-        popupHeight: Math.round(Screen.height * 0.60)
-        panelHeight: kicker.compactRepItem ? kicker.compactRepItem.effectiveHeight : 52
+        popupWidth: LocalMetrics.Metrics.px(454.0)
+        popupHeight: Math.min(Screen.height - panelHeight - LocalMetrics.Metrics.px(24.0), LocalMetrics.Metrics.px(634.0))
+        panelHeight: kicker.compactRepItem ? kicker.compactRepItem.effectiveHeight : LocalMetrics.Metrics.px(56.0)
     }
 
     DimOverlay {
         id: dimOverlay
-        bottomGap: kicker.compactRepItem ? kicker.compactRepItem.effectiveHeight : 52
+        bottomGap: kicker.compactRepItem ? kicker.compactRepItem.effectiveHeight : LocalMetrics.Metrics.px(56.0)
     }
 
     LauncherPopup {
@@ -188,9 +204,9 @@ PlasmoidItem {
         plasmoidConfiguration: Plasmoid.configuration
         dimOverlayItem: dimOverlay
         visualParentItem: (kicker.compactRepItem && kicker.compactRepItem.popupAnchor) ? kicker.compactRepItem.popupAnchor : kicker.compactRepItem
-        popupWidth: Math.min(Screen.width - 40, (Plasmoid.configuration.popupWidth || 680))
-        popupHeight: Math.round(Screen.height * 0.66)
-        panelHeight: kicker.compactRepItem ? kicker.compactRepItem.effectiveHeight : 52
+        popupWidth: Math.min(Screen.width - LocalMetrics.Metrics.px(40.0), LocalMetrics.Metrics.snap((Plasmoid.configuration.popupWidth || 710) * LocalMetrics.Metrics.clampedScale))
+        popupHeight: Math.min(Screen.height - panelHeight - LocalMetrics.Metrics.px(24.0), LocalMetrics.Metrics.snap(Screen.height * (2.0 / 3.0) * LocalMetrics.Metrics.clampedScale))
+        panelHeight: kicker.compactRepItem ? kicker.compactRepItem.effectiveHeight : LocalMetrics.Metrics.px(56.0)
     }
 
     DBus.Properties {

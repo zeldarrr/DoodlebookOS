@@ -9,6 +9,7 @@ import QtQuick.Layouts
 import QtQuick.Effects
 import org.kde.kirigami as Kirigami
 import org.kde.kitemmodels as KItemModels
+import "metrics" as LocalMetrics
 
 Item {
     id: combinedRoot
@@ -256,10 +257,11 @@ Item {
             Item {
                 id: headerContainer
                 width: mainGrid.width
-                readonly property real separatorTopSpacing: 10
-                readonly property real separatorBottomSpacing: 22
+                readonly property real separatorTopSpacing: LocalMetrics.Metrics.legacyDp(10)
+                readonly property real separatorBottomSpacing: LocalMetrics.Metrics.legacyDp(22)
+                readonly property real separatorThick: LocalMetrics.Metrics.legacyDp(3)
 
-                height: root.cellSizeHeight + separatorTopSpacing + 3 + separatorBottomSpacing
+                height: root.cellSizeHeight + separatorTopSpacing + separatorThick + separatorBottomSpacing
 
                 GridView {
                     id: recentSubGrid
@@ -292,8 +294,8 @@ Item {
                     anchors.topMargin: headerContainer.separatorTopSpacing
                     anchors.horizontalCenter: parent.horizontalCenter
                     width: Math.round(root.cellSizeWidth * 1.6)
-                    height: 3
-                    radius: 2
+                    height: headerContainer.separatorThick
+                    radius: headerContainer.separatorThick / 2
                     color: Kirigami.Theme.textColor
                     opacity: 0.22
                 }
@@ -305,22 +307,22 @@ Item {
                 id: footerContainer
                 width: mainGrid.width
                 visible: hiddenAppsModel.count > 0
-                height: visible ? (hiddenAppsSection.implicitHeight + 24) : 0
+                height: visible ? (hiddenAppsSection.implicitHeight + LocalMetrics.Metrics.legacyDp(24)) : 0
 
                 Column {
                     id: hiddenAppsSection
                     anchors.top: parent.top
-                    anchors.topMargin: 12
+                    anchors.topMargin: LocalMetrics.Metrics.legacyDp(12)
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    spacing: 12
+                    spacing: LocalMetrics.Metrics.legacyDp(12)
 
                     // Separator
                     Rectangle {
                         anchors.horizontalCenter: parent.horizontalCenter
                         width: Math.round(root.cellSizeWidth * 1.6)
-                        height: 3
-                        radius: 2
+                        height: LocalMetrics.Metrics.legacyDp(3)
+                        radius: LocalMetrics.Metrics.legacyDp(2)
                         color: Kirigami.Theme.textColor
                         opacity: 0.22
                     }
@@ -328,24 +330,24 @@ Item {
                     // Centered visibility.svg button
                     Item {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        width: 36
-                        height: 36
+                        width: LocalMetrics.Metrics.legacyDp(36)
+                        height: LocalMetrics.Metrics.legacyDp(36)
 
                         Rectangle {
                             anchors.fill: parent
-                            radius: 18
+                            radius: width / 2
                             color: toggleMouse.pressed ? Qt.rgba(1, 1, 1, 0.18) : (toggleMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.10) : "transparent")
                         }
 
                         Item {
                             anchors.centerIn: parent
-                            width: 22
-                            height: 22
+                            width: LocalMetrics.Metrics.legacyDp(22)
+                            height: LocalMetrics.Metrics.legacyDp(22)
 
                             Image {
                                 id: eyeIcon
                                 anchors.fill: parent
-                                sourceSize: Qt.size(44, 44)
+                                sourceSize: Qt.size(Math.round(width * 2), Math.round(height * 2))
                                 fillMode: Image.PreserveAspectFit
                                 source: Qt.resolvedUrl("icons/visibility.svg")
                                 visible: false

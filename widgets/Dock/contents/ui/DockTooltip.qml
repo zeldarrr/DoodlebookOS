@@ -7,6 +7,7 @@ import QtQuick
 import QtQuick.Shapes
 import org.kde.plasma.core as PlasmaCore
 import org.kde.kirigami as Kirigami
+import "metrics" as LocalMetrics
 
 PlasmaCore.Dialog {
     id: tooltipDialog
@@ -16,11 +17,11 @@ PlasmaCore.Dialog {
     backgroundHints: PlasmaCore.Types.NoBackground
     location: PlasmaCore.Types.Floating
     visualParent: targetItem
-    floating: 10
+    floating: LocalMetrics.Metrics.px(5.0)
 
     property Item targetItem: null
     property string text: ""
-    property real dockHeight: 52
+    property real dockHeight: LocalMetrics.Metrics.px(56.0)
     property color panelBgColor: Kirigami.Theme.backgroundColor
     property color panelTextColor: Kirigami.Theme.textColor
 
@@ -88,8 +89,8 @@ PlasmaCore.Dialog {
 
     mainItem: Item {
         id: mainItem
-        implicitWidth: Math.max(48, label.implicitWidth + 28)
-        implicitHeight: 34
+        implicitWidth: Math.max(LocalMetrics.Metrics.px(48.0), label.implicitWidth + LocalMetrics.Metrics.px(32.0))
+        implicitHeight: LocalMetrics.Metrics.px(43.0)
         opacity: 1
 
         Timer {
@@ -107,40 +108,44 @@ PlasmaCore.Dialog {
             x: 0
             y: 0
             width: parent.width
-            height: 28
-            radius: 14
+            height: LocalMetrics.Metrics.px(36.0)
+            radius: height / 2
             color: tooltipDialog.bubbleColor
             border.width: 0
 
             Text {
                 id: label
                 anchors.centerIn: parent
-                anchors.verticalCenterOffset: -1
+                anchors.verticalCenterOffset: -LocalMetrics.Metrics.px(1.0)
                 text: tooltipDialog.text
                 color: tooltipDialog.textColor
-                font.pixelSize: 12
+                font.family: "Google Sans Flex"
+                font.pixelSize: LocalMetrics.Metrics.px(15.0)
                 font.weight: Font.Medium
                 renderType: Text.NativeRendering
             }
         }
 
-        // Downward triangular pointer / arrow pointing at the icon
+        // Downward triangular pointer / arrow pointing at the icon (7 px arrow)
         Shape {
             id: arrowShape
             anchors.fill: parent
             containsMode: Shape.FillContains
             readonly property real midX: Math.round(width / 2)
+            readonly property real arrowHalfW: LocalMetrics.Metrics.px(7.0)
+            readonly property real arrowStartY: Math.max(0, bubbleBody.height - LocalMetrics.Metrics.px(1.0))
+            readonly property real arrowTipY: bubbleBody.height + LocalMetrics.Metrics.px(7.0)
 
             ShapePath {
                 strokeWidth: 0
                 fillColor: tooltipDialog.bubbleColor
 
-                startX: arrowShape.midX - 6
-                startY: 27
+                startX: arrowShape.midX - arrowShape.arrowHalfW
+                startY: arrowShape.arrowStartY
 
-                PathLine { x: arrowShape.midX; y: 33 }
-                PathLine { x: arrowShape.midX + 6; y: 27 }
-                PathLine { x: arrowShape.midX - 6; y: 27 }
+                PathLine { x: arrowShape.midX; y: arrowShape.arrowTipY }
+                PathLine { x: arrowShape.midX + arrowShape.arrowHalfW; y: arrowShape.arrowStartY }
+                PathLine { x: arrowShape.midX - arrowShape.arrowHalfW; y: arrowShape.arrowStartY }
             }
         }
     }

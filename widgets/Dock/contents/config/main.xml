@@ -23,11 +23,15 @@
     </entry>
     <entry name="popupWidth" type="Int">
       <label>Width of the launcher dialog popup.</label>
-      <default>680</default>
+      <default>710</default>
     </entry>
     <entry name="numberColumns" type="Int">
       <label>Number of columns in the launcher app grid.</label>
       <default>6</default>
+    </entry>
+    <entry name="shellScale" type="Double">
+      <label>Independent UI scale multiplier (0.85, 1.00, 1.1625)</label>
+      <default>1.0</default>
     </entry>
     <entry name="showTooltips" type="Bool">
       <label>Whether to display window tooltips on hover.</label>

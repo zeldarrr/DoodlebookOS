@@ -11,6 +11,7 @@ import org.kde.plasma.core as PlasmaCore
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.plasma5support as Plasma5Support
 import "i18n.js" as I18n
+import "metrics" as LocalMetrics
 
 PlasmaCore.Dialog {
     id: contextMenuDialog
@@ -21,7 +22,7 @@ PlasmaCore.Dialog {
     backgroundHints: PlasmaCore.Types.NoBackground
     location: PlasmaCore.Types.Floating
     visualParent: targetItem
-    floating: 10
+    floating: LocalMetrics.Metrics.legacyDp(10)
     hideOnWindowDeactivate: true
 
     property Item targetItem: null
@@ -95,8 +96,8 @@ PlasmaCore.Dialog {
         id: mainItem
         Kirigami.Theme.colorSet: Kirigami.Theme.Tooltip
         Kirigami.Theme.inherit: false
-        implicitWidth: 204
-        implicitHeight: cardRect.height + 10
+        implicitWidth: LocalMetrics.Metrics.legacyDp(204)
+        implicitHeight: cardRect.height + LocalMetrics.Metrics.legacyDp(10)
 
         Plasma5Support.DataSource {
             id: executor
@@ -125,7 +126,7 @@ PlasmaCore.Dialog {
         // Soft drop shadow
         Rectangle {
             x: cardRect.x
-            y: cardRect.y + 1
+            y: cardRect.y + LocalMetrics.Metrics.legacyDp(1)
             width: cardRect.width
             height: cardRect.height
             radius: cardRect.radius
@@ -139,8 +140,8 @@ PlasmaCore.Dialog {
             x: 0
             y: 0
             width: parent.width
-            height: cardColumn.implicitHeight + 12
-            radius: 20
+            height: cardColumn.implicitHeight + LocalMetrics.Metrics.legacyDp(12)
+            radius: LocalMetrics.Metrics.legacyDp(20)
             color: contextMenuDialog.cBg
             border.color: "transparent"
             border.width: 0
@@ -150,33 +151,33 @@ PlasmaCore.Dialog {
                 anchors.top: parent.top
                 anchors.left: parent.left
                 anchors.right: parent.right
-                anchors.margins: 6
-                spacing: 2
+                anchors.margins: LocalMetrics.Metrics.legacyDp(6)
+                spacing: LocalMetrics.Metrics.legacyDp(2)
 
                 // 1. "Remove from Taskbar" / "Pin to Taskbar"
                 Rectangle {
                     width: parent.width
-                    height: 38
-                    radius: 14
+                    height: LocalMetrics.Metrics.legacyDp(38)
+                    radius: LocalMetrics.Metrics.legacyDp(14)
                     color: pinMouse.pressed ? contextMenuDialog.cPress : (pinMouse.containsMouse ? contextMenuDialog.cHover : "transparent")
 
                     RowLayout {
                         anchors.fill: parent
-                        anchors.leftMargin: 12
-                        anchors.rightMargin: 12
-                        spacing: 12
+                        anchors.leftMargin: LocalMetrics.Metrics.legacyDp(12)
+                        anchors.rightMargin: LocalMetrics.Metrics.legacyDp(12)
+                        spacing: LocalMetrics.Metrics.legacyDp(12)
 
                         // Pushpin icon (keep / keep_off)
                         Item {
-                            Layout.preferredWidth: 20
-                            Layout.preferredHeight: 20
+                            Layout.preferredWidth: LocalMetrics.Metrics.legacyDp(20)
+                            Layout.preferredHeight: LocalMetrics.Metrics.legacyDp(20)
 
                             Image {
                                 id: pinIconImg
                                 anchors.centerIn: parent
-                                width: 20
-                                height: 20
-                                sourceSize: Qt.size(40, 40)
+                                width: LocalMetrics.Metrics.legacyDp(20)
+                                height: LocalMetrics.Metrics.legacyDp(20)
+                                sourceSize: Qt.size(Math.round(LocalMetrics.Metrics.legacyDp(20) * 2), Math.round(LocalMetrics.Metrics.legacyDp(20) * 2))
                                 fillMode: Image.PreserveAspectFit
                                 source: (contextMenuDialog.isLauncher || contextMenuDialog.hasLauncher)
                                     ? Qt.resolvedUrl("icons/keep_off.svg")
@@ -198,7 +199,7 @@ PlasmaCore.Dialog {
                                   ? i18n("Remove from Taskbar")
                                   : i18n("Pin to Taskbar")
                             font.family: "Google Sans Flex"
-                            font.pixelSize: 13
+                            font.pixelSize: LocalMetrics.Metrics.legacyDp(13)
                             font.weight: Font.Medium
                             color: contextMenuDialog.cText
                             elide: Text.ElideRight
@@ -236,27 +237,27 @@ PlasmaCore.Dialog {
                 // 2. "App info"
                 Rectangle {
                     width: parent.width
-                    height: 38
-                    radius: 14
+                    height: LocalMetrics.Metrics.legacyDp(38)
+                    radius: LocalMetrics.Metrics.legacyDp(14)
                     color: infoMouse.pressed ? contextMenuDialog.cPress : (infoMouse.containsMouse ? contextMenuDialog.cHover : "transparent")
 
                     RowLayout {
                         anchors.fill: parent
-                        anchors.leftMargin: 12
-                        anchors.rightMargin: 12
-                        spacing: 12
+                        anchors.leftMargin: LocalMetrics.Metrics.legacyDp(12)
+                        anchors.rightMargin: LocalMetrics.Metrics.legacyDp(12)
+                        spacing: LocalMetrics.Metrics.legacyDp(12)
 
                         // App info icon (info.svg)
                         Item {
-                            Layout.preferredWidth: 20
-                            Layout.preferredHeight: 20
+                            Layout.preferredWidth: LocalMetrics.Metrics.legacyDp(20)
+                            Layout.preferredHeight: LocalMetrics.Metrics.legacyDp(20)
 
                             Image {
                                 id: infoIconImg
                                 anchors.centerIn: parent
-                                width: 20
-                                height: 20
-                                sourceSize: Qt.size(40, 40)
+                                width: LocalMetrics.Metrics.legacyDp(20)
+                                height: LocalMetrics.Metrics.legacyDp(20)
+                                sourceSize: Qt.size(Math.round(LocalMetrics.Metrics.legacyDp(20) * 2), Math.round(LocalMetrics.Metrics.legacyDp(20) * 2))
                                 fillMode: Image.PreserveAspectFit
                                 source: Qt.resolvedUrl("icons/info.svg")
                                 visible: false
@@ -274,7 +275,7 @@ PlasmaCore.Dialog {
                             Layout.fillWidth: true
                             text: i18n("App info")
                             font.family: "Google Sans Flex"
-                            font.pixelSize: 13
+                            font.pixelSize: LocalMetrics.Metrics.legacyDp(13)
                             font.weight: Font.Medium
                             color: contextMenuDialog.cText
                             elide: Text.ElideRight
@@ -303,22 +304,22 @@ PlasmaCore.Dialog {
 
                 Rectangle {
                     width: parent.width
-                    height: 38
-                    radius: 14
+                    height: LocalMetrics.Metrics.legacyDp(38)
+                    radius: LocalMetrics.Metrics.legacyDp(14)
                     visible: contextMenuDialog.isWindow
                     color: closeMouse.pressed ? contextMenuDialog.cPress : (closeMouse.containsMouse ? contextMenuDialog.cHover : "transparent")
 
                     RowLayout {
                         anchors.fill: parent
-                        anchors.leftMargin: 12
-                        anchors.rightMargin: 12
-                        spacing: 12
+                        anchors.leftMargin: LocalMetrics.Metrics.legacyDp(12)
+                        anchors.rightMargin: LocalMetrics.Metrics.legacyDp(12)
+                        spacing: LocalMetrics.Metrics.legacyDp(12)
 
                         Text {
-                            Layout.preferredWidth: 18
+                            Layout.preferredWidth: LocalMetrics.Metrics.legacyDp(18)
                             horizontalAlignment: Text.AlignHCenter
                             text: "✕"
-                            font.pixelSize: 13
+                            font.pixelSize: LocalMetrics.Metrics.legacyDp(13)
                             font.weight: Font.Bold
                             color: contextMenuDialog.cText
                         }
@@ -327,7 +328,7 @@ PlasmaCore.Dialog {
                             Layout.fillWidth: true
                             text: i18n("Close")
                             font.family: "Google Sans Flex"
-                            font.pixelSize: 13
+                            font.pixelSize: LocalMetrics.Metrics.legacyDp(13)
                             font.weight: Font.Medium
                             color: contextMenuDialog.cText
                             elide: Text.ElideRight
@@ -359,11 +360,11 @@ PlasmaCore.Dialog {
             ShapePath {
                 strokeWidth: 0
                 fillColor: contextMenuDialog.cBg
-                startX: arrowDown.midX - 6
-                startY: cardRect.height - 1
-                PathLine { x: arrowDown.midX; y: cardRect.height + 7 }
-                PathLine { x: arrowDown.midX + 6; y: cardRect.height - 1 }
-                PathLine { x: arrowDown.midX - 6; y: cardRect.height - 1 }
+                startX: arrowDown.midX - LocalMetrics.Metrics.legacyDp(6)
+                startY: cardRect.height - LocalMetrics.Metrics.legacyDp(1)
+                PathLine { x: arrowDown.midX; y: cardRect.height + LocalMetrics.Metrics.legacyDp(7) }
+                PathLine { x: arrowDown.midX + LocalMetrics.Metrics.legacyDp(6); y: cardRect.height - LocalMetrics.Metrics.legacyDp(1) }
+                PathLine { x: arrowDown.midX - LocalMetrics.Metrics.legacyDp(6); y: cardRect.height - LocalMetrics.Metrics.legacyDp(1) }
             }
         }
     }

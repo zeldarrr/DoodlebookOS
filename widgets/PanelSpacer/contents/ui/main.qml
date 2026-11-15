@@ -7,31 +7,47 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Window
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
 import org.kde.taskmanager as TaskManager
+import "metrics" as LocalMetrics
 
 PlasmoidItem {
     id: root
 
     Plasmoid.backgroundHints: PlasmaCore.Types.NoBackground
 
-    readonly property bool isVertical: Plasmoid.formFactor === PlasmaCore.Types.Vertical
-    readonly property bool isExpanding: Boolean(Plasmoid.configuration.expanding !== false)
-    readonly property int customLength: (Plasmoid.configuration.length > 0) ? Plasmoid.configuration.length : 32
-
-    Layout.fillWidth: !isVertical && isExpanding
-    Layout.fillHeight: isVertical && isExpanding
-    Layout.preferredWidth: isVertical ? (parent ? parent.width : 52) : (isExpanding ? -1 : customLength)
-    Layout.preferredHeight: isVertical ? (isExpanding ? -1 : customLength) : (parent ? parent.height : 52)
-    Layout.minimumWidth: isVertical ? 1 : (isExpanding ? 1 : customLength)
-    Layout.minimumHeight: isVertical ? (isExpanding ? 1 : customLength) : 1
-
-    implicitWidth: isVertical ? (parent ? parent.width : 52) : (isExpanding ? 0 : customLength)
-    implicitHeight: isVertical ? (isExpanding ? 0 : customLength) : (parent ? parent.height : 52)
+    Binding {
+        target: LocalMetrics.Metrics
+        property: "hostDpr"
+        value: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
+    }
+    Binding {
+        target: LocalMetrics.Metrics
+        property: "uiScale"
+        value: (Plasmoid.configuration && typeof Plasmoid.configuration.shellScale === "number" && Plasmoid.configuration.shellScale > 0)
+            ? Plasmoid.configuration.shellScale
+            : 1.0
+    }
 
     readonly property bool isTop: Plasmoid.location === PlasmaCore.Types.TopEdge || (Plasmoid.containment && Plasmoid.containment.location === PlasmaCore.Types.TopEdge)
     readonly property bool isBottom: Plasmoid.location === PlasmaCore.Types.BottomEdge || (Plasmoid.containment && Plasmoid.containment.location === PlasmaCore.Types.BottomEdge)
+    readonly property bool isVertical: Plasmoid.formFactor === PlasmaCore.Types.Vertical
+    readonly property bool isExpanding: Boolean(Plasmoid.configuration.expanding !== false)
+    readonly property real customLength: (Plasmoid.configuration.length > 0)
+        ? LocalMetrics.Metrics.snap(Plasmoid.configuration.length * LocalMetrics.Metrics.clampedScale)
+        : (isBottom ? LocalMetrics.Metrics.px(56) : LocalMetrics.Metrics.px(36))
+
+    Layout.fillWidth: !isVertical && isExpanding
+    Layout.fillHeight: isVertical && isExpanding
+    Layout.preferredWidth: isVertical ? (parent ? parent.width : LocalMetrics.Metrics.px(56)) : (isExpanding ? -1 : customLength)
+    Layout.preferredHeight: isVertical ? (isExpanding ? -1 : customLength) : (parent ? parent.height : LocalMetrics.Metrics.px(56))
+    Layout.minimumWidth: isVertical ? 1 : (isExpanding ? 1 : customLength)
+    Layout.minimumHeight: isVertical ? (isExpanding ? 1 : customLength) : 1
+
+    implicitWidth: isVertical ? (parent ? parent.width : LocalMetrics.Metrics.px(56)) : (isExpanding ? 0 : customLength)
+    implicitHeight: isVertical ? (isExpanding ? 0 : customLength) : (parent ? parent.height : LocalMetrics.Metrics.px(56))
 
     TaskManager.VirtualDesktopInfo {
         id: virtualDesktopInfo

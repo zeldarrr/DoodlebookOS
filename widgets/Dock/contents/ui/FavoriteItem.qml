@@ -10,6 +10,7 @@ import QtQuick
 import org.kde.plasma.components as PlasmaComponents
 import org.kde.plasma.plasmoid
 import org.kde.kirigami as Kirigami
+import "metrics" as LocalMetrics
 
 Item {
   id: favItem
@@ -141,8 +142,8 @@ Item {
   Rectangle {
     id: highlightCard
     anchors.fill: parent
-    anchors.margins: 4
-    radius: 16
+    anchors.margins: LocalMetrics.Metrics.legacyDp(4)
+    radius: LocalMetrics.Metrics.legacyDp(16)
     visible: favItem.isCurrent
     color: favItem.usePlasmaTheme
       ? Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.30)
@@ -150,14 +151,14 @@ Item {
     border.color: favItem.usePlasmaTheme
       ? Kirigami.Theme.highlightColor
       : (main.isDarkTheme ? Qt.rgba(1, 1, 1, 0.35) : Qt.rgba(0, 0, 0, 0.15))
-    border.width: 1.5
+    border.width: Math.max(1.0 / LocalMetrics.Metrics.dpr, LocalMetrics.Metrics.legacyDp(1.5))
     z: 0
   }
 
   Item {
     id: appicon
     anchors.top: parent.top
-    anchors.topMargin: Kirigami.Units.smallSpacing * 1.5
+    anchors.topMargin: LocalMetrics.Metrics.legacyDp(6)
     anchors.horizontalCenter: parent.horizontalCenter
     width: root.iconSize
     height: width
@@ -187,16 +188,16 @@ Item {
     id: appname
     text: ("name" in model ? model.name : model.display)
     font.family: "Google Sans Flex"
-    font.pixelSize: 11
+    font.pixelSize: LocalMetrics.Metrics.legacyDp(11)
     font.weight: Font.Medium
     color: main.textColor
     anchors {
       top: appicon.bottom
       left: parent.left
       right: parent.right
-      topMargin: Kirigami.Units.smallSpacing + 2
-      leftMargin: Kirigami.Units.smallSpacing
-      rightMargin: Kirigami.Units.smallSpacing
+      topMargin: LocalMetrics.Metrics.legacyDp(6)
+      leftMargin: LocalMetrics.Metrics.legacyDp(4)
+      rightMargin: LocalMetrics.Metrics.legacyDp(4)
     }
     textFormat: Text.PlainText
     elide: Text.ElideMiddle

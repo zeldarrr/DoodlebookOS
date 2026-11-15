@@ -10,6 +10,7 @@ import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.plasma5support as Plasma5Support
 import org.kde.kdeconnect as KDEConnect
 import "i18n.js" as I18n
+import "metrics" as LocalMetrics
 
 PlasmaCore.Dialog {
     id: root
@@ -23,13 +24,13 @@ PlasmaCore.Dialog {
 
     visualParent: null
     location: (typeof Plasmoid !== "undefined" && Plasmoid.location !== undefined) ? Plasmoid.location : PlasmaCore.Types.BottomEdge
-    floating: 16
+    floating: LocalMetrics.Metrics.px(16)
     hideOnWindowDeactivate: true
     backgroundHints: PlasmaCore.Types.StandardBackground
 
-    property int popupWidth: 440
-    property int popupHeight: 520
-    property real panelHeight: 52
+    property real popupWidth: LocalMetrics.Metrics.px(454)
+    property real popupHeight: LocalMetrics.Metrics.px(634)
+    property real panelHeight: LocalMetrics.Metrics.px(56)
 
     width: popupWidth
     height: popupHeight
@@ -53,11 +54,11 @@ PlasmaCore.Dialog {
             effPanelHeight = visualParentItem.Window.window.height;
         }
 
-        var bottomGap = 16;
+        var bottomGap = LocalMetrics.Metrics.px(16);
         var currentW = root.width > 0 ? root.width : popupWidth;
         var currentH = root.height > 0 ? root.height : popupHeight;
         var panelTop = scrY + scrHeight - effPanelHeight;
-        var targetY = Math.max(24, Math.round(panelTop - currentH - bottomGap));
+        var targetY = Math.max(LocalMetrics.Metrics.px(24), Math.round(panelTop - currentH - bottomGap));
 
         var targetX = scrX + Math.round((scrWidth - currentW) / 2);
         if (visualParentItem) {
@@ -78,7 +79,7 @@ PlasmaCore.Dialog {
             if (btnCenterX > 0) targetX = Math.round(btnCenterX - currentW / 2);
         }
 
-        targetX = Math.max(scrX + 16, Math.min(scrX + scrWidth - currentW - 16, targetX));
+        targetX = Math.max(scrX + LocalMetrics.Metrics.px(16), Math.min(scrX + scrWidth - currentW - LocalMetrics.Metrics.px(16), targetX));
         if (root.x !== targetX) root.x = targetX;
         if (root.y !== targetY) root.y = targetY;
     }
@@ -150,18 +151,18 @@ PlasmaCore.Dialog {
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 20
-            spacing: 16
+            anchors.margins: LocalMetrics.Metrics.legacyDp(20)
+            spacing: LocalMetrics.Metrics.legacyDp(16)
 
             // 1. Centered phone name in Google Sans Flex
             Text {
                 Layout.fillWidth: true
-                Layout.topMargin: 6
-                Layout.bottomMargin: 8
+                Layout.topMargin: LocalMetrics.Metrics.legacyDp(6)
+                Layout.bottomMargin: LocalMetrics.Metrics.legacyDp(8)
                 horizontalAlignment: Text.AlignHCenter
                 text: root.deviceName
                 font.family: "Google Sans Flex"
-                font.pixelSize: 18
+                font.pixelSize: LocalMetrics.Metrics.legacyDp(18)
                 font.weight: Font.DemiBold
                 color: "#FFFFFF"
                 elide: Text.ElideRight
@@ -171,8 +172,8 @@ PlasmaCore.Dialog {
             GridLayout {
                 Layout.fillWidth: true
                 columns: 2
-                columnSpacing: 10
-                rowSpacing: 10
+                columnSpacing: LocalMetrics.Metrics.legacyDp(10)
+                rowSpacing: LocalMetrics.Metrics.legacyDp(10)
                 enabled: root.hasDevice
 
                 // Tile 1: Ring (Find My Phone)
@@ -241,7 +242,7 @@ PlasmaCore.Dialog {
                     Layout.fillWidth: true
                     text: root.i18n("Notifications")
                     font.family: "Google Sans Flex"
-                    font.pixelSize: 13
+                    font.pixelSize: LocalMetrics.Metrics.legacyDp(13)
                     font.weight: Font.Medium
                     color: Qt.rgba(1, 1, 1, 0.70)
                 }
@@ -249,7 +250,7 @@ PlasmaCore.Dialog {
                 Text {
                     text: root.i18n("Clear all")
                     font.family: "Google Sans Flex"
-                    font.pixelSize: 12
+                    font.pixelSize: LocalMetrics.Metrics.legacyDp(12)
                     color: clearMa.containsMouse ? Kirigami.Theme.highlightColor : Qt.rgba(1, 1, 1, 0.50)
                     visible: notifsModel.count > 0
 
@@ -280,13 +281,13 @@ PlasmaCore.Dialog {
                 // Empty state (all notifications cleared)
                 Column {
                     anchors.centerIn: parent
-                    spacing: 8
+                    spacing: LocalMetrics.Metrics.legacyDp(8)
                     visible: root.hasDevice && notifsModel.count === 0
 
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: "✓"
-                        font.pixelSize: 22
+                        font.pixelSize: LocalMetrics.Metrics.legacyDp(22)
                         color: Qt.rgba(1, 1, 1, 0.35)
                     }
 
@@ -294,7 +295,7 @@ PlasmaCore.Dialog {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: root.i18n("All caught up")
                         font.family: "Google Sans Flex"
-                        font.pixelSize: 13
+                        font.pixelSize: LocalMetrics.Metrics.legacyDp(13)
                         color: Qt.rgba(1, 1, 1, 0.45)
                     }
                 }
@@ -302,14 +303,14 @@ PlasmaCore.Dialog {
                 // Disconnected device placeholder
                 Column {
                     anchors.centerIn: parent
-                    spacing: 8
+                    spacing: LocalMetrics.Metrics.legacyDp(8)
                     visible: !root.hasDevice
 
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: root.i18n("No connected phone")
                         font.family: "Google Sans Flex"
-                        font.pixelSize: 13
+                        font.pixelSize: LocalMetrics.Metrics.legacyDp(13)
                         color: Qt.rgba(1, 1, 1, 0.45)
                     }
                 }
@@ -319,7 +320,7 @@ PlasmaCore.Dialog {
                     id: notifsList
                     anchors.fill: parent
                     clip: true
-                    spacing: 8
+                    spacing: LocalMetrics.Metrics.legacyDp(8)
                     visible: root.hasDevice && notifsModel.count > 0
                     model: notifsModel
 

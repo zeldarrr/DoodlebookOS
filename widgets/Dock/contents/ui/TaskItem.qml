@@ -7,6 +7,7 @@ import QtQuick
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 import org.kde.taskmanager as TaskManager
+import "metrics" as LocalMetrics
 
 Item {
     id: taskItem
@@ -16,21 +17,20 @@ Item {
     property var tasksModel: null
     property var dockRoot: null
 
-    readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
-    property real dockHeight: 52
+    property real dockHeight: LocalMetrics.Metrics.px(56.0)
 
     function snap(val) {
-        return Math.round(val * dpr) / dpr;
+        return LocalMetrics.Metrics.snap(val);
     }
 
-    readonly property real iconSize: snap(dockHeight * 0.70)
-    readonly property real iconTopMargin: snap(dockHeight * 0.12)
-    readonly property real separatorGap: snap(dockHeight * 0.48)
-    readonly property real separatorWidth: Math.max(1 / dpr, snap(dockHeight * 0.05))
-    readonly property real separatorHeight: snap(dockHeight * 0.37)
-    readonly property real separatorBottomMargin: snap(dockHeight * 0.33)
-    readonly property real indicatorHeight: Math.max(1 / dpr, snap(dockHeight * 0.03))
-    readonly property real indicatorBottomMargin: snap(dockHeight * 0.05)
+    readonly property real iconSize: LocalMetrics.Metrics.barPx(dockHeight, 42.0, 56.0)
+    readonly property real iconTopMargin: LocalMetrics.Metrics.barPx(dockHeight, 7.0, 56.0)
+    readonly property real separatorGap: LocalMetrics.Metrics.barPx(dockHeight, 26.0, 56.0)
+    readonly property real separatorWidth: Math.max(1.0 / LocalMetrics.Metrics.dpr, LocalMetrics.Metrics.barPx(dockHeight, 2.5, 56.0))
+    readonly property real separatorHeight: LocalMetrics.Metrics.barPx(dockHeight, 20.0, 56.0)
+    readonly property real separatorBottomMargin: LocalMetrics.Metrics.barPx(dockHeight, 18.0, 56.0)
+    readonly property real indicatorHeight: Math.max(1.0 / LocalMetrics.Metrics.dpr, LocalMetrics.Metrics.barPx(dockHeight, 2.0, 56.0))
+    readonly property real indicatorBottomMargin: LocalMetrics.Metrics.barPx(dockHeight, 2.0, 56.0)
 
     readonly property bool isWindow: model ? Boolean(model.IsWindow) : false
     readonly property bool isLauncher: model ? Boolean(model.IsLauncher) : false
@@ -46,8 +46,8 @@ Item {
     readonly property int childCount: model ? (model.ChildCount || 0) : 0
 
     readonly property bool isDarkTheme: Kirigami.Theme.textColor.r > 0.5 || Kirigami.Theme.textColor.g > 0.5 || Kirigami.Theme.textColor.b > 0.5
-    readonly property real baseInactiveWidth: snap(dockHeight * 0.13)
-    readonly property real baseActiveWidth: snap(dockHeight * 0.22)
+    readonly property real baseInactiveWidth: LocalMetrics.Metrics.barPx(dockHeight, 7.5, 56.0)
+    readonly property real baseActiveWidth: LocalMetrics.Metrics.barPx(dockHeight, 13.0, 56.0)
 
     readonly property bool isDemandingAttention: {
         if (!model) return false;
@@ -233,9 +233,9 @@ Item {
                 Rectangle {
                     y: iconContainer.y
                     anchors.horizontalCenter: parent.horizontalCenter
-                    width: taskItem.iconSize + 6
-                    height: taskItem.iconSize + 6
-                    radius: 14
+                    width: taskItem.iconSize + LocalMetrics.Metrics.px(6.0)
+                    height: taskItem.iconSize + LocalMetrics.Metrics.px(6.0)
+                    radius: LocalMetrics.Metrics.px(14.0)
                     color: Qt.rgba(0, 0, 0, 0.25)
                     visible: mouseArea.drag.active
                     z: -1
@@ -244,7 +244,7 @@ Item {
                 Rectangle {
                     id: bgRect
                     anchors.fill: parent
-                    radius: 12
+                    radius: LocalMetrics.Metrics.px(12.0)
                     color: mouseArea.pressed ? Qt.rgba(1, 1, 1, 0.12) : "transparent"
 
                     Behavior on color {
@@ -279,7 +279,7 @@ Item {
                             visible: opacity > 0
                             z: 10
 
-                            readonly property real badgeSize: Math.max(8, taskItem.snap(taskItem.dockHeight * 0.16))
+                            readonly property real badgeSize: Math.max(LocalMetrics.Metrics.px(8.0), LocalMetrics.Metrics.barPx(taskItem.dockHeight, 9.0, 56.0))
 
                             width: badgeSize
                             height: badgeSize

@@ -7,6 +7,7 @@ import QtQuick
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 import "i18n.js" as I18n
+import "metrics" as LocalMetrics
 
 Rectangle {
     id: root
@@ -17,8 +18,8 @@ Rectangle {
     property bool isReplying: false
 
     width: parent ? parent.width : 0
-    implicitHeight: mainCol.implicitHeight + 24
-    radius: 16
+    implicitHeight: mainCol.implicitHeight + LocalMetrics.Metrics.legacyDp(24)
+    radius: LocalMetrics.Metrics.legacyDp(16)
     color: Qt.rgba(1, 1, 1, 0.06)
     border.color: Qt.rgba(1, 1, 1, 0.08)
     border.width: 1
@@ -28,17 +29,17 @@ Rectangle {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.margins: 12
-        spacing: 6
+        anchors.margins: LocalMetrics.Metrics.legacyDp(12)
+        spacing: LocalMetrics.Metrics.legacyDp(6)
 
         // 1. Header (Icon + App Name + Dismiss button)
         RowLayout {
             Layout.fillWidth: true
-            spacing: 8
+            spacing: LocalMetrics.Metrics.legacyDp(8)
 
             Kirigami.Icon {
-                Layout.preferredWidth: 16
-                Layout.preferredHeight: 16
+                Layout.preferredWidth: LocalMetrics.Metrics.legacyDp(16)
+                Layout.preferredHeight: LocalMetrics.Metrics.legacyDp(16)
                 source: (root.notifModel && root.notifModel.appIcon) ? root.notifModel.appIcon : "notifications"
             }
 
@@ -46,7 +47,7 @@ Rectangle {
                 Layout.fillWidth: true
                 text: (root.notifModel && root.notifModel.appName) ? root.notifModel.appName : ""
                 font.family: "Google Sans Flex"
-                font.pixelSize: 11
+                font.pixelSize: LocalMetrics.Metrics.legacyDp(11)
                 font.weight: Font.Normal
                 color: Qt.rgba(1, 1, 1, 0.60)
                 elide: Text.ElideRight
@@ -54,19 +55,19 @@ Rectangle {
 
             // Dismiss Button (✕)
             Item {
-                Layout.preferredWidth: 20
-                Layout.preferredHeight: 20
+                Layout.preferredWidth: LocalMetrics.Metrics.legacyDp(20)
+                Layout.preferredHeight: LocalMetrics.Metrics.legacyDp(20)
 
                 Rectangle {
                     anchors.fill: parent
-                    radius: 10
+                    radius: LocalMetrics.Metrics.legacyDp(10)
                     color: closeMa.containsMouse ? Qt.rgba(1, 1, 1, 0.15) : "transparent"
                 }
 
                 Text {
                     anchors.centerIn: parent
                     text: "✕"
-                    font.pixelSize: 11
+                    font.pixelSize: LocalMetrics.Metrics.legacyDp(11)
                     color: Qt.rgba(1, 1, 1, 0.70)
                 }
 
@@ -94,7 +95,7 @@ Rectangle {
             text: (root.notifModel && root.notifModel.title) ? root.notifModel.title : ""
             visible: text.length > 0
             font.family: "Google Sans Flex"
-            font.pixelSize: 13
+            font.pixelSize: LocalMetrics.Metrics.legacyDp(13)
             font.weight: Font.DemiBold
             color: "#FFFFFF"
             elide: Text.ElideRight
@@ -106,7 +107,7 @@ Rectangle {
             text: (root.notifModel && root.notifModel.notitext) ? root.notifModel.notitext : ""
             visible: text.length > 0
             font.family: "Google Sans Flex"
-            font.pixelSize: 12
+            font.pixelSize: LocalMetrics.Metrics.legacyDp(12)
             color: Qt.rgba(1, 1, 1, 0.85)
             wrapMode: Text.Wrap
             maximumLineCount: 3
@@ -116,18 +117,18 @@ Rectangle {
         // 4. Quick Reply Button / Input
         Item {
             Layout.fillWidth: true
-            Layout.preferredHeight: root.isReplying ? 38 : 28
+            Layout.preferredHeight: root.isReplying ? LocalMetrics.Metrics.legacyDp(38) : LocalMetrics.Metrics.legacyDp(28)
             visible: Boolean(root.notifModel && root.notifModel.repliable)
 
             RowLayout {
                 anchors.fill: parent
                 visible: !root.isReplying
-                spacing: 8
+                spacing: LocalMetrics.Metrics.legacyDp(8)
 
                 Rectangle {
-                    Layout.preferredHeight: 26
-                    Layout.preferredWidth: replyLabel.implicitWidth + 24
-                    radius: 13
+                    Layout.preferredHeight: LocalMetrics.Metrics.legacyDp(26)
+                    Layout.preferredWidth: replyLabel.implicitWidth + LocalMetrics.Metrics.legacyDp(24)
+                    radius: LocalMetrics.Metrics.legacyDp(13)
                     color: replyBtnMa.containsMouse ? Qt.rgba(1, 1, 1, 0.16) : Qt.rgba(1, 1, 1, 0.10)
                     border.color: Qt.rgba(1, 1, 1, 0.12)
                     border.width: 1
@@ -137,7 +138,7 @@ Rectangle {
                         anchors.centerIn: parent
                         text: root.i18n("Reply")
                         font.family: "Google Sans Flex"
-                        font.pixelSize: 11
+                        font.pixelSize: LocalMetrics.Metrics.legacyDp(11)
                         font.weight: Font.Medium
                         color: "#FFFFFF"
                     }
@@ -159,12 +160,12 @@ Rectangle {
             RowLayout {
                 anchors.fill: parent
                 visible: root.isReplying
-                spacing: 6
+                spacing: LocalMetrics.Metrics.legacyDp(6)
 
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 32
-                    radius: 12
+                    Layout.preferredHeight: LocalMetrics.Metrics.legacyDp(32)
+                    radius: LocalMetrics.Metrics.legacyDp(12)
                     color: Qt.rgba(0, 0, 0, 0.30)
                     border.color: Qt.rgba(1, 1, 1, 0.20)
                     border.width: 1
@@ -172,11 +173,11 @@ Rectangle {
                     TextInput {
                         id: replyInput
                         anchors.fill: parent
-                        anchors.leftMargin: 10
-                        anchors.rightMargin: 10
+                        anchors.leftMargin: LocalMetrics.Metrics.legacyDp(10)
+                        anchors.rightMargin: LocalMetrics.Metrics.legacyDp(10)
                         verticalAlignment: TextInput.AlignVCenter
                         font.family: "Google Sans Flex"
-                        font.pixelSize: 12
+                        font.pixelSize: LocalMetrics.Metrics.legacyDp(12)
                         color: "#FFFFFF"
                         onAccepted: sendBtn.send()
                     }
@@ -184,9 +185,9 @@ Rectangle {
 
                 Rectangle {
                     id: sendBtn
-                    Layout.preferredWidth: 32
-                    Layout.preferredHeight: 32
-                    radius: 12
+                    Layout.preferredWidth: LocalMetrics.Metrics.legacyDp(32)
+                    Layout.preferredHeight: LocalMetrics.Metrics.legacyDp(32)
+                    radius: LocalMetrics.Metrics.legacyDp(12)
                     color: sendMa.containsMouse ? Kirigami.Theme.highlightColor : Qt.rgba(1, 1, 1, 0.15)
 
                     function send() {
@@ -205,7 +206,7 @@ Rectangle {
                     Text {
                         anchors.centerIn: parent
                         text: "➔"
-                        font.pixelSize: 13
+                        font.pixelSize: LocalMetrics.Metrics.legacyDp(13)
                         color: "#FFFFFF"
                     }
 

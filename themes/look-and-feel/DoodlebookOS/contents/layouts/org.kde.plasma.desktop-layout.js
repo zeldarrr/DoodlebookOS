@@ -118,9 +118,9 @@ for (var i = 0; i < allPanels.length; ++i) {
     p.lengthMode = "fill";
 
     if (p.location === "bottom") {
-        p.height = 52;
+        p.height = 45;
     } else if (p.location === "top") {
-        p.height = 32;
+        p.height = 29;
         p.userBackgroundHints = 0;
     }
 

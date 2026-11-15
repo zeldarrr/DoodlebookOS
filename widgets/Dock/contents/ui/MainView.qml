@@ -8,6 +8,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
 import org.kde.kirigami as Kirigami
+import "metrics" as LocalMetrics
 
 Item {
   id: main
@@ -21,13 +22,13 @@ Item {
   readonly property bool isDarkTheme: Kirigami.Theme.textColor.r > 0.5 || Kirigami.Theme.textColor.g > 0.5 || Kirigami.Theme.textColor.b > 0.5
   readonly property color textColor: Kirigami.Theme.textColor
   readonly property string textFont: (usePlasmaTheme || (plasmoidConfig && plasmoidConfig.useSystemFontSettings)) ? (Kirigami.Theme.defaultFont.family || Kirigami.Theme.defaultFont) : ((plasmoidConfig && plasmoidConfig.fontFamily) || "Google Sans Flex")
-  readonly property real textSize: (usePlasmaTheme || (plasmoidConfig && plasmoidConfig.useSystemFontSettings)) ? (Kirigami.Theme.defaultFont.pointSize || 10) : ((plasmoidConfig && plasmoidConfig.fontSize) || 11)
+  readonly property real textSize: ((usePlasmaTheme || (plasmoidConfig && plasmoidConfig.useSystemFontSettings)) ? (Kirigami.Theme.defaultFont.pointSize || 10) : ((plasmoidConfig && plasmoidConfig.fontSize) || 11)) * (8.0 / 9.0) * LocalMetrics.Metrics.clampedScale
   readonly property color bgColor: currentBgColor
 
   property color contrastBgColor: isDarkTheme ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(0, 0, 0, 0.06)
 
   property alias searchBar: searchBar
-  property int itemSpacing: 8
+  property real itemSpacing: LocalMetrics.Metrics.px(8.0)
 
   function reset(){
     if (searchBar.textField.text !== "") {
@@ -81,15 +82,15 @@ Item {
     anchors.fill: parent
     spacing: itemSpacing
 
-    // Search Bar
+    // Search Bar (Punkt 0: 51 px height, 42 px top pad = 30 containerInnerPadding + 12 topMargin)
     SearchBar {
       id: searchBar
       Layout.fillWidth: true
-      Layout.preferredHeight: 50
+      Layout.preferredHeight: LocalMetrics.Metrics.px(51.0)
       Layout.maximumHeight: Layout.preferredHeight
       Layout.alignment: Qt.AlignTop
-      Layout.topMargin: 20
-      Layout.bottomMargin: 8
+      Layout.topMargin: LocalMetrics.Metrics.px(12.0)
+      Layout.bottomMargin: LocalMetrics.Metrics.px(8.0)
       Keys.priority: Keys.AfterItem
       Keys.forwardTo: stack.currentItem.viewItem
     }
@@ -99,7 +100,7 @@ Item {
       initialItem: pinnedAppsComponent
       Layout.fillWidth: true
       Layout.fillHeight: true
-      Layout.minimumHeight: 100
+      Layout.minimumHeight: LocalMetrics.Metrics.legacyDp(100)
       replaceEnter: null
       replaceExit: null
       pushEnter: null

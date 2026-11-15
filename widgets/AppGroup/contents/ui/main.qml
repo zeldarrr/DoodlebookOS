@@ -6,11 +6,13 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Window
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.plasma5support as Plasma5Support
 import org.kde.kirigami as Kirigami
 import "i18n.js" as I18n
+import "metrics" as LocalMetrics
 
 PlasmoidItem {
     id: root
@@ -22,9 +24,21 @@ PlasmoidItem {
     Layout.minimumWidth: 68
     Layout.minimumHeight: 84
 
-    readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
+    Binding {
+        target: LocalMetrics.Metrics
+        property: "hostDpr"
+        value: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
+    }
+    Binding {
+        target: LocalMetrics.Metrics
+        property: "uiScale"
+        value: (Plasmoid.configuration && typeof Plasmoid.configuration.shellScale === "number" && Plasmoid.configuration.shellScale > 0)
+            ? Plasmoid.configuration.shellScale
+            : 1.0
+    }
+
     function snap(val) {
-        return Math.round(val * dpr) / dpr;
+        return LocalMetrics.Metrics.snap(val);
     }
 
     readonly property string currentPreset: (Plasmoid.configuration && Plasmoid.configuration.presetType) ? Plasmoid.configuration.presetType : "productivity"

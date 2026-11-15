@@ -8,6 +8,7 @@ import QtQuick.Layouts
 import QtQuick.Controls
 import org.kde.kirigami as Kirigami
 import "i18n.js" as I18n
+import "metrics" as LocalMetrics
 
 Rectangle {
     id: searchBarRoot
@@ -71,9 +72,9 @@ Rectangle {
 
     RowLayout {
         anchors.fill: parent
-        anchors.leftMargin: 20
-        anchors.rightMargin: 20
-        spacing: 8
+        anchors.leftMargin: LocalMetrics.Metrics.legacyDp(20)
+        anchors.rightMargin: LocalMetrics.Metrics.legacyDp(20)
+        spacing: LocalMetrics.Metrics.legacyDp(8)
 
         // Text input field
         TextField {
@@ -82,7 +83,7 @@ Rectangle {
             Layout.fillWidth: true
             Layout.alignment: Qt.AlignVCenter
             font.family: main.textFont
-            font.pointSize: main.textSize + 2
+            font.pointSize: main.textSize + (2 * (8.0 / 9.0) * LocalMetrics.Metrics.clampedScale)
             color: main.textColor
             verticalAlignment: TextInput.AlignVCenter
 

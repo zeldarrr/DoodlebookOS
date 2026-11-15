@@ -10,6 +10,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Window
 
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
@@ -21,9 +22,23 @@ import org.kde.private.desktopcontainment.folder as Folder
 import org.kde.plasma.private.containmentlayoutmanager as ContainmentLayoutManager
 
 import "code/FolderTools.js" as FolderTools
+import "metrics" as LocalMetrics
 
 ContainmentItem {
     id: root
+
+    Binding {
+        target: LocalMetrics.Metrics
+        property: "hostDpr"
+        value: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
+    }
+    Binding {
+        target: LocalMetrics.Metrics
+        property: "uiScale"
+        value: (Plasmoid.configuration && typeof Plasmoid.configuration.shellScale === "number" && Plasmoid.configuration.shellScale > 0)
+            ? Plasmoid.configuration.shellScale
+            : 1.0
+    }
 
     switchWidth: { switchSize(); }
     switchHeight: { switchSize(); }

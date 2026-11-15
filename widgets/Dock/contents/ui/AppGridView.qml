@@ -8,6 +8,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
 import org.kde.kirigami as Kirigami
+import "metrics" as LocalMetrics
 
 GridView {
     id: grid
@@ -50,11 +51,11 @@ GridView {
         z: 99
 
         anchors.right: parent ? parent.right : undefined
-        anchors.rightMargin: 5
+        anchors.rightMargin: LocalMetrics.Metrics.legacyDp(5)
 
-        y: root.containerInnerPadding + (typeof main !== "undefined" && main ? main.searchBar.height + main.itemSpacing : 53)
+        y: root.containerInnerPadding + (typeof main !== "undefined" && main ? main.searchBar.height + main.itemSpacing : LocalMetrics.Metrics.legacyDp(53))
         height: grid.height
-        width: 14
+        width: LocalMetrics.Metrics.legacyDp(14)
 
         visible: grid.visible && grid.showScrollBar && (grid.contentHeight > grid.height)
 
@@ -82,8 +83,8 @@ GridView {
             readonly property real scrollRatio: Math.max(0, Math.min(1.0, (grid.contentY - grid.originY) / maxScroll))
 
             anchors.right: parent.right
-            anchors.rightMargin: 1
-            width: thumbMouseArea.containsMouse || thumbMouseArea.drag.active ? 6 : 4
+            anchors.rightMargin: LocalMetrics.Metrics.legacyDp(1)
+            width: thumbMouseArea.containsMouse || thumbMouseArea.drag.active ? LocalMetrics.Metrics.legacyDp(6) : LocalMetrics.Metrics.legacyDp(4)
             height: Math.round(root.cellSizeHeight * 0.60)
             radius: width / 2
 

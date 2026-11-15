@@ -4,15 +4,16 @@ import QtQuick
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 import "i18n.js" as I18n
+import "metrics" as LocalMetrics
 
 ColumnLayout {
     id: gridViewRoot
     anchors.fill: parent
-    anchors.topMargin: 20
-    anchors.bottomMargin: 14
-    anchors.leftMargin: 16
-    anchors.rightMargin: 16
-    spacing: 6
+    anchors.topMargin: gridViewRoot.popupContainer.cols === 2 ? LocalMetrics.Metrics.px(3.0) : LocalMetrics.Metrics.legacyDp(20)
+    anchors.bottomMargin: gridViewRoot.popupContainer.cols === 2 ? LocalMetrics.Metrics.px(15.0) : LocalMetrics.Metrics.legacyDp(14)
+    anchors.leftMargin: gridViewRoot.popupContainer.cols === 2 ? LocalMetrics.Metrics.px(8.0) : LocalMetrics.Metrics.legacyDp(16)
+    anchors.rightMargin: gridViewRoot.popupContainer.cols === 2 ? LocalMetrics.Metrics.px(8.0) : LocalMetrics.Metrics.legacyDp(16)
+    spacing: gridViewRoot.popupContainer.cols === 2 ? LocalMetrics.Metrics.px(4.0) : LocalMetrics.Metrics.legacyDp(6)
 
     required property var rootApplet
     required property var popupContainer
@@ -36,7 +37,7 @@ ColumnLayout {
             width: gridFlick.width
             columns: gridViewRoot.popupContainer.cols
             readonly property real cellW: Math.floor(width / columns)
-            readonly property real cellH: 88
+            readonly property real cellH: columns === 2 ? LocalMetrics.Metrics.px(112.0) : LocalMetrics.Metrics.legacyDp(88)
 
             Repeater {
                 model: gridViewRoot.rootApplet.appList
@@ -51,19 +52,19 @@ ColumnLayout {
 
                     Column {
                         anchors.centerIn: parent
-                        spacing: 6
+                        spacing: gridViewRoot.popupContainer.cols === 2 ? LocalMetrics.Metrics.px(9.0) : LocalMetrics.Metrics.legacyDp(6)
 
                         Item {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            width: 48
-                            height: 48
+                            width: LocalMetrics.Metrics.px(46.0)
+                            height: LocalMetrics.Metrics.px(46.0)
                             scale: tileMouse.containsMouse && !tileMouse.pressed ? 1.05 : (tileMouse.pressed ? 0.94 : 1.0)
                             Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
 
                             Kirigami.Icon {
                                 anchors.centerIn: parent
-                                width: 48
-                                height: 48
+                                width: LocalMetrics.Metrics.px(46.0)
+                                height: LocalMetrics.Metrics.px(46.0)
                                 source: (appTile.modelData && appTile.modelData.icon) || "application-x-executable"
                                 smooth: true
                             }
@@ -71,12 +72,12 @@ ColumnLayout {
 
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            width: appTile.width - 8
+                            width: appTile.width - LocalMetrics.Metrics.px(8.0)
                             horizontalAlignment: Text.AlignHCenter
                             elide: Text.ElideRight
                             text: appTile.modelData ? appTile.modelData.name : ""
                             font.family: "Google Sans Flex"
-                            font.pixelSize: 12
+                            font.pixelSize: LocalMetrics.Metrics.px(14.5)
                             font.weight: Font.Normal
                             color: gridViewRoot.popupContainer.cText
                         }
@@ -109,18 +110,18 @@ ColumnLayout {
                         visible: gridViewRoot.rootApplet.editMode
                         anchors.top: parent.top
                         anchors.right: parent.right
-                        anchors.topMargin: 4
-                        anchors.rightMargin: 14
-                        width: 20
-                        height: 20
-                        radius: 10
+                        anchors.topMargin: LocalMetrics.Metrics.legacyDp(4)
+                        anchors.rightMargin: LocalMetrics.Metrics.legacyDp(14)
+                        width: LocalMetrics.Metrics.legacyDp(20)
+                        height: LocalMetrics.Metrics.legacyDp(20)
+                        radius: LocalMetrics.Metrics.legacyDp(10)
                         color: "#EA4335"
                         z: 10
 
                         Text {
                             anchors.centerIn: parent
                             text: "✕"
-                            font.pixelSize: 10
+                            font.pixelSize: LocalMetrics.Metrics.legacyDp(10)
                             font.bold: true
                             color: "#FFFFFF"
                         }
@@ -143,12 +144,12 @@ ColumnLayout {
 
             Column {
                 anchors.centerIn: parent
-                spacing: 8
+                spacing: LocalMetrics.Metrics.legacyDp(8)
 
                 Kirigami.Icon {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    width: 36
-                    height: 36
+                    width: LocalMetrics.Metrics.legacyDp(36)
+                    height: LocalMetrics.Metrics.legacyDp(36)
                     source: "folder-new"
                 }
 
@@ -156,23 +157,23 @@ ColumnLayout {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: I18n.t("Folder is empty")
                     font.family: "Google Sans Flex"
-                    font.pixelSize: 13
+                    font.pixelSize: LocalMetrics.Metrics.legacyDp(13)
                     font.weight: Font.Medium
                     color: gridViewRoot.popupContainer.cSub
                 }
 
                 Rectangle {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    width: 120
-                    height: 30
-                    radius: 15
+                    width: LocalMetrics.Metrics.legacyDp(120)
+                    height: LocalMetrics.Metrics.legacyDp(30)
+                    radius: LocalMetrics.Metrics.legacyDp(15)
                     color: emptyAddMouse.containsMouse ? gridViewRoot.popupContainer.cPillHover : gridViewRoot.popupContainer.cPill
 
                     Text {
                         anchors.centerIn: parent
                         text: I18n.t("Add apps")
                         font.family: "Google Sans Flex"
-                        font.pixelSize: 12
+                        font.pixelSize: LocalMetrics.Metrics.legacyDp(12)
                         font.weight: Font.Medium
                         color: gridViewRoot.popupContainer.cText
                     }
@@ -198,13 +199,13 @@ ColumnLayout {
     // ====================================================
     Item {
         Layout.fillWidth: true
-        Layout.preferredHeight: 32
+        Layout.preferredHeight: LocalMetrics.Metrics.px(34.0)
 
         Rectangle {
             anchors.centerIn: parent
-            width: Math.min(parent.width, bottomTitleLabel.implicitWidth + 28)
-            height: 28
-            radius: 14
+            width: Math.min(parent.width, bottomTitleLabel.implicitWidth + LocalMetrics.Metrics.px(28.0))
+            height: LocalMetrics.Metrics.px(28.0)
+            radius: LocalMetrics.Metrics.px(14.0)
             color: bottomTitleMouse.containsMouse ? gridViewRoot.popupContainer.cPill : "transparent"
             visible: !gridViewRoot.rootApplet.editingTitle
 
@@ -213,7 +214,7 @@ ColumnLayout {
                 anchors.centerIn: parent
                 text: gridViewRoot.rootApplet.folderName
                 font.family: "Google Sans Flex"
-                font.pixelSize: 15
+                font.pixelSize: LocalMetrics.Metrics.px(16.5)
                 font.weight: Font.Normal
                 color: gridViewRoot.popupContainer.cText
                 elide: Text.ElideRight
@@ -235,22 +236,22 @@ ColumnLayout {
 
         Rectangle {
             anchors.fill: parent
-            radius: 14
+            radius: LocalMetrics.Metrics.px(14.0)
             color: gridViewRoot.popupContainer.cPill
             visible: gridViewRoot.rootApplet.editingTitle
 
             RowLayout {
                 anchors.fill: parent
-                anchors.leftMargin: 12
-                anchors.rightMargin: 6
-                spacing: 4
+                anchors.leftMargin: LocalMetrics.Metrics.legacyDp(12)
+                anchors.rightMargin: LocalMetrics.Metrics.legacyDp(6)
+                spacing: LocalMetrics.Metrics.legacyDp(4)
 
                 TextInput {
                     id: titleEditor
                     Layout.fillWidth: true
                     horizontalAlignment: TextInput.AlignHCenter
                     font.family: "Google Sans Flex"
-                    font.pixelSize: 15
+                    font.pixelSize: LocalMetrics.Metrics.px(16.5)
                     color: gridViewRoot.popupContainer.cText
                     selectionColor: gridViewRoot.popupContainer.cAccent
                     selectedTextColor: "#FFFFFF"
@@ -265,16 +266,16 @@ ColumnLayout {
                 }
 
                 Rectangle {
-                    Layout.preferredWidth: 22
-                    Layout.preferredHeight: 22
+                    Layout.preferredWidth: LocalMetrics.Metrics.legacyDp(22)
+                    Layout.preferredHeight: LocalMetrics.Metrics.legacyDp(22)
                     Layout.alignment: Qt.AlignVCenter
-                    radius: 11
+                    radius: LocalMetrics.Metrics.legacyDp(11)
                     color: gridViewRoot.popupContainer.cAccent
 
                     Text {
                         anchors.centerIn: parent
                         text: "✓"
-                        font.pixelSize: 11
+                        font.pixelSize: LocalMetrics.Metrics.legacyDp(11)
                         font.bold: true
                         color: "#FFFFFF"
                     }

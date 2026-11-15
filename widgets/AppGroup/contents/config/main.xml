@@ -14,5 +14,9 @@
     <entry name="appsJson" type="String">
       <default></default>
     </entry>
+    <entry name="shellScale" type="Double">
+      <label>Independent UI scale multiplier (0.85, 1.00, 1.1625)</label>
+      <default>1.0</default>
+    </entry>
   </group>
 </kcfg>

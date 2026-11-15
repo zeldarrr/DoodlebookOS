@@ -11,6 +11,7 @@ import org.kde.plasma.core as PlasmaCore
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.plasma5support as Plasma5Support
 import "i18n.js" as I18n
+import "metrics" as LocalMetrics
 
 PlasmaCore.Dialog {
     id: taskbarMenuDialog
@@ -21,7 +22,7 @@ PlasmaCore.Dialog {
     backgroundHints: PlasmaCore.Types.NoBackground
     location: PlasmaCore.Types.Floating
     visualParent: targetItem
-    floating: 10
+    floating: LocalMetrics.Metrics.legacyDp(10)
     hideOnWindowDeactivate: true
 
     property Item targetItem: null
@@ -97,8 +98,8 @@ for (var i = 0; i < panels().length; i++) {
         id: mainItem
         Kirigami.Theme.colorSet: Kirigami.Theme.Tooltip
         Kirigami.Theme.inherit: false
-        implicitWidth: 260
-        implicitHeight: 46
+        implicitWidth: LocalMetrics.Metrics.legacyDp(260)
+        implicitHeight: LocalMetrics.Metrics.legacyDp(46)
 
         function runCmd(cmd) {
             dbusRunner.connectSource(cmd + " # " + Date.now());
@@ -147,11 +148,11 @@ for (var i = 0; i < panels().length; i++) {
             x: 0
             y: 0
             width: parent.width
-            height: 38
-            radius: 19
+            height: LocalMetrics.Metrics.legacyDp(38)
+            radius: LocalMetrics.Metrics.legacyDp(19)
             color: taskbarMenuDialog.cBg
             border.color: taskbarMenuDialog.cBorder
-            border.width: 1
+            border.width: Math.max(1.0 / LocalMetrics.Metrics.dpr, LocalMetrics.Metrics.snap(1))
 
             MouseArea {
                 anchors.fill: parent
@@ -163,20 +164,20 @@ for (var i = 0; i < panels().length; i++) {
 
             RowLayout {
                 anchors.fill: parent
-                anchors.leftMargin: 16
-                anchors.rightMargin: 12
-                spacing: 12
+                anchors.leftMargin: LocalMetrics.Metrics.legacyDp(16)
+                anchors.rightMargin: LocalMetrics.Metrics.legacyDp(12)
+                spacing: LocalMetrics.Metrics.legacyDp(12)
 
                 // Visibility Icon
                 Item {
-                    Layout.preferredWidth: 20
-                    Layout.preferredHeight: 20
+                    Layout.preferredWidth: LocalMetrics.Metrics.legacyDp(20)
+                    Layout.preferredHeight: LocalMetrics.Metrics.legacyDp(20)
 
                     Image {
                         id: visIconImg
                         anchors.fill: parent
                         source: Qt.resolvedUrl("icons/visibility.svg")
-                        sourceSize: Qt.size(40, 40)
+                        sourceSize: Qt.size(Math.round(LocalMetrics.Metrics.legacyDp(20) * 2), Math.round(LocalMetrics.Metrics.legacyDp(20) * 2))
                         visible: false
                     }
 
@@ -193,7 +194,7 @@ for (var i = 0; i < panels().length; i++) {
                     Layout.fillWidth: true
                     text: i18n("Always show Taskbar")
                     font.family: "Google Sans Flex"
-                    font.pixelSize: 13
+                    font.pixelSize: LocalMetrics.Metrics.legacyDp(13)
                     font.weight: Font.Medium
                     color: taskbarMenuDialog.cText
                     elide: Text.ElideRight
@@ -202,24 +203,25 @@ for (var i = 0; i < panels().length; i++) {
                 // Material Design Switch Toggle
                 Item {
                     id: switchItem
-                    Layout.preferredWidth: 44
-                    Layout.preferredHeight: 24
+                    Layout.preferredWidth: LocalMetrics.Metrics.legacyDp(44)
+                    Layout.preferredHeight: LocalMetrics.Metrics.legacyDp(24)
 
                     Rectangle {
                         id: switchTrack
                         anchors.fill: parent
-                        radius: 12
+                        radius: LocalMetrics.Metrics.legacyDp(12)
                         color: taskbarMenuDialog.alwaysShow ? Kirigami.Theme.highlightColor : (taskbarMenuDialog.isDark ? "#484C52" : "#74777F")
                         Behavior on color { ColorAnimation { duration: 150 } }
                     }
 
                     Rectangle {
                         id: switchThumb
-                        width: 18
-                        height: 18
-                        radius: 9
-                        y: 3
-                        x: taskbarMenuDialog.alwaysShow ? (switchItem.width - width - 3) : 3
+                        readonly property real thumbInset: LocalMetrics.Metrics.legacyDp(3)
+                        width: LocalMetrics.Metrics.legacyDp(18)
+                        height: LocalMetrics.Metrics.legacyDp(18)
+                        radius: LocalMetrics.Metrics.legacyDp(9)
+                        y: thumbInset
+                        x: taskbarMenuDialog.alwaysShow ? (switchItem.width - width - thumbInset) : thumbInset
                         color: taskbarMenuDialog.alwaysShow ? Kirigami.Theme.highlightedTextColor : "#FFFFFF"
                         Behavior on color { ColorAnimation { duration: 150 } }
                         Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
@@ -233,15 +235,18 @@ for (var i = 0; i < panels().length; i++) {
             id: pointerArrow
             anchors.fill: parent
             readonly property real arrowX: Math.round(pillBody.width / 2)
+            readonly property real arrowHalfW: LocalMetrics.Metrics.legacyDp(6)
+            readonly property real arrowStartY: Math.max(0, pillBody.height - LocalMetrics.Metrics.legacyDp(1))
+            readonly property real arrowTipY: LocalMetrics.Metrics.legacyDp(44)
 
             ShapePath {
                 strokeWidth: 0
                 fillColor: taskbarMenuDialog.cBg
-                startX: pointerArrow.arrowX - 6
-                startY: 37
-                PathLine { x: pointerArrow.arrowX; y: 44 }
-                PathLine { x: pointerArrow.arrowX + 6; y: 37 }
-                PathLine { x: pointerArrow.arrowX - 6; y: 37 }
+                startX: pointerArrow.arrowX - pointerArrow.arrowHalfW
+                startY: pointerArrow.arrowStartY
+                PathLine { x: pointerArrow.arrowX; y: pointerArrow.arrowTipY }
+                PathLine { x: pointerArrow.arrowX + pointerArrow.arrowHalfW; y: pointerArrow.arrowStartY }
+                PathLine { x: pointerArrow.arrowX - pointerArrow.arrowHalfW; y: pointerArrow.arrowStartY }
             }
         }
     }

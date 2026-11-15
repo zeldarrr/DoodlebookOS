@@ -8,26 +8,27 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
+import "metrics" as LocalMetrics
 
 Item {
     id: phoneHubBtn
 
     property bool active: false
-    property real buttonHeight: 52
+    property real buttonHeight: LocalMetrics.Metrics.px(56.0)
     property bool isVertical: false
     signal clicked()
     signal rightClicked(var mouse)
 
-    readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
     readonly property real effectiveBase: phoneHubBtn.isVertical ? phoneHubBtn.width : phoneHubBtn.buttonHeight
     function snap(val) {
-        return Math.round(val * dpr) / dpr;
+        return LocalMetrics.Metrics.snap(val);
     }
 
-    readonly property real capsuleHeight: snap(effectiveBase * 0.73)
-    readonly property real capsuleWidth: snap(effectiveBase * 0.86)
-    readonly property real capsuleTopMargin: snap(effectiveBase * 0.12)
-    readonly property real iconSize: snap(effectiveBase * 0.37)
+    // Punkt 0: PhoneHub pill 48x40 px at y=8..47 on 56 px dock
+    readonly property real capsuleHeight: LocalMetrics.Metrics.barPx(effectiveBase, 40.0, 56.0)
+    readonly property real capsuleWidth: LocalMetrics.Metrics.barPx(effectiveBase, 48.0, 56.0)
+    readonly property real capsuleTopMargin: LocalMetrics.Metrics.barPx(effectiveBase, 8.0, 56.0)
+    readonly property real iconSize: LocalMetrics.Metrics.barPx(effectiveBase, 20.0, 56.0)
 
     implicitWidth: phoneHubBtn.isVertical ? phoneHubBtn.buttonHeight : phoneHubBtn.capsuleWidth
     implicitHeight: phoneHubBtn.isVertical ? phoneHubBtn.capsuleWidth : phoneHubBtn.buttonHeight

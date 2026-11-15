@@ -7,6 +7,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Effects
 import org.kde.kirigami as Kirigami
+import "metrics" as LocalMetrics
 
 Item {
     id: root
@@ -18,8 +19,8 @@ Item {
 
     signal clicked()
 
-    implicitWidth: 200
-    implicitHeight: 64
+    implicitWidth: LocalMetrics.Metrics.legacyDp(200)
+    implicitHeight: LocalMetrics.Metrics.legacyDp(64)
 
     readonly property color cBg: isActive
         ? activeColor
@@ -30,7 +31,7 @@ Item {
     Rectangle {
         id: bgRect
         anchors.fill: parent
-        radius: 18
+        radius: LocalMetrics.Metrics.legacyDp(18)
         color: root.cBg
         border.color: root.isActive ? "transparent" : Qt.rgba(1, 1, 1, 0.08)
         border.width: 1
@@ -41,21 +42,21 @@ Item {
 
         RowLayout {
             anchors.fill: parent
-            anchors.leftMargin: 16
-            anchors.rightMargin: 16
-            spacing: 12
+            anchors.leftMargin: LocalMetrics.Metrics.legacyDp(16)
+            anchors.rightMargin: LocalMetrics.Metrics.legacyDp(16)
+            spacing: LocalMetrics.Metrics.legacyDp(12)
 
             Item {
-                Layout.preferredWidth: 24
-                Layout.preferredHeight: 24
+                Layout.preferredWidth: LocalMetrics.Metrics.legacyDp(24)
+                Layout.preferredHeight: LocalMetrics.Metrics.legacyDp(24)
                 Layout.alignment: Qt.AlignVCenter
 
                 Image {
                     id: iconImg
                     anchors.centerIn: parent
-                    width: 24
-                    height: 24
-                    sourceSize: Qt.size(48, 48)
+                    width: LocalMetrics.Metrics.legacyDp(24)
+                    height: LocalMetrics.Metrics.legacyDp(24)
+                    sourceSize: Qt.size(Math.round(LocalMetrics.Metrics.legacyDp(24) * 2), Math.round(LocalMetrics.Metrics.legacyDp(24) * 2))
                     fillMode: Image.PreserveAspectFit
                     source: root.iconSource
                     visible: false
@@ -74,7 +75,7 @@ Item {
                 Layout.alignment: Qt.AlignVCenter
                 text: root.title
                 font.family: "Google Sans Flex"
-                font.pixelSize: 13
+                font.pixelSize: LocalMetrics.Metrics.legacyDp(13)
                 font.weight: root.isActive ? Font.DemiBold : Font.Medium
                 color: root.cText
                 elide: Text.ElideRight

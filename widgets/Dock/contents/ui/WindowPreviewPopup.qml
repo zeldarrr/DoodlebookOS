@@ -11,6 +11,7 @@ import org.kde.plasma.core as PlasmaCore
 import org.kde.kirigami as Kirigami
 import org.kde.pipewire as PipeWire
 import org.kde.taskmanager as TaskManager
+import "metrics" as LocalMetrics
 
 PlasmaCore.Dialog {
     id: previewDialog
@@ -23,10 +24,10 @@ PlasmaCore.Dialog {
 
     readonly property int calculatedWidth: {
         var c = Math.max(1, childCount);
-        var rowW = c * 196 + Math.max(0, c - 1) * 12;
-        return Math.min(Screen.desktopAvailableWidth - 32, rowW + 28) + 8;
+        var rowW = c * LocalMetrics.Metrics.legacyDp(196) + Math.max(0, c - 1) * LocalMetrics.Metrics.legacyDp(12);
+        return Math.round(Math.min(Screen.desktopAvailableWidth - LocalMetrics.Metrics.px(32), rowW + LocalMetrics.Metrics.legacyDp(28)) + LocalMetrics.Metrics.legacyDp(8));
     }
-    readonly property int calculatedHeight: 150
+    readonly property real calculatedHeight: LocalMetrics.Metrics.legacyDp(150)
 
     width: calculatedWidth
     height: calculatedHeight
@@ -40,12 +41,12 @@ PlasmaCore.Dialog {
         var scrX = (scr.virtualX !== undefined) ? scr.virtualX : 0;
         var scrY = (scr.virtualY !== undefined) ? scr.virtualY : 0;
 
-        var effPanelHeight = previewDialog.dockHeight > 0 ? previewDialog.dockHeight : 52;
+        var effPanelHeight = previewDialog.dockHeight > 0 ? previewDialog.dockHeight : LocalMetrics.Metrics.px(56);
         if (targetItem.Window && targetItem.Window.window && targetItem.Window.window.height > 0) {
             effPanelHeight = targetItem.Window.window.height;
         }
 
-        var bottomGap = 4;
+        var bottomGap = LocalMetrics.Metrics.legacyDp(4);
         var currentW = previewDialog.calculatedWidth;
         var currentH = previewDialog.calculatedHeight;
         var panelTop = scrY + scrHeight - effPanelHeight;
@@ -61,8 +62,8 @@ PlasmaCore.Dialog {
         }
 
         var targetY = (iconGlobalY > 0)
-            ? Math.max(24, Math.round(iconGlobalY - currentH - bottomGap))
-            : Math.max(24, Math.round(panelTop - currentH - bottomGap));
+            ? Math.max(LocalMetrics.Metrics.px(24), Math.round(iconGlobalY - currentH - bottomGap))
+            : Math.max(LocalMetrics.Metrics.px(24), Math.round(panelTop - currentH - bottomGap));
 
         var btnCenterX = 0;
         if (typeof targetItem.mapToGlobal === "function") {
@@ -84,7 +85,7 @@ PlasmaCore.Dialog {
         var targetX = btnCenterX > 0
             ? Math.round(btnCenterX - currentW / 2)
             : (scrX + Math.round((scrWidth - currentW) / 2));
-        targetX = Math.max(scrX + 16, Math.min(scrX + scrWidth - currentW - 16, targetX));
+        targetX = Math.max(scrX + LocalMetrics.Metrics.px(16), Math.min(scrX + scrWidth - currentW - LocalMetrics.Metrics.px(16), targetX));
 
         previewDialog.x = targetX;
         previewDialog.y = targetY;
@@ -108,7 +109,7 @@ PlasmaCore.Dialog {
     property string appName: ""
     property var fallbackIcon: null
     property var winIdList: []
-    property real dockHeight: 52
+    property real dockHeight: LocalMetrics.Metrics.px(56)
 
     property int hoveredCardIndex: -1
     property color panelBgColor: Kirigami.Theme.backgroundColor
@@ -274,7 +275,7 @@ PlasmaCore.Dialog {
         Rectangle {
             anchors.fill: cardContainer
             anchors.margins: -1
-            radius: 26
+            radius: LocalMetrics.Metrics.legacyDp(26)
             color: Qt.rgba(0, 0, 0, 0.28)
             z: -1
         }
@@ -283,20 +284,20 @@ PlasmaCore.Dialog {
         Rectangle {
             id: cardContainer
             anchors.centerIn: parent
-            width: previewDialog.calculatedWidth - 8
-            height: previewDialog.calculatedHeight - 8
+            width: previewDialog.calculatedWidth - LocalMetrics.Metrics.legacyDp(8)
+            height: previewDialog.calculatedHeight - LocalMetrics.Metrics.legacyDp(8)
             implicitWidth: width
             implicitHeight: height
-            radius: 26
+            radius: LocalMetrics.Metrics.legacyDp(26)
             color: previewDialog.cardBgColor
             border.color: previewDialog.isDarkTheme ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(0, 0, 0, 0.10)
             border.width: 1
-            clip: rowLayout.implicitWidth + 28 > cardContainer.width
+            clip: rowLayout.implicitWidth + LocalMetrics.Metrics.legacyDp(28) > cardContainer.width
 
             Flickable {
                 id: flickable
                 anchors.fill: parent
-                anchors.margins: 14
+                anchors.margins: LocalMetrics.Metrics.legacyDp(14)
                 contentWidth: rowLayout.implicitWidth
                 contentHeight: rowLayout.implicitHeight
                 boundsBehavior: Flickable.StopAtBounds
@@ -304,7 +305,7 @@ PlasmaCore.Dialog {
 
                 Row {
                     id: rowLayout
-                    spacing: 12
+                    spacing: LocalMetrics.Metrics.legacyDp(12)
                     anchors.verticalCenter: parent.verticalCenter
 
                     Repeater {
@@ -351,8 +352,8 @@ PlasmaCore.Dialog {
 
                             readonly property bool isCardHovered: previewDialog.hoveredCardIndex === index
 
-                            width: 196
-                            height: 122
+                            width: LocalMetrics.Metrics.legacyDp(196)
+                            height: LocalMetrics.Metrics.legacyDp(122)
 
                             HoverHandler {
                                 id: cardHoverHandler
@@ -372,7 +373,7 @@ PlasmaCore.Dialog {
                                 id: thumbMask
                                 width: thumbnailWrapper.width
                                 height: thumbnailWrapper.height
-                                radius: 14
+                                radius: LocalMetrics.Metrics.legacyDp(14)
                                 color: "black"
                                 visible: false
                                 layer.enabled: true
@@ -398,8 +399,8 @@ PlasmaCore.Dialog {
                                 // Fallback icon and title if PipeWire stream is not ready
                                 Column {
                                     anchors.centerIn: parent
-                                    spacing: 6
-                                    width: parent.width - 24
+                                    spacing: LocalMetrics.Metrics.legacyDp(6)
+                                    width: parent.width - LocalMetrics.Metrics.legacyDp(24)
                                     opacity: pipeWireSourceItem.ready ? 0.0 : 1.0
                                     visible: opacity > 0
                                     z: 0
@@ -410,8 +411,8 @@ PlasmaCore.Dialog {
 
                                     Kirigami.Icon {
                                         anchors.horizontalCenter: parent.horizontalCenter
-                                        width: 36
-                                        height: 36
+                                        width: LocalMetrics.Metrics.legacyDp(36)
+                                        height: LocalMetrics.Metrics.legacyDp(36)
                                         source: cardDelegate.childIcon || "application-x-executable"
                                     }
 
@@ -422,7 +423,7 @@ PlasmaCore.Dialog {
                                         elide: Text.ElideRight
                                         text: cardDelegate.childTitle
                                         color: Qt.rgba(1, 1, 1, 0.90)
-                                        font.pixelSize: 11
+                                        font.pixelSize: LocalMetrics.Metrics.legacyDp(11)
                                         font.weight: Font.Medium
                                         renderType: Text.NativeRendering
                                     }
@@ -451,9 +452,9 @@ PlasmaCore.Dialog {
                             // Selection highlight white border — ONLY shown when hovered
                             Rectangle {
                                 anchors.fill: parent
-                                radius: 14
+                                radius: LocalMetrics.Metrics.legacyDp(14)
                                 color: "transparent"
-                                border.width: cardDelegate.isCardHovered ? 2.5 : 0
+                                border.width: cardDelegate.isCardHovered ? LocalMetrics.Metrics.legacyDp(2.5) : 0
                                 border.color: cardDelegate.isCardHovered ? "#FFFFFF" : "transparent"
                                 z: 10
 
@@ -490,10 +491,10 @@ PlasmaCore.Dialog {
                                 id: closeBtn
                                 anchors.top: parent.top
                                 anchors.right: parent.right
-                                anchors.margins: 7
-                                width: 22
-                                height: 22
-                                radius: 11
+                                anchors.margins: LocalMetrics.Metrics.legacyDp(7)
+                                width: LocalMetrics.Metrics.legacyDp(22)
+                                height: LocalMetrics.Metrics.legacyDp(22)
+                                radius: LocalMetrics.Metrics.legacyDp(11)
                                 color: closeHover.hovered ? "#E8EAED" : "#FFFFFF"
                                 z: 25
 
@@ -501,7 +502,7 @@ PlasmaCore.Dialog {
                                 Rectangle {
                                     anchors.fill: parent
                                     anchors.margins: -1
-                                    radius: 12
+                                    radius: LocalMetrics.Metrics.legacyDp(12)
                                     color: Qt.rgba(0, 0, 0, 0.28)
                                     z: -1
                                 }
@@ -510,7 +511,7 @@ PlasmaCore.Dialog {
                                     anchors.centerIn: parent
                                     anchors.verticalCenterOffset: -0.5
                                     text: "✕"
-                                    font.pixelSize: 10
+                                    font.pixelSize: LocalMetrics.Metrics.legacyDp(10)
                                     font.weight: Font.Bold
                                     color: "#1F1F24"
                                     renderType: Text.NativeRendering

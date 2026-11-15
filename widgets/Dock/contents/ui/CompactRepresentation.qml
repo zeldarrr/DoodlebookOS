@@ -9,6 +9,7 @@ import org.kde.plasma.plasmoid
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.core as PlasmaCore
 import org.kde.notificationmanager as NotificationManager
+import "metrics" as LocalMetrics
 
 Item {
     id: mainDockRoot
@@ -19,12 +20,9 @@ Item {
     property alias phoneHubBtn: phoneHubBtn
 
     readonly property bool isVertical: Plasmoid.formFactor === PlasmaCore.Types.Vertical
-    readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
 
     // Full-bleed panel thickness discovery:
-    // KDE Plasma's horizontal panel layout gives AppletContainer only 48 dp inside a 52 dp panel
-    // (reserving 2 dp top and 2 dp bottom). By walking up to the layout/containment/panel ancestor,
-    // we obtain the true panel thickness (52 dp) so the Dock can fill 100% of the bar edge-to-edge.
+    // By walking up to the layout/containment/panel ancestor, we obtain the true panel thickness.
     readonly property real effectiveHeight: {
         var p = parent;
         while (p) {
@@ -42,37 +40,23 @@ Item {
             }
             p = p.parent;
         }
-        return 52;
+        return LocalMetrics.Metrics.px(56.0);
     }
 
     function snap(val) {
-        return Math.round(val * dpr) / dpr;
+        return LocalMetrics.Metrics.snap(val);
     }
 
-    // Design Tokens / Normalized UI Metrics (Total height = 100%)
-    QtObject {
-        id: metrics
-        readonly property real iconRatio: 0.70               // 70% of dock height (icon)
-        readonly property real iconTopRatio: 0.12            // 12% top padding
-        readonly property real bottomZoneRatio: 0.18         // 18% bottom indicator zone (sum = 100%)
-        readonly property real slotSpacingRatio: 0.46        // space between task items
-        readonly property real launcherSpacingRatio: 16.0 / 52.0 // 16 dp space after launcher button (at 52 dp dock)
-        readonly property real leftButtonSpacingRatio: 0.38  // space after phonehub button
-        readonly property real separatorGapRatio: 0.48       // gap around separator
-        readonly property real separatorWidthRatio: 0.05     // width of separator (min 1 physical px)
-        readonly property real separatorHeightRatio: 0.37    // height of separator
-        readonly property real separatorBottomRatio: 0.33    // separator bottom margin
-    }
-
-    readonly property real iconSize: snap(effectiveHeight * metrics.iconRatio)
-    readonly property real iconTopMargin: snap(effectiveHeight * metrics.iconTopRatio)
-    readonly property real slotSpacing: snap(effectiveHeight * metrics.slotSpacingRatio)
-    readonly property real launcherSpacing: snap(effectiveHeight * metrics.launcherSpacingRatio)
-    readonly property real leftButtonSpacing: snap(effectiveHeight * metrics.leftButtonSpacingRatio)
-    readonly property real separatorGap: snap(effectiveHeight * metrics.separatorGapRatio)
-    readonly property real separatorWidth: Math.max(1 / dpr, snap(effectiveHeight * metrics.separatorWidthRatio))
-    readonly property real separatorHeight: snap(effectiveHeight * metrics.separatorHeightRatio)
-    readonly property real separatorBottomMargin: snap(effectiveHeight * metrics.separatorBottomRatio)
+    // Punkt 0 Dock Metrics (56 px = 45 dp)
+    readonly property real iconSize: LocalMetrics.Metrics.barPx(effectiveHeight, 42.0, 56.0)
+    readonly property real iconTopMargin: LocalMetrics.Metrics.barPx(effectiveHeight, 7.0, 56.0)
+    readonly property real slotSpacing: LocalMetrics.Metrics.barPx(effectiveHeight, 22.0, 56.0)
+    readonly property real launcherSpacing: LocalMetrics.Metrics.barPx(effectiveHeight, 16.0, 56.0)
+    readonly property real leftButtonSpacing: LocalMetrics.Metrics.barPx(effectiveHeight, 22.0, 56.0)
+    readonly property real separatorGap: LocalMetrics.Metrics.barPx(effectiveHeight, 26.0, 56.0)
+    readonly property real separatorWidth: Math.max(1.0 / LocalMetrics.Metrics.dpr, LocalMetrics.Metrics.barPx(effectiveHeight, 2.5, 56.0))
+    readonly property real separatorHeight: LocalMetrics.Metrics.barPx(effectiveHeight, 20.0, 56.0)
+    readonly property real separatorBottomMargin: LocalMetrics.Metrics.barPx(effectiveHeight, 18.0, 56.0)
     readonly property real slotPitch: iconSize + slotSpacing
 
     property bool isDragging: false
@@ -513,10 +497,10 @@ Item {
                 y: mainDockRoot.iconTopMargin
                 width: mainDockRoot.iconSize
                 height: mainDockRoot.iconSize
-                radius: 12
+                radius: LocalMetrics.Metrics.px(12.0)
                 color: Qt.rgba(1, 1, 1, 0.08)
                 border.color: Qt.rgba(1, 1, 1, 0.20)
-                border.width: 1
+                border.width: Math.max(1.0 / LocalMetrics.Metrics.dpr, LocalMetrics.Metrics.px(1.0))
                 z: 0
 
                 Behavior on x {

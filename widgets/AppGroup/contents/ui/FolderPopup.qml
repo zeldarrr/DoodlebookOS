@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls as QQC2
 import org.kde.kirigami as Kirigami
+import "metrics" as LocalMetrics
 
 QQC2.Popup {
     id: folderPopup
@@ -14,8 +15,14 @@ QQC2.Popup {
     readonly property int cols: (!folderPopup.rootApplet.addingMode && folderPopup.rootApplet.appList.length <= 4) ? 2 : 3
     readonly property int rows: Math.max(1, Math.ceil(folderPopup.rootApplet.appList.length / folderPopup.cols))
 
-    width: folderPopup.rootApplet.addingMode ? 290 : (folderPopup.cols === 2 ? 224 : 292)
-    height: folderPopup.rootApplet.addingMode ? 350 : Math.min(370, Math.max(232, folderPopup.rows * 90 + 62))
+    width: folderPopup.rootApplet.addingMode
+        ? LocalMetrics.Metrics.legacyDp(290)
+        : (folderPopup.cols === 2 ? LocalMetrics.Metrics.px(240.0) : LocalMetrics.Metrics.legacyDp(292))
+    height: folderPopup.rootApplet.addingMode
+        ? LocalMetrics.Metrics.legacyDp(350)
+        : (folderPopup.cols === 2
+            ? Math.min(LocalMetrics.Metrics.px(400.0), LocalMetrics.Metrics.px(64.0) + folderPopup.rows * LocalMetrics.Metrics.px(112.0))
+            : Math.min(LocalMetrics.Metrics.legacyDp(370), Math.max(LocalMetrics.Metrics.legacyDp(232), folderPopup.rows * LocalMetrics.Metrics.legacyDp(90) + LocalMetrics.Metrics.legacyDp(62))))
     padding: 0
     margins: 0
     modal: false
@@ -86,7 +93,7 @@ QQC2.Popup {
     }
 
     background: Rectangle {
-        radius: 28
+        radius: LocalMetrics.Metrics.px(24.0)
         color: folderPopup.cSurface
         border.width: 0
     }
@@ -116,18 +123,18 @@ QQC2.Popup {
             visible: !folderPopup.rootApplet.addingMode && (cardHover.hovered || folderPopup.rootApplet.editMode)
             anchors.top: parent.top
             anchors.right: parent.right
-            anchors.topMargin: 10
-            anchors.rightMargin: 12
-            width: 26
-            height: 26
-            radius: 13
+            anchors.topMargin: LocalMetrics.Metrics.legacyDp(10)
+            anchors.rightMargin: LocalMetrics.Metrics.legacyDp(12)
+            width: LocalMetrics.Metrics.legacyDp(26)
+            height: LocalMetrics.Metrics.legacyDp(26)
+            radius: LocalMetrics.Metrics.legacyDp(13)
             color: addCornerMouse.containsMouse ? folderPopup.cPillHover : folderPopup.cPill
             z: 30
 
             Text {
                 anchors.centerIn: parent
                 text: "+"
-                font.pixelSize: 16
+                font.pixelSize: LocalMetrics.Metrics.legacyDp(16)
                 font.bold: true
                 color: folderPopup.cText
             }

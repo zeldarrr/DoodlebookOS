@@ -12,9 +12,26 @@ import QtQuick.Effects
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.plasma5support as Plasma5Support
 import "i18n.js" as I18n
+import "metrics" as LocalMetrics
 
 QQC2.Popup {
     id: rootMenu
+
+    Binding {
+        when: rootMenu.effectivePlasmoid !== null
+        target: LocalMetrics.Metrics
+        property: "uiScale"
+        value: (rootMenu.effectivePlasmoid && rootMenu.effectivePlasmoid.configuration
+                && typeof rootMenu.effectivePlasmoid.configuration.shellScale === "number"
+                && rootMenu.effectivePlasmoid.configuration.shellScale > 0)
+            ? rootMenu.effectivePlasmoid.configuration.shellScale
+            : 1.0
+    }
+    Binding {
+        target: LocalMetrics.Metrics
+        property: "hostDpr"
+        value: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
+    }
 
     // Embed in containment or overlay with high z-order so it floats above all applets
     parent: QQC2.Overlay.overlay ? QQC2.Overlay.overlay : (containment ? containment : null)
@@ -86,8 +103,10 @@ QQC2.Popup {
         if (settingsExpanded && rootMenu.menuMode === "desktop") {
             var container = rootMenu.parent || containment || (Window.window ? Window.window.contentItem : null);
             var pH = container ? container.height : 1080;
-            if (rootMenu.y + 460 > pH - 16) {
-                rootMenu.y = Math.max(16, pH - 480);
+            var margin = LocalMetrics.Metrics.px(16.0);
+            var expandedEstH = LocalMetrics.Metrics.px(524.0);
+            if (rootMenu.y + expandedEstH > pH - margin) {
+                rootMenu.y = Math.max(margin, pH - expandedEstH - margin);
             }
         }
     }
@@ -237,6 +256,9 @@ for k in kde_favs:
     if img and img not in res:
         res.append(img)
 
+if curr and os.path.isfile(curr):
+    res = [curr] + [r for r in res if r != curr]
+
 if curr:
     print("CURR:" + curr)
 for r in res[:5]:
@@ -270,18 +292,21 @@ for r in res[:5]:
         var pW = container ? container.width : 1920;
         var pH = container ? container.height : 1080;
 
-        var menuW = 296;
-        var menuH = rootMenu.menuMode === "desktop" ? (settingsExpanded ? 380 : 310) : 230;
+        var menuW = LocalMetrics.Metrics.px(355.0);
+        var menuH = rootMenu.menuMode === "desktop"
+            ? (settingsExpanded ? LocalMetrics.Metrics.px(524.0) : LocalMetrics.Metrics.px(315.0))
+            : LocalMetrics.Metrics.px(270.0);
+        var edgePad = LocalMetrics.Metrics.px(16.0);
 
         // Ensure popup doesn't overflow screen borders
         var finalX = targetX;
         var finalY = targetY;
 
-        if (finalX + menuW > pW - 16) {
-            finalX = Math.max(16, targetX - menuW);
+        if (finalX + menuW > pW - edgePad) {
+            finalX = Math.max(edgePad, targetX - menuW);
         }
-        if (finalY + menuH > pH - 16) {
-            finalY = Math.max(16, targetY - menuH);
+        if (finalY + menuH > pH - edgePad) {
+            finalY = Math.max(edgePad, targetY - menuH);
         }
 
         rootMenu.x = finalX;
@@ -298,7 +323,7 @@ for r in res[:5]:
 
     // Content container with Spring Scale & Fade In
     contentItem: Item {
-        implicitWidth: 296
+        implicitWidth: LocalMetrics.Metrics.px(355.0)
         implicitHeight: mainColumn.implicitHeight
 
         scale: rootMenu.opened ? 1.0 : 0.88
@@ -315,7 +340,7 @@ for r in res[:5]:
         Column {
             id: mainColumn
             width: parent.width
-            spacing: 1
+            spacing: LocalMetrics.Metrics.px(2.0)
 
             // ================================================================
             // TOP CARD: Main Actions & Wallpaper Carousel (Desktop Mode)
@@ -323,8 +348,8 @@ for r in res[:5]:
             Rectangle {
                 id: topCard
                 width: parent.width
-                implicitHeight: topCardColumn.implicitHeight + 24
-                radius: 28
+                implicitHeight: topCardColumn.implicitHeight + LocalMetrics.Metrics.px(8.0)
+                radius: LocalMetrics.Metrics.px(24.0)
                 color: rootMenu.cBg
                 border.color: "transparent"
                 border.width: 0
@@ -333,7 +358,7 @@ for r in res[:5]:
                 layer.effect: MultiEffect {
                     shadowEnabled: true
                     shadowHorizontalOffset: 0
-                    shadowVerticalOffset: 6
+                    shadowVerticalOffset: LocalMetrics.Metrics.px(6.0)
                     shadowBlur: 0.5
                     shadowColor: Qt.rgba(0, 0, 0, 0.32)
                 }
@@ -343,8 +368,10 @@ for r in res[:5]:
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    anchors.margins: 12
-                    spacing: 4
+                    anchors.topMargin: LocalMetrics.Metrics.px(4.0)
+                    anchors.leftMargin: LocalMetrics.Metrics.px(7.0)
+                    anchors.rightMargin: LocalMetrics.Metrics.px(7.0)
+                    spacing: 0
 
                     // --------------------------------------------------------
                     // DESKTOP MODE
@@ -355,7 +382,7 @@ for r in res[:5]:
                         visible: active
                         sourceComponent: Column {
                             width: parent.width
-                            spacing: 2
+                            spacing: LocalMetrics.Metrics.px(2.0)
 
                             // 1. New folder
                             ActionRow {
@@ -412,15 +439,16 @@ for r in res[:5]:
                             // 4. Horizontal Wallpaper Thumbnails Carousel
                             Item {
                                 width: parent.width
-                                height: 74
+                                height: LocalMetrics.Metrics.px(97.0)
 
                                 ListView {
                                     id: wpView
-                                    anchors.fill: parent
-                                    anchors.topMargin: 4
-                                    anchors.bottomMargin: 2
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.top: parent.top
+                                    height: LocalMetrics.Metrics.px(88.0)
                                     orientation: ListView.Horizontal
-                                    spacing: 8
+                                    spacing: LocalMetrics.Metrics.px(8.0)
                                     clip: true
                                     model: rootMenu.wallpaperList
 
@@ -437,8 +465,8 @@ for r in res[:5]:
                                             return Boolean(aBase && mBase && (aBase === mBase || aBase.replace(/\.[^/.]+$/, "") === mBase.replace(/\.[^/.]+$/, "")));
                                         }
                                         
-                                        width: wpDelegate.isSelected ? 102 : 46
-                                        height: 66
+                                        width: wpDelegate.isSelected ? LocalMetrics.Metrics.px(234.0) : LocalMetrics.Metrics.px(99.0)
+                                        height: LocalMetrics.Metrics.px(88.0)
 
                                         Behavior on width {
                                             NumberAnimation { duration: 250; easing.type: Easing.OutBack; easing.overshoot: 1.1 }
@@ -447,16 +475,16 @@ for r in res[:5]:
                                         Rectangle {
                                             id: wpBox
                                             anchors.fill: parent
-                                            radius: 18
+                                            radius: LocalMetrics.Metrics.px(18.0)
                                             color: rootMenu.isDark ? "#28292E" : "#E2E4E8"
                                             border.color: wpDelegate.isSelected ? rootMenu.cAccent : rootMenu.cCardBorder
-                                            border.width: wpDelegate.isSelected ? 2 : 1
+                                            border.width: wpDelegate.isSelected ? Math.max(1, LocalMetrics.Metrics.px(2.0)) : Math.max(1.0 / LocalMetrics.Metrics.dpr, LocalMetrics.Metrics.px(1.0))
 
                                             Rectangle {
                                                 id: wpMask
                                                 width: wpImageMaskedContainer.width
                                                 height: wpImageMaskedContainer.height
-                                                radius: 16
+                                                radius: LocalMetrics.Metrics.px(16.0)
                                                 color: "black"
                                                 visible: false
                                                 layer.enabled: true
@@ -465,7 +493,7 @@ for r in res[:5]:
                                             Item {
                                                 id: wpImageMaskedContainer
                                                 anchors.fill: parent
-                                                anchors.margins: wpDelegate.isSelected ? 2 : 1
+                                                anchors.margins: wpDelegate.isSelected ? LocalMetrics.Metrics.px(2.0) : LocalMetrics.Metrics.px(1.0)
                                                 layer.enabled: true
                                                 layer.effect: MultiEffect {
                                                     maskEnabled: true
@@ -491,9 +519,9 @@ for r in res[:5]:
                                             // Central Checkmark Badge for Selected Wallpaper
                                             Rectangle {
                                                 anchors.centerIn: parent
-                                                width: 32
-                                                height: 32
-                                                radius: 16
+                                                width: LocalMetrics.Metrics.px(36.0)
+                                                height: LocalMetrics.Metrics.px(36.0)
+                                                radius: LocalMetrics.Metrics.px(18.0)
 
                                                 // Circle background: linkColor
                                                 color: Kirigami.Theme.linkColor
@@ -511,8 +539,8 @@ for r in res[:5]:
 
                                                 Kirigami.Icon {
                                                     anchors.centerIn: parent
-                                                    width: 18
-                                                    height: 18
+                                                    width: LocalMetrics.Metrics.px(20.0)
+                                                    height: LocalMetrics.Metrics.px(20.0)
                                                     source: Qt.resolvedUrl("icons/check.svg")
 
                                                     // Icon color: backgroundColor
@@ -552,7 +580,7 @@ for r in res[:5]:
                         visible: active
                         sourceComponent: Column {
                             width: parent.width
-                            spacing: 2
+                            spacing: LocalMetrics.Metrics.px(2.0)
 
                             ActionRow {
                                 iconSource: Qt.resolvedUrl("icons/open_in_new.svg")
@@ -612,7 +640,7 @@ for r in res[:5]:
                 id: bottomCard
                 width: parent.width
                 implicitHeight: bottomCardColumn.implicitHeight
-                radius: 24
+                radius: LocalMetrics.Metrics.px(24.0)
                 color: rootMenu.cBg
                 border.color: "transparent"
                 border.width: 0
@@ -626,7 +654,7 @@ for r in res[:5]:
                 layer.effect: MultiEffect {
                     shadowEnabled: true
                     shadowHorizontalOffset: 0
-                    shadowVerticalOffset: 6
+                    shadowVerticalOffset: LocalMetrics.Metrics.px(6.0)
                     shadowBlur: 0.5
                     shadowColor: Qt.rgba(0, 0, 0, 0.32)
                 }
@@ -638,24 +666,24 @@ for r in res[:5]:
                     // Pill Main Header Button
                     Item {
                         width: parent.width
-                        height: 48
+                        height: LocalMetrics.Metrics.px(52.0)
 
                         Rectangle {
                             anchors.fill: parent
                             color: bottomMouse.containsMouse ? rootMenu.cHover : "transparent"
-                            radius: 24
+                            radius: LocalMetrics.Metrics.px(24.0)
                         }
 
                         RowLayout {
                             anchors.fill: parent
-                            anchors.leftMargin: 16
-                            anchors.rightMargin: 12
-                            spacing: 8
+                            anchors.leftMargin: LocalMetrics.Metrics.px(14.0)
+                            anchors.rightMargin: LocalMetrics.Metrics.px(12.0)
+                            spacing: LocalMetrics.Metrics.px(12.0)
 
                             // Left Icon: Settings Gear
                             Kirigami.Icon {
-                                Layout.preferredWidth: 22
-                                Layout.preferredHeight: 22
+                                Layout.preferredWidth: LocalMetrics.Metrics.px(20.0)
+                                Layout.preferredHeight: LocalMetrics.Metrics.px(20.0)
                                 source: Qt.resolvedUrl("icons/settings.svg")
                                 isMask: true
                                 color: rootMenu.cText
@@ -666,22 +694,22 @@ for r in res[:5]:
                                 Layout.fillWidth: true
                                 text: rootMenu.menuMode === "desktop" ? I18n.t("More settings") : I18n.t("More system options…")
                                 font.family: "Google Sans Flex"
-                                font.pixelSize: 12
+                                font.pixelSize: LocalMetrics.Metrics.px(15.0)
                                 font.weight: Font.Medium
                                 color: rootMenu.cText
                             }
 
                             // Right Chevron Pill
                             Rectangle {
-                                Layout.preferredWidth: 32
-                                Layout.preferredHeight: 24
-                                radius: 12
+                                Layout.preferredWidth: LocalMetrics.Metrics.px(36.0)
+                                Layout.preferredHeight: LocalMetrics.Metrics.px(26.0)
+                                radius: LocalMetrics.Metrics.px(13.0)
                                 color: rootMenu.isDark ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(0, 0, 0, 0.07)
 
                                 Kirigami.Icon {
                                     anchors.centerIn: parent
-                                    width: 16
-                                    height: 16
+                                    width: LocalMetrics.Metrics.px(18.0)
+                                    height: LocalMetrics.Metrics.px(18.0)
                                     source: Qt.resolvedUrl("icons/keyboard_arrow_down.svg")
                                     isMask: true
                                     color: rootMenu.cSub
@@ -724,19 +752,19 @@ for r in res[:5]:
 
                     // Expandable Accordion Drawer for More Desktop & System Options
                     Column {
-                        width: parent.width - 24
+                        width: parent.width - LocalMetrics.Metrics.px(14.0)
                         anchors.horizontalCenter: parent.horizontalCenter
                         visible: rootMenu.settingsExpanded && rootMenu.menuMode === "desktop"
-                        spacing: 2
-                        topPadding: 4
-                        bottomPadding: 12
+                        spacing: LocalMetrics.Metrics.px(2.0)
+                        topPadding: LocalMetrics.Metrics.px(4.0)
+                        bottomPadding: LocalMetrics.Metrics.px(12.0)
 
                         Rectangle {
                             width: parent.width
                             anchors.horizontalCenter: parent.horizontalCenter
-                            height: 1
+                            height: Math.max(1.0 / LocalMetrics.Metrics.dpr, LocalMetrics.Metrics.px(1.0))
                             color: rootMenu.cCardBorder
-                            Item { height: 4; width: 1 }
+                            Item { height: LocalMetrics.Metrics.px(4.0); width: 1 }
                         }
 
                         // 1. Terminal
@@ -762,11 +790,11 @@ for r in res[:5]:
                         // Separator line
                         Item {
                             width: parent.width
-                            height: 7
+                            height: LocalMetrics.Metrics.px(7.0)
                             Rectangle {
                                 anchors.centerIn: parent
-                                width: parent.width - 16
-                                height: 1
+                                width: parent.width - LocalMetrics.Metrics.px(16.0)
+                                height: Math.max(1.0 / LocalMetrics.Metrics.dpr, LocalMetrics.Metrics.px(1.0))
                                 color: rootMenu.cCardBorder
                             }
                         }
@@ -806,25 +834,25 @@ for r in res[:5]:
         property bool isDestructive: false
         signal clicked()
 
-        width: parent ? parent.width : 272
-        height: 38
-        radius: 12
+        width: parent ? parent.width : LocalMetrics.Metrics.px(341.0)
+        height: LocalMetrics.Metrics.px(50.0)
+        radius: LocalMetrics.Metrics.px(14.0)
         color: rowMouse.pressed ? rootMenu.cPress : (rowMouse.containsMouse ? rootMenu.cHover : "transparent")
 
         RowLayout {
             anchors.fill: parent
-            anchors.leftMargin: 6
-            anchors.rightMargin: 6
-            spacing: 8
+            anchors.leftMargin: LocalMetrics.Metrics.px(7.0)
+            anchors.rightMargin: LocalMetrics.Metrics.px(5.0)
+            spacing: LocalMetrics.Metrics.px(12.0)
 
             Item {
-                Layout.preferredWidth: 22
-                Layout.preferredHeight: 22
+                Layout.preferredWidth: LocalMetrics.Metrics.px(20.0)
+                Layout.preferredHeight: LocalMetrics.Metrics.px(20.0)
 
                 Kirigami.Icon {
                     anchors.centerIn: parent
-                    width: 22
-                    height: 22
+                    width: LocalMetrics.Metrics.px(20.0)
+                    height: LocalMetrics.Metrics.px(20.0)
                     visible: rowRoot.iconSource.length > 0
                     source: rowRoot.iconSource
                     isMask: true
@@ -836,7 +864,7 @@ for r in res[:5]:
                 Layout.fillWidth: true
                 text: rowRoot.text
                 font.family: "Google Sans Flex"
-                font.pixelSize: 12
+                font.pixelSize: LocalMetrics.Metrics.px(15.0)
                 font.weight: Font.Medium
                 color: rowRoot.isDestructive && rowMouse.containsMouse ? "#EA4335" : rootMenu.cText
                 elide: Text.ElideRight
