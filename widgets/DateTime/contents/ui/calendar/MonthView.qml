@@ -15,6 +15,7 @@ import QtQuick
 import org.kde.plasma.components as PlasmaComponents
 import org.kde.plasma.workspace.calendar as PlasmaCalendar
 import org.kde.kirigami as Kirigami
+import "../metrics" as LocalMetrics
 
 Item {
     id: root
@@ -213,9 +214,8 @@ Item {
 
     /* ------------------------------------------------------- UI Starts From Here ----------------------------------------------------- */
 
-    readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
     function snap(val) {
-        return Math.round(val * dpr) / dpr;
+        return LocalMetrics.Metrics.snap(val);
     }
 
     MonthViewHeader {
@@ -223,7 +223,7 @@ Item {
 
         width: parent.width
         anchors.top: parent.top
-        anchors.topMargin: snap(12.0)
+        anchors.topMargin: LocalMetrics.Metrics.px(6.0)
         swipeView: swipeView
         monthViewRoot: root
         KeyNavigation.down: (swipeView?.currentItem as InfiniteList)?.currentItem ?? null
@@ -237,13 +237,13 @@ Item {
 
         anchors {
             top: viewHeader.bottom
-            topMargin: Kirigami.Units.largeSpacing + Kirigami.Units.smallSpacing
+            topMargin: LocalMetrics.Metrics.px(4.0)
             left: parent.left
-            leftMargin: snap(4.8)
+            leftMargin: LocalMetrics.Metrics.px(7.0)
             right: parent.right
-            rightMargin: snap(4.8)
+            rightMargin: LocalMetrics.Metrics.px(7.0)
             bottom: parent.bottom
-            bottomMargin: snap(32.0)
+            bottomMargin: LocalMetrics.Metrics.px(4.0)
         }
 
         activeFocusOnTab: false

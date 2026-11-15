@@ -16,6 +16,7 @@ import QtQuick
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.components as PlasmaComponents
 import org.kde.plasma.workspace.calendar as PlasmaCalendar
+import "../metrics" as LocalMetrics
 
 PlasmaComponents.AbstractButton {
     id: dayStyle
@@ -51,19 +52,19 @@ PlasmaComponents.AbstractButton {
      * [label]
      * [subDayLabel]
      */
-    property double calendarFontPixelSize: 12.8
+    property double calendarFontPixelSize: LocalMetrics.Metrics.px(16.5)
     property double mainLabelFontPixelSize: calendarFontPixelSize > 0 ? calendarFontPixelSize : Math.max(
-        Kirigami.Theme.defaultFont.pixelSize * 1.35 /* Level 1 Heading */,
+        LocalMetrics.Metrics.legacyDp(15),
         height / (dateMatchingPrecision === PlasmaCalendar.Calendar.MatchYearMonthAndDay ? 3 /* weeksColumn */ : 6))
     property double eventIndicatorsRowSize: Math.min(
-        Kirigami.Units.smallSpacing,
+        LocalMetrics.Metrics.legacyDp(4),
         height / 6
     )
     // This is set to such that `subDayLabel` does not overlap with `label`
     // and `eventIndicatorsRow`.
     property double subDayLabelFontPixelSize: Math.min(
         Math.max(
-            Kirigami.Theme.smallFont.pixelSize,
+            LocalMetrics.Metrics.legacyDp(10),
             height / (dateMatchingPrecision === PlasmaCalendar.Calendar.MatchYearMonthAndDay ? 6 : 12)),
         (height - mainLabelFontPixelSize) / 2 - eventIndicatorsRowSize
     )
@@ -137,9 +138,11 @@ PlasmaComponents.AbstractButton {
             id: selectionHighlight
             anchors.centerIn: parent
             readonly property bool isDayView: dayStyle.dateMatchingPrecision === PlasmaCalendar.Calendar.MatchYearMonthAndDay
-            width: isDayView ? Math.min(Math.min(parent.width, parent.height) - 4, 34) : parent.width - 8
-            height: isDayView ? width : parent.height - 8
-            radius: isDayView ? (width / 2) : 10
+            width: isDayView
+                ? Math.min(Math.min(parent.width, parent.height) - LocalMetrics.Metrics.px(4.0), LocalMetrics.Metrics.px(40.0))
+                : parent.width - LocalMetrics.Metrics.legacyDp(8)
+            height: isDayView ? width : parent.height - LocalMetrics.Metrics.legacyDp(8)
+            radius: isDayView ? (width / 2) : LocalMetrics.Metrics.legacyDp(10)
             visible: dayStyle.isCurrent
 
             color: {
@@ -170,12 +173,12 @@ PlasmaComponents.AbstractButton {
         // and thus dateMatchingPrecision is PlasmaCalendar.Calendar.MatchYearMonthAndDay
         active: dayStyle.isCurrent && dayStyle.model.eventCount !== undefined && dayStyle.model.eventCount > 0
         anchors.top: parent.top
-        anchors.topMargin: Kirigami.Units.largeSpacing
+        anchors.topMargin: LocalMetrics.Metrics.legacyDp(6)
         anchors.horizontalCenter: parent.horizontalCenter
         sourceComponent: Row {
             id: eventIndicatorsRow
 
-            spacing: Kirigami.Units.smallSpacing
+            spacing: LocalMetrics.Metrics.legacyDp(4)
 
             Repeater {
                 id: eventIndicatorsRepeater

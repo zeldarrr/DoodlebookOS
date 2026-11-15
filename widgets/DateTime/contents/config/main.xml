@@ -15,10 +15,14 @@
       <default></default>
     </entry>
     <entry name="popupWidth" type="Int">
-      <default>338</default>
+      <default>301</default>
     </entry>
     <entry name="popupHeight" type="Int">
-      <default>353</default>
+      <default>313</default>
+    </entry>
+    <entry name="shellScale" type="Double">
+      <label>Independent UI scale multiplier (0.85, 1.00, 1.1625)</label>
+      <default>1.0</default>
     </entry>
     <entry name="showSeconds" type="Enum">
       <label>How seconds should be shown in the clock.</label>

@@ -16,6 +16,7 @@ import org.kde.kirigami as Kirigami
 import org.kde.plasma.clock
 import org.kde.plasma.private.digitalclock
 import "i18n.js" as I18n
+import "metrics" as LocalMetrics
 
 Rectangle {
     id: toolTipContentItem
@@ -23,14 +24,14 @@ Rectangle {
     function i18n(k, a1, a2) { return I18n.t(k, a1, a2); }
     function i18nc(c, k, a1, a2) { return I18n.t(k, a1, a2); }
 
-    property int minimumTextWidth: Kirigami.Units.gridUnit * 25
-    property int maximumTextWidth: Math.max(minimumTextWidth, clocks.implicitWidth)
+    property real minimumTextWidth: LocalMetrics.Metrics.legacyDp(450)
+    property real maximumTextWidth: Math.max(minimumTextWidth, clocks.implicitWidth)
 
-    implicitWidth: mainLayout.implicitWidth + Kirigami.Units.gridUnit
-    implicitHeight: mainLayout.implicitHeight + Kirigami.Units.gridUnit
+    implicitWidth: mainLayout.implicitWidth + LocalMetrics.Metrics.legacyDp(18)
+    implicitHeight: mainLayout.implicitHeight + LocalMetrics.Metrics.legacyDp(18)
 
     color: Kirigami.Theme.backgroundColor
-    radius: 14
+    radius: LocalMetrics.Metrics.legacyDp(14)
     border.width: 0
     border.color: "transparent"
 

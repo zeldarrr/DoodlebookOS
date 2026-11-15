@@ -15,6 +15,7 @@ import org.kde.kirigami as Kirigami
 import org.kde.plasma.components as PlasmaComponents
 import QtQuick.Effects
 import "../i18n.js" as I18n
+import "../metrics" as LocalMetrics
 
 Item {
     id: root
@@ -30,9 +31,8 @@ Item {
     implicitWidth: viewHeader.implicitWidth
     implicitHeight: viewHeader.implicitHeight
 
-    readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
     function snap(val) {
-        return Math.round(val * dpr) / dpr;
+        return LocalMetrics.Metrics.snap(val);
     }
 
     KeyNavigation.up: monthYearBtn
@@ -41,10 +41,10 @@ Item {
         id: viewHeader
         anchors {
             fill: parent
-            leftMargin: Kirigami.Units.largeSpacing + snap(10.4)
-            rightMargin: Kirigami.Units.largeSpacing + snap(8.0)
+            leftMargin: LocalMetrics.Metrics.px(18.0)
+            rightMargin: LocalMetrics.Metrics.px(16.0)
         }
-        spacing: Kirigami.Units.smallSpacing
+        spacing: LocalMetrics.Metrics.px(4.0)
 
         // Entire row on the left is a button with Month + Year + Down arrow icon
         PlasmaComponents.ItemDelegate {
@@ -54,7 +54,7 @@ Item {
             hoverEnabled: true
 
             background: Rectangle {
-                radius: 8
+                radius: LocalMetrics.Metrics.legacyDp(8)
                 color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, monthYearBtn.pressed ? 0.20 : (monthYearBtn.hovered ? 0.12 : 0))
                 Behavior on color {
                     ColorAnimation { duration: Kirigami.Units.shortDuration }
@@ -62,7 +62,7 @@ Item {
             }
 
             contentItem: RowLayout {
-                spacing: 6
+                spacing: LocalMetrics.Metrics.legacyDp(6)
 
                 Text {
                     id: heading
@@ -79,7 +79,7 @@ Item {
                         weight: 600
                         pixelSize: (typeof root.monthViewRoot !== "undefined" && root.monthViewRoot && root.monthViewRoot.calendarFontPixelSize > 0)
                             ? root.monthViewRoot.calendarFontPixelSize
-                            : 12.8
+                            : LocalMetrics.Metrics.px(16.5)
                     }
                     renderType: Text.QtRendering
                     color: (monthYearBtn.hovered || monthYearBtn.pressed) ? Kirigami.Theme.activeTextColor : Kirigami.Theme.textColor
@@ -88,8 +88,8 @@ Item {
                 }
 
                 Item {
-                    Layout.preferredWidth: 14
-                    Layout.preferredHeight: 14
+                    Layout.preferredWidth: LocalMetrics.Metrics.legacyDp(14)
+                    Layout.preferredHeight: LocalMetrics.Metrics.legacyDp(14)
                     Layout.alignment: Qt.AlignVCenter
                     rotation: root.swipeView.currentIndex === 0 ? 0 : 180
                     Behavior on rotation { NumberAnimation { duration: Kirigami.Units.shortDuration } }
@@ -97,7 +97,7 @@ Item {
                     Image {
                         id: arrowDownImg
                         anchors.fill: parent
-                        sourceSize: Qt.size(32, 32)
+                        sourceSize: Qt.size(Math.round(LocalMetrics.Metrics.legacyDp(14) * 2), Math.round(LocalMetrics.Metrics.legacyDp(14) * 2))
                         source: Qt.resolvedUrl("../icons/arrow_drop_down.svg")
                         fillMode: Image.PreserveAspectFit
                         smooth: true
@@ -129,7 +129,7 @@ Item {
 
         // Navigation buttons on the right: left arrow and right arrow
         RowLayout {
-            spacing: Kirigami.Units.smallSpacing
+            spacing: LocalMetrics.Metrics.legacyDp(4)
             Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
 
             PlasmaComponents.ToolButton {
@@ -151,7 +151,7 @@ Item {
                 PlasmaComponents.ToolTip { text: prevBtn.text }
 
                 background: Rectangle {
-                    radius: 8
+                    radius: LocalMetrics.Metrics.legacyDp(8)
                     color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, prevBtn.pressed ? 0.20 : (prevBtn.hovered ? 0.12 : 0))
                     Behavior on color {
                         ColorAnimation { duration: Kirigami.Units.shortDuration }
@@ -159,15 +159,15 @@ Item {
                 }
 
                 contentItem: Item {
-                    implicitWidth: 24
-                    implicitHeight: 24
+                    implicitWidth: LocalMetrics.Metrics.legacyDp(24)
+                    implicitHeight: LocalMetrics.Metrics.legacyDp(24)
 
                     Image {
                         id: prevArrowImg
                         anchors.centerIn: parent
-                        width: 24
-                        height: 24
-                        sourceSize: Qt.size(48, 48)
+                        width: LocalMetrics.Metrics.legacyDp(24)
+                        height: LocalMetrics.Metrics.legacyDp(24)
+                        sourceSize: Qt.size(Math.round(width * 2), Math.round(height * 2))
                         fillMode: Image.PreserveAspectFit
                         source: Qt.resolvedUrl(Application.layoutDirection === Qt.RightToLeft ? "../icons/keyboard_arrow_right.svg" : "../icons/keyboard_arrow_left.svg")
                         smooth: true
@@ -204,7 +204,7 @@ Item {
                 PlasmaComponents.ToolTip { text: nextBtn.text }
 
                 background: Rectangle {
-                    radius: 8
+                    radius: LocalMetrics.Metrics.legacyDp(8)
                     color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, nextBtn.pressed ? 0.20 : (nextBtn.hovered ? 0.12 : 0))
                     Behavior on color {
                         ColorAnimation { duration: Kirigami.Units.shortDuration }
@@ -212,15 +212,15 @@ Item {
                 }
 
                 contentItem: Item {
-                    implicitWidth: 24
-                    implicitHeight: 24
+                    implicitWidth: LocalMetrics.Metrics.legacyDp(24)
+                    implicitHeight: LocalMetrics.Metrics.legacyDp(24)
 
                     Image {
                         id: nextArrowImg
                         anchors.centerIn: parent
-                        width: 24
-                        height: 24
-                        sourceSize: Qt.size(48, 48)
+                        width: LocalMetrics.Metrics.legacyDp(24)
+                        height: LocalMetrics.Metrics.legacyDp(24)
+                        sourceSize: Qt.size(Math.round(width * 2), Math.round(height * 2))
                         fillMode: Image.PreserveAspectFit
                         source: Qt.resolvedUrl(Application.layoutDirection === Qt.RightToLeft ? "../icons/keyboard_arrow_left.svg" : "../icons/keyboard_arrow_right.svg")
                         smooth: true

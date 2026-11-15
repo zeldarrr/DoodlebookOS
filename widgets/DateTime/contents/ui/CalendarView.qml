@@ -18,6 +18,7 @@ import org.kde.plasma.workspace.calendar as PlasmaCalendar
 import org.kde.plasma.extras as PlasmaExtras
 import org.kde.kirigami as Kirigami
 import "calendar" as CustomCalendar
+import "metrics" as LocalMetrics
 
 // Pure Single-Column Month View (No agenda, no additional clocks)
 PlasmaExtras.Representation {
@@ -26,18 +27,14 @@ PlasmaExtras.Representation {
     Kirigami.Theme.colorSet: Kirigami.Theme.Window
     Kirigami.Theme.inherit: true
 
-    readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
     function snap(val) {
-        return Math.round(val * dpr) / dpr;
+        return LocalMetrics.Metrics.snap(val);
     }
 
-    // 423 px fizycznych przy skali 125% (338.4 dp):
-    readonly property real baseCalendarWidth: snap(338.4)
-    // 441 px fizycznych przy skali 125% (352.8 dp):
-    readonly property real baseCalendarHeight: snap(352.8)
-    readonly property real calendarFontPixelSize: (typeof root !== "undefined" && root && root.calendarFontPixelSize > 0)
-        ? root.calendarFontPixelSize
-        : snap(snap(32.0 * 0.675) * (16.0 / 27.0))
+    // Punkt 0 (3440x1440 @125%): 376 x 391 px
+    readonly property real baseCalendarWidth: LocalMetrics.Metrics.px(376.0)
+    readonly property real baseCalendarHeight: LocalMetrics.Metrics.px(391.0)
+    readonly property real calendarFontPixelSize: LocalMetrics.Metrics.px(16.5)
 
     Layout.preferredWidth: baseCalendarWidth
     Layout.minimumWidth: baseCalendarWidth
@@ -155,9 +152,9 @@ PlasmaExtras.Representation {
 
             anchors {
                 fill: parent
-                leftMargin: Kirigami.Units.smallSpacing
-                rightMargin: Kirigami.Units.smallSpacing
-                bottomMargin: Kirigami.Units.smallSpacing
+                leftMargin: LocalMetrics.Metrics.px(5.0)
+                rightMargin: LocalMetrics.Metrics.px(5.0)
+                bottomMargin: LocalMetrics.Metrics.px(4.0)
             }
 
             eventPluginsManager: eventPluginsManager

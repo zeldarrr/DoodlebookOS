@@ -10,38 +10,49 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Window
 
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.private.digitalclock
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.clock
+import "metrics" as LocalMetrics
 
 PlasmoidItem {
     id: root
 
-    width: Kirigami.Units.gridUnit * 10
-    height: Kirigami.Units.gridUnit * 4
+    width: LocalMetrics.Metrics.legacyDp(180)
+    height: LocalMetrics.Metrics.legacyDp(72)
 
     Plasmoid.backgroundHints: PlasmaCore.Types.NoBackground
 
-    readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
+    Binding {
+        target: LocalMetrics.Metrics
+        property: "hostDpr"
+        value: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
+    }
+    Binding {
+        target: LocalMetrics.Metrics
+        property: "uiScale"
+        value: (Plasmoid.configuration && typeof Plasmoid.configuration.shellScale === "number" && Plasmoid.configuration.shellScale > 0)
+            ? Plasmoid.configuration.shellScale
+            : 1.0
+    }
+
     function snap(val) {
-        return Math.round(val * dpr) / dpr;
+        return LocalMetrics.Metrics.snap(val);
     }
     readonly property real effectiveHeight: {
         if (Plasmoid.containment && typeof Plasmoid.containment.height === "number" && Plasmoid.containment.height > 0) {
             return Plasmoid.formFactor === PlasmaCore.Types.Vertical ? Plasmoid.containment.width : Plasmoid.containment.height;
         }
-        return 32.0;
+        return LocalMetrics.Metrics.px(36.0);
     }
-    readonly property real pillHeight: snap(effectiveHeight * 0.675)
-    // 16 px fizycznych przy 125% skali (12.8 dp), dynamicznie przeliczane przez snap
-    readonly property real calendarFontPixelSize: snap(pillHeight * (16.0 / 27.0))
-    // 423 px fizycznych przy skali 125% (338.4 dp):
-    readonly property real baseCalendarWidth: snap(338.4)
-    // 441 px fizycznych przy skali 125% (352.8 dp):
-    readonly property real baseCalendarHeight: snap(352.8)
+    readonly property real pillHeight: LocalMetrics.Metrics.barPx(effectiveHeight, 24.0, 36.0)
+    readonly property real calendarFontPixelSize: LocalMetrics.Metrics.px(16.5)
+    readonly property real baseCalendarWidth: LocalMetrics.Metrics.px(376.0)
+    readonly property real baseCalendarHeight: LocalMetrics.Metrics.px(391.0)
 
     readonly property string dateFormatString: setDateFormatString()
     readonly property var currentTime: currentClock.dateTime
@@ -228,5 +239,15 @@ PlasmoidItem {
         }
 
         initTimeZones();
+    }
+
+    Connections {
+        target: Plasmoid.configuration
+        function onShellScaleChanged() {
+            if (Plasmoid.configuration) {
+                Plasmoid.configuration.popupWidth = root.baseCalendarWidth;
+                Plasmoid.configuration.popupHeight = root.baseCalendarHeight;
+            }
+        }
     }
 }

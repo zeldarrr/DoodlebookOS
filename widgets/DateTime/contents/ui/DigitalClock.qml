@@ -19,6 +19,7 @@ import org.kde.plasma.private.digitalclock
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.clock
 import org.kde.taskmanager as TaskManager
+import "metrics" as LocalMetrics
 
 MouseArea {
     id: main
@@ -28,25 +29,26 @@ MouseArea {
     Kirigami.Theme.colorSet: Kirigami.Theme.Window
     Kirigami.Theme.inherit: true
 
-    readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
     readonly property bool isVert: Plasmoid.formFactor === PlasmaCore.Types.Vertical
     readonly property real effectiveHeight: {
         if (Plasmoid.containment && typeof Plasmoid.containment.height === "number" && Plasmoid.containment.height > 0) {
             return isVert ? Plasmoid.containment.width : Plasmoid.containment.height;
         }
-        return isVert ? (parent && parent.width > 0 ? parent.width : 32) : (parent && parent.height > 0 ? parent.height : 32);
+        return isVert
+            ? (parent && parent.width > 0 ? parent.width : LocalMetrics.Metrics.px(36.0))
+            : (parent && parent.height > 0 ? parent.height : LocalMetrics.Metrics.px(36.0));
     }
     function snap(val) {
-        return Math.round(val * dpr) / dpr;
+        return LocalMetrics.Metrics.snap(val);
     }
 
-    // Design Tokens / Normalized Top Bar Metrics (Full Symmetry ChromeOS)
-    readonly property real pillHeight: snap(effectiveHeight * 0.675)          // 27px physical on 32dp (21.6 dp)
-    readonly property real pillTopMargin: snap((effectiveHeight - pillHeight) / 2) // Centered in rail (7px physical / 5.6 dp)
-    readonly property real pillSidePadding: snap(effectiveHeight * 0.20)      // 20% side padding inside pill (8px physical)
-    readonly property real pillLeftMargin: Math.max(0, snap(effectiveHeight * 0.62) - 4.0) // 20px physical (left edge; +8px pad +6px panel = 34px)
-    readonly property real fontPixelSize: snap(effectiveHeight * 0.400)       // 40% of bar height (12.8 dp = 16px physical)
-    readonly property real dateLeftMargin: snap(effectiveHeight * 0.300)      // 12px physical (+2px glyph bearing = 14px gap)
+    // Punkt 0 Top Bar Metrics (36 px = 29 dp)
+    readonly property real pillHeight: LocalMetrics.Metrics.barPx(effectiveHeight, 24.0, 36.0)
+    readonly property real pillTopMargin: snap((effectiveHeight - pillHeight) / 2)
+    readonly property real pillSidePadding: LocalMetrics.Metrics.barPx(effectiveHeight, 6.0, 36.0)
+    readonly property real pillLeftMargin: LocalMetrics.Metrics.barPx(effectiveHeight, 20.0, 36.0)
+    readonly property real fontPixelSize: LocalMetrics.Metrics.barPx(effectiveHeight, 15.0, 36.0)
+    readonly property real dateLeftMargin: LocalMetrics.Metrics.barPx(effectiveHeight, 13.0, 36.0)
     readonly property real pillWidth: isVert ? Math.min(main.width, pillHeight) : snap(contentItem.width + pillSidePadding * 2)
 
     implicitWidth: isVert ? effectiveHeight : (pillLeftMargin + pillWidth)
@@ -365,7 +367,7 @@ MouseArea {
     Item {
         id: contentItem
         anchors.verticalCenter: unifiedButton.verticalCenter
-        anchors.verticalCenterOffset: 0.4 // Half physical pixel nudge for CurveRendering cap height (y=14..25)
+        anchors.verticalCenterOffset: -0.4 // Align CurveRendering cap height to ref y=12..23/24
         anchors.horizontalCenter: unifiedButton.horizontalCenter
 
         Grid {
@@ -387,6 +389,7 @@ MouseArea {
                     family: "Google Sans Flex"
                     weight: 600
                     pointSize: main.fontPixelSize * 0.75
+                    letterSpacing: main.fontPixelSize * (-0.20 / 15.0)
                     features: ({ "tnum": (Plasmoid.configuration && Plasmoid.configuration.showSeconds === 2) ? 1 : 0 })
                 }
                 renderType: Text.CurveRendering
@@ -411,6 +414,7 @@ MouseArea {
                 family: timeLabel.font.family
                 weight: timeLabel.font.weight
                 pointSize: timeLabel.font.pointSize
+                letterSpacing: timeLabel.font.letterSpacing
             }
             renderType: Text.CurveRendering
             color: main.labelColor
@@ -434,6 +438,7 @@ MouseArea {
             family: timeLabel.font.family
             weight: timeLabel.font.weight
             pointSize: timeLabel.font.pointSize
+            letterSpacing: timeLabel.font.letterSpacing
             features: timeLabel.font.features
         }
         minimumPixelSize: 1
