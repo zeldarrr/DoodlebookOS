@@ -22,5 +22,21 @@
       <label>List of active Quick Settings tiles</label>
       <default>wifi,bluetooth,dark_mode,battery_saver,modes,mic,screenshot,quickshare</default>
     </entry>
+    <entry name="trayMaxInlineIcons" type="Int">
+      <label>Maximum app tray icon slots shown directly in the top bar</label>
+      <default>3</default>
+    </entry>
+    <entry name="trayShowPassive" type="Bool">
+      <label>Show Passive StatusNotifier items in the app tray</label>
+      <default>false</default>
+    </entry>
+    <entry name="trayHiddenIds" type="String">
+      <label>Comma-separated list of hidden StatusNotifier item IDs</label>
+      <default></default>
+    </entry>
+    <entry name="shellScale" type="Double">
+      <label>Independent UI scale multiplier (0.85, 1.00, 1.1625)</label>
+      <default>1.0</default>
+    </entry>
   </group>
 </kcfg>

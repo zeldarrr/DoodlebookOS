@@ -5,29 +5,34 @@
 */
 
 import QtQuick
+import QtQuick.Window
 import QtQuick.Layouts
 
 import org.kde.plasma.core as PlasmaCore
 import org.kde.kquickcontrolsaddons as KQuickAddons
 import plasma.applet.org.kde.plasma.notifications as NotificationsApplet
+import "../metrics" as LocalMetrics
 
 NotificationsApplet.NotificationWindow {
     id: notificationPopup
 
-    readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
+    readonly property real dpr: LocalMetrics.Metrics.dpr
     function snap(val) {
-        return Math.round(val * dpr) / dpr;
+        return LocalMetrics.Metrics.snap(val);
+    }
+    function legacyDp(val) {
+        return LocalMetrics.Metrics.legacyDp(val);
     }
 
     backgroundHints: PlasmaCore.Types.NoBackground
 
-    property int popupWidth: snap(309.6)
+    property real popupWidth: legacyDp(309.6)
 
     // Maximum width the popup can take to not break out of the screen geometry.
-    readonly property int availableWidth: (Screen.desktopAvailableWidth > 0 ? Screen.desktopAvailableWidth : Screen.width) - 32
+    readonly property real availableWidth: (Screen.desktopAvailableWidth > 0 ? Screen.desktopAvailableWidth : Screen.width) - legacyDp(32.0)
 
-    readonly property int minimumContentWidth: popupWidth
-    readonly property int maximumContentWidth: Math.min((availableWidth > 0 ? availableWidth : Number.MAX_VALUE), popupWidth * 3)
+    readonly property real minimumContentWidth: popupWidth
+    readonly property real maximumContentWidth: Math.min((availableWidth > 0 ? availableWidth : Number.MAX_VALUE), popupWidth * 3)
 
     property alias modelInterface: notificationItem.modelInterface
 
@@ -182,7 +187,7 @@ NotificationsApplet.NotificationWindow {
                 anchors.fill: parent
 
                 Layout.preferredHeight: implicitHeight
-                Layout.preferredWidth: notificationPopup.snap(309.6)
+                Layout.preferredWidth: notificationPopup.popupWidth
 
                 modelInterface {
                     closable: true

@@ -519,6 +519,18 @@ class InstallWorker(QThread):
                 user_systemd.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(krunner_svc_src, user_systemd / "plasma-krunner.service")
 
+            # StatusNotifier Tray Bridge Daemon (StatusCluster App Tray)
+            tray_bridge_src = self.repo_dir / "system-overrides" / "tray-bridge" / "doodlebook-tray-bridge.py"
+            tray_svc_src = self.repo_dir / "system-overrides" / "tray-bridge" / "systemd" / "doodlebook-tray-bridge.service"
+            if tray_bridge_src.exists():
+                dest_tray_bridge = bin_dir / "doodlebook-tray-bridge.py"
+                shutil.copy2(tray_bridge_src, dest_tray_bridge)
+                dest_tray_bridge.chmod(0o755)
+            if tray_svc_src.exists():
+                user_systemd = home / ".config" / "systemd" / "user"
+                user_systemd.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(tray_svc_src, user_systemd / "doodlebook-tray-bridge.service")
+
             # Icon Studio (Material 3 Icon Personalizer)
             icon_studio_dir = self.repo_dir / "tools" / "icon-studio"
             if icon_studio_dir.exists():
@@ -768,9 +780,9 @@ class InstallWorker(QThread):
                     p.floating = false;
                     p.lengthMode = "fill";
                     if (p.location === "bottom") {{
-                        p.height = 52;
+                        p.height = 45;
                     }} else if (p.location === "top") {{
-                        p.height = 32;
+                        p.height = 29;
                         p.userBackgroundHints = 0;
                     }}
                     var ws = p.widgets();
@@ -1005,7 +1017,7 @@ class InstallWorker(QThread):
             if topbar_bin.exists():
                 self.run_cmd([str(topbar_bin)])
 
-            # Install & enable doodlebookos-topbar and plasma-krunner systemd user daemons
+            # Install & enable doodlebookos-topbar, plasma-krunner, and doodlebook-tray-bridge systemd user daemons
             service_src = self.repo_dir / "extras" / "scripts" / "doodlebookos-topbar.service"
             if service_src.exists():
                 user_systemd = home / ".config" / "systemd" / "user"
@@ -1014,6 +1026,8 @@ class InstallWorker(QThread):
             if shutil.which("systemctl"):
                 subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
                 subprocess.run(["systemctl", "--user", "enable", "--now", "doodlebookos-topbar.service"], check=False)
+                subprocess.run(["systemctl", "--user", "enable", "--now", "doodlebook-tray-bridge.service"], check=False)
+                subprocess.run(["systemctl", "--user", "restart", "doodlebook-tray-bridge.service"], check=False)
                 subprocess.run(["systemctl", "--user", "restart", "plasma-krunner.service"], check=False)
 
             self.progressChanged.emit(1.0, "Wszystko gotowe!", "All set!")

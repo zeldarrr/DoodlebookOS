@@ -1,9 +1,12 @@
 import QtQuick
 import QtQuick.Controls as QQC2
 import org.kde.kirigami as Kirigami
+import "../metrics" as LocalMetrics
 
 Item {
     id: root
+
+    readonly property real uiScale: LocalMetrics.Metrics.clampedScale
 
     property double value: 0      // In microseconds
     property double from: 0       // In microseconds
@@ -17,15 +20,15 @@ Item {
 
     signal seekRequested(double position)
 
-    implicitWidth: Kirigami.Units.gridUnit * 10
-    implicitHeight: Math.max(32, Kirigami.Units.gridUnit * 1.6)
+    implicitWidth: LocalMetrics.Metrics.snap(Kirigami.Units.gridUnit * 10 * LocalMetrics.Metrics.clampedScale)
+    implicitHeight: Math.max(LocalMetrics.Metrics.legacyDp(32), LocalMetrics.Metrics.snap(Kirigami.Units.gridUnit * 1.6 * LocalMetrics.Metrics.clampedScale))
 
     readonly property bool isLive: to > from && to > 0
     property bool userSeeking: false
     property double userPosition: 0
     property real phase: 0
 
-    property real waveAmplitude: root.isPlaying && !root.userSeeking ? 2.8 : 0.0
+    property real waveAmplitude: root.isPlaying && !root.userSeeking ? LocalMetrics.Metrics.legacyDp(2.8) : 0.0
 
     Behavior on waveAmplitude {
         NumberAnimation { duration: 350; easing.type: Easing.OutCubic }
@@ -50,6 +53,7 @@ Item {
     onHeightChanged: canvas.requestPaint()
     onPlayedColorChanged: canvas.requestPaint()
     onUnplayedColorChanged: canvas.requestPaint()
+    onUiScaleChanged: canvas.requestPaint()
 
     Canvas {
         id: canvas
@@ -62,7 +66,7 @@ Item {
 
             var centerY = Math.round(height / 2);
             var progX = root.progressX;
-            var trackThickness = 3.5;
+            var trackThickness = LocalMetrics.Metrics.legacyDp(3.5);
 
             // 1. Unplayed straight line (from progX to width)
             if (progX < width) {
@@ -83,9 +87,9 @@ Item {
                 ctx.beginPath();
                 ctx.moveTo(0, centerY);
 
-                var wavelength = 38; // Wave cycle length in pixels (rzadsze fale)
+                var wavelength = LocalMetrics.Metrics.legacyDp(38); // Wave cycle length in pixels (rzadsze fale)
                 var amplitude = root.waveAmplitude; // Animated: 2.8 when playing (odrobinę wyższe fale), 0.0 when paused
-                var taperDistance = 14.0; // Distance over which amplitude tapers to 0
+                var taperDistance = LocalMetrics.Metrics.legacyDp(14.0); // Distance over which amplitude tapers to 0
 
                 var step = 1.5;
                 for (var x = 0; x <= progX; x += step) {
@@ -107,8 +111,8 @@ Item {
         id: thumb
         x: Math.round(root.progressX - width / 2)
         anchors.verticalCenter: parent.verticalCenter
-        width: mouseArea.containsMouse || root.userSeeking ? 5 : 4
-        height: mouseArea.containsMouse || root.userSeeking ? 20 : 16
+        width: mouseArea.containsMouse || root.userSeeking ? LocalMetrics.Metrics.legacyDp(5) : LocalMetrics.Metrics.legacyDp(4)
+        height: mouseArea.containsMouse || root.userSeeking ? LocalMetrics.Metrics.legacyDp(20) : LocalMetrics.Metrics.legacyDp(16)
         radius: width / 2
         color: root.thumbColor
         visible: root.isLive

@@ -35,7 +35,7 @@ Item {
     Text {
         id: keyboardLayoutLabel
         x: keyboardLayoutButton.appletRoot.snap((parent.width - width) / 2)
-        y: keyboardLayoutButton.appletRoot.snap((parent.height - height) / 2) + 0.4
+        y: keyboardLayoutButton.appletRoot.snap((parent.height - height) / 2) + keyboardLayoutButton.appletRoot.legacyDp(0.4)
         text: keyboardLayoutButton.appletRoot.activeKeyboardLayoutCode
         font {
             family: "Google Sans"

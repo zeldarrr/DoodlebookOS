@@ -19,6 +19,7 @@ import org.kde.taskmanager as TaskManager
 
 
 import ".."
+import "../../metrics" as LocalMetrics
 
 // This singleton object contains stuff shared between all notification plasmoids, namely:
 // - Popup creation and placement
@@ -128,14 +129,20 @@ QtObject {
     // Make it wider when on the top or the bottom center, since there's more horizontal
     // space available without looking weird
     // On mobile however we don't really want to have larger notifications
-    readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
+    readonly property real dpr: LocalMetrics.Metrics.dpr
     function snap(val) {
-        return Math.round(val * dpr) / dpr;
+        return LocalMetrics.Metrics.snap(val);
+    }
+    function px(val) {
+        return LocalMetrics.Metrics.px(val);
+    }
+    function legacyDp(val) {
+        return LocalMetrics.Metrics.legacyDp(val);
     }
 
-    property int popupWidth: snap(309.6)
-    property int popupEdgeDistance: snap(6.4) // 8px fizycznych od krawędzi ekranu i paska
-    property int popupSpacing: snap(8.0)
+    property real popupWidth: legacyDp(309.6)
+    property real popupEdgeDistance: px(8.0) // 8px fizycznych od krawędzi ekranu i paska
+    property real popupSpacing: legacyDp(8.0)
 
     // How much vertical screen real estate the notification popups may consume
     readonly property real popupMaximumScreenFill: 0.8

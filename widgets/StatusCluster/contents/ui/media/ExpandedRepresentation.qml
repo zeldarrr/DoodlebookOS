@@ -1,11 +1,13 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Window
 import QtQuick.Layouts
 import QtQuick.Effects
 import org.kde.plasma.components as PlasmaComponents3
 import org.kde.kirigami as Kirigami
 import "i18n.js" as I18n
+import "../metrics" as LocalMetrics
 
 Item {
     id: expandedRoot
@@ -14,13 +16,16 @@ Item {
 
     property var root: null
 
-    readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
+    readonly property real dpr: LocalMetrics.Metrics.dpr
     function snap(val) {
-        return Math.round(val * dpr) / dpr;
+        return LocalMetrics.Metrics.snap(val);
+    }
+    function legacyDp(val) {
+        return LocalMetrics.Metrics.legacyDp(val);
     }
 
-    implicitWidth: snap(360.0)
-    implicitHeight: snap(158.4)
+    implicitWidth: legacyDp(360.0)
+    implicitHeight: legacyDp(158.4)
     Layout.preferredWidth: implicitWidth
     Layout.preferredHeight: implicitHeight
     Layout.minimumWidth: implicitWidth
@@ -31,7 +36,7 @@ Item {
     height: implicitHeight
 
     // Corner radius constant
-    readonly property real cornerRadius32: 24
+    readonly property real cornerRadius32: legacyDp(24.0)
 
     function removeNativePlasmaFrame() {
         const win = Window.window;
@@ -152,18 +157,18 @@ Item {
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: expandedRoot.snap(12.8)
-            spacing: Kirigami.Units.smallSpacing * 1.5
+            anchors.margins: expandedRoot.legacyDp(12.8)
+            spacing: expandedRoot.snap(Kirigami.Units.smallSpacing * 1.5 * LocalMetrics.Metrics.clampedScale)
 
             // Top Row: Application icon in top-left corner
             RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: expandedRoot.snap(18.4)
+                Layout.preferredHeight: expandedRoot.legacyDp(18.4)
 
                 Kirigami.Icon {
                     id: sourceIcon
                     Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
-                    Layout.preferredWidth: expandedRoot.snap(18.4)
+                    Layout.preferredWidth: expandedRoot.legacyDp(18.4)
                     Layout.preferredHeight: Layout.preferredWidth
                     source: expandedRoot.root ? expandedRoot.root.appIcon : ""
                     fallback: (expandedRoot.root && expandedRoot.root.isChromeFallbackArt) ? expandedRoot.root.artUrl : ""
@@ -178,19 +183,19 @@ Item {
             RowLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                spacing: Kirigami.Units.mediumSpacing
+                spacing: expandedRoot.snap(Kirigami.Units.mediumSpacing * LocalMetrics.Metrics.clampedScale)
 
                 ColumnLayout {
                     Layout.fillWidth: true
                     Layout.alignment: Qt.AlignVCenter
-                    spacing: 2
+                    spacing: expandedRoot.legacyDp(2.0)
 
                     // Track Title (Cleaned of unread count badges like "(341)")
                     PlasmaComponents3.Label {
                         Layout.fillWidth: true
                         text: (expandedRoot.root && expandedRoot.root.hasMedia) ? expandedRoot.root.track : i18n("No media playing")
                         font.family: "Google Sans Flex"
-                        font.pixelSize: expandedRoot.snap(10.4)
+                        font.pixelSize: expandedRoot.legacyDp(10.4)
                         font.weight: Font.Normal
                         color: card.contentTextColor
                         elide: Text.ElideRight
@@ -204,7 +209,7 @@ Item {
                             ? (expandedRoot.root.artist.length > 0 ? expandedRoot.root.artist : expandedRoot.root.identity)
                             : i18n("Paused")
                         font.family: "Google Sans Flex"
-                        font.pixelSize: expandedRoot.snap(10.4)
+                        font.pixelSize: expandedRoot.legacyDp(10.4)
                         font.weight: Font.Normal
                         color: card.contentSubtextColor
                         elide: Text.ElideRight
@@ -212,14 +217,14 @@ Item {
                     }
                 }
 
-                // Large rounded Play/Pause button: 81x54px (64.8x43.2 dp) with 19px (15.2 dp) top & bottom margin
+                // Large rounded Play/Pause button
                 Rectangle {
                     id: bigPlayButton
-                    Layout.preferredWidth: expandedRoot.snap(64.8)
-                    Layout.preferredHeight: expandedRoot.snap(43.2)
-                    Layout.topMargin: expandedRoot.snap(15.2)
-                    Layout.bottomMargin: expandedRoot.snap(15.2)
-                    radius: (expandedRoot.root && expandedRoot.root.isPlaying) ? 16 : (height / 2)
+                    Layout.preferredWidth: expandedRoot.legacyDp(64.8)
+                    Layout.preferredHeight: expandedRoot.legacyDp(43.2)
+                    Layout.topMargin: expandedRoot.legacyDp(15.2)
+                    Layout.bottomMargin: expandedRoot.legacyDp(15.2)
+                    radius: (expandedRoot.root && expandedRoot.root.isPlaying) ? expandedRoot.legacyDp(16.0) : (height / 2)
                     color: "#ffffff"
 
                     Behavior on radius {
@@ -257,15 +262,15 @@ Item {
                 }
             }
 
-            // Bottom Row: Centered Squiggly Progress Slider (394px = 315.2 dp)
+            // Bottom Row: Centered Squiggly Progress Slider
             Item {
                 Layout.fillWidth: true
-                Layout.preferredHeight: Math.round(Kirigami.Units.gridUnit * 1.6)
+                Layout.preferredHeight: expandedRoot.snap(Kirigami.Units.gridUnit * 1.6 * LocalMetrics.Metrics.clampedScale)
 
                 SquigglySlider {
                     id: waveSlider
                     anchors.centerIn: parent
-                    width: expandedRoot.snap(315.2)
+                    width: expandedRoot.legacyDp(315.2)
                     height: parent.height
 
                     value: expandedRoot.root ? expandedRoot.root.position : 0

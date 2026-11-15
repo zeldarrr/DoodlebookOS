@@ -1,13 +1,14 @@
 import QtQuick
 import QtQuick.Effects
+import "../metrics" as LocalMetrics
 
 Item {
     id: root
 
     property bool isPlaying: false
     property color color: "#18181c"
-    property real iconSize: 16
-    readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
+    property real iconSize: LocalMetrics.Metrics.legacyDp(16)
+    readonly property real dpr: LocalMetrics.Metrics.dpr
 
     implicitWidth: iconSize
     implicitHeight: iconSize

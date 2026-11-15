@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import QtQuick.Layouts
 import QtQuick.Controls as QQC2
 import org.kde.kirigami as Kirigami
@@ -6,6 +7,7 @@ import org.kde.plasma.components as PlasmaComponents3
 import org.kde.bluezqt as BluezQt
 import org.kde.kcmutils as KCMUtils
 import "i18n.js" as I18n
+import "../metrics" as LocalMetrics
 
 Item {
     id: bluetoothViewRoot
@@ -18,9 +20,15 @@ Item {
 
     property bool isExpanded: false
 
-    readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
+    readonly property real dpr: LocalMetrics.Metrics.dpr
     function snap(val) {
-        return Math.round(val * dpr) / dpr;
+        return LocalMetrics.Metrics.snap(val);
+    }
+    function px(val) {
+        return LocalMetrics.Metrics.px(val);
+    }
+    function legacyDp(val) {
+        return LocalMetrics.Metrics.legacyDp(val);
     }
 
     signal closeRequested()
@@ -110,7 +118,7 @@ Item {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        height: headerCol.anchors.topMargin + headerCol.implicitHeight + snap(8.0)
+        height: headerCol.anchors.topMargin + headerCol.implicitHeight + bluetoothViewRoot.legacyDp(8.0)
         color: "transparent"
         z: 10
 
@@ -119,17 +127,17 @@ Item {
             id: backBtn
             anchors.left: parent.left
             anchors.top: parent.top
-            width: snap(32.0)  // 40px fizycznych
-            height: snap(32.0) // 40px fizycznych
-            radius: snap(8.0)
+            width: bluetoothViewRoot.legacyDp(32.0)
+            height: bluetoothViewRoot.legacyDp(32.0)
+            radius: bluetoothViewRoot.legacyDp(8.0)
             color: backMouse.pressed
                    ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.18)
                    : (backMouse.containsMouse ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.1) : "transparent")
 
             Kirigami.Icon {
                 anchors.centerIn: parent
-                width: snap(24.0) // 30px fizycznych
-                height: snap(24.0)
+                width: bluetoothViewRoot.legacyDp(24.0)
+                height: bluetoothViewRoot.legacyDp(24.0)
                 source: Qt.resolvedUrl("icons/arrow_back.svg")
                 isMask: true
                 color: Kirigami.Theme.textColor
@@ -151,15 +159,15 @@ Item {
             id: headerCol
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
-            anchors.topMargin: snap((backBtn.height - btLabel.implicitHeight) / 2)
-            spacing: snap(4.8) // 6px fizycznych
+            anchors.topMargin: bluetoothViewRoot.snap((backBtn.height - btLabel.implicitHeight) / 2)
+            spacing: bluetoothViewRoot.legacyDp(4.8)
 
             PlasmaComponents3.Label {
                 id: btLabel
                 text: i18n("Bluetooth")
                 font.family: bluetoothViewRoot.appFontFamily
                 font.bold: true
-                font.pixelSize: snap(12.0) // 15px fizycznych
+                font.pixelSize: bluetoothViewRoot.legacyDp(12.0)
                 color: Kirigami.Theme.textColor
                 Layout.alignment: Qt.AlignHCenter
             }
@@ -167,17 +175,17 @@ Item {
             PlasmaComponents3.Label {
                 text: i18n("Tap a device to connect")
                 font.family: bluetoothViewRoot.appFontFamily
-                font.pixelSize: snap(9.6) // 12px fizycznych
+                font.pixelSize: bluetoothViewRoot.legacyDp(9.6)
                 color: Kirigami.Theme.disabledTextColor
                 Layout.alignment: Qt.AlignHCenter
             }
 
             Rectangle {
-                Layout.topMargin: snap(4.8) // 12px fizycznych odstępu od napisu
-                Layout.preferredWidth: snap(136.8) // 171px fizycznych
-                Layout.preferredHeight: snap(4.0)   // 5px fizycznych
+                Layout.topMargin: bluetoothViewRoot.legacyDp(4.8)
+                Layout.preferredWidth: bluetoothViewRoot.legacyDp(136.8)
+                Layout.preferredHeight: bluetoothViewRoot.legacyDp(4.0)
                 Layout.alignment: Qt.AlignHCenter
-                radius: snap(2.0)
+                radius: bluetoothViewRoot.legacyDp(2.0)
                 color: fullRep ? fullRep.oneUiTrackBg : Kirigami.Theme.alternateBackgroundColor
             }
         }
@@ -186,9 +194,9 @@ Item {
         Rectangle {
             anchors.right: parent.right
             anchors.top: parent.top
-            width: snap(32.0)  // 40px fizycznych
-            height: snap(32.0) // 40px fizycznych
-            radius: snap(8.0)
+            width: bluetoothViewRoot.legacyDp(32.0)
+            height: bluetoothViewRoot.legacyDp(32.0)
+            radius: bluetoothViewRoot.legacyDp(8.0)
             visible: Boolean(fullRep ? fullRep.isBtOn : true)
             color: scanMouse.pressed
                    ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.18)
@@ -197,8 +205,8 @@ Item {
             Kirigami.Icon {
                 id: refreshIcon
                 anchors.centerIn: parent
-                width: snap(25.6) // 32px fizyczne
-                height: snap(25.6)
+                width: bluetoothViewRoot.legacyDp(25.6)
+                height: bluetoothViewRoot.legacyDp(25.6)
                 source: Qt.resolvedUrl("icons/refresh.svg")
                 isMask: true
                 color: Kirigami.Theme.textColor
@@ -237,7 +245,7 @@ Item {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.topMargin: snap(8.0)
+        anchors.topMargin: bluetoothViewRoot.legacyDp(8.0)
         clip: true
         contentWidth: availableWidth
         QQC2.ScrollBar.vertical.policy: QQC2.ScrollBar.AlwaysOff
@@ -251,19 +259,19 @@ Item {
             // === 1. WHEN BLUETOOTH IS DISABLED ===
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 180
-                radius: 16
+                Layout.preferredHeight: bluetoothViewRoot.legacyDp(180.0)
+                radius: bluetoothViewRoot.legacyDp(16.0)
                 color: fullRep ? fullRep.oneUiTrackBg : Kirigami.Theme.alternateBackgroundColor
                 visible: fullRep ? !fullRep.isBtOn : false
 
                 ColumnLayout {
                     anchors.centerIn: parent
-                    spacing: 10
+                    spacing: bluetoothViewRoot.legacyDp(10.0)
 
                     Kirigami.Icon {
                         source: "preferences-system-bluetooth"
-                        Layout.preferredWidth: 42
-                        Layout.preferredHeight: 42
+                        Layout.preferredWidth: bluetoothViewRoot.legacyDp(42.0)
+                        Layout.preferredHeight: bluetoothViewRoot.legacyDp(42.0)
                         Layout.alignment: Qt.AlignHCenter
                         opacity: 0.4
                         color: Kirigami.Theme.textColor
@@ -273,7 +281,7 @@ Item {
                         text: i18n("Bluetooth is turned off")
                         font.family: bluetoothViewRoot.appFontFamily
                         font.bold: true
-                        font.pixelSize: Math.round(Kirigami.Theme.defaultFont.pixelSize * 1.15)
+                        font.pixelSize: bluetoothViewRoot.snap(Kirigami.Theme.defaultFont.pixelSize * 1.15 * LocalMetrics.Metrics.clampedScale)
                         color: Kirigami.Theme.textColor
                         Layout.alignment: Qt.AlignHCenter
                     }
@@ -281,16 +289,16 @@ Item {
                     PlasmaComponents3.Label {
                         text: i18n("Turn on Bluetooth to connect to devices.")
                         font.family: bluetoothViewRoot.appFontFamily
-                        font.pixelSize: Math.round(Kirigami.Theme.smallFont.pixelSize * 1.05)
+                        font.pixelSize: bluetoothViewRoot.snap(Kirigami.Theme.smallFont.pixelSize * 1.05 * LocalMetrics.Metrics.clampedScale)
                         color: Kirigami.Theme.disabledTextColor
                         Layout.alignment: Qt.AlignHCenter
                     }
 
                     Rectangle {
                         Layout.alignment: Qt.AlignHCenter
-                        Layout.preferredHeight: 36
-                        Layout.preferredWidth: 160
-                        radius: 18
+                        Layout.preferredHeight: bluetoothViewRoot.legacyDp(36.0)
+                        Layout.preferredWidth: bluetoothViewRoot.legacyDp(160.0)
+                        radius: bluetoothViewRoot.legacyDp(18.0)
                         color: fullRep ? fullRep.effectiveAccentColor : Kirigami.Theme.highlightColor
 
                         PlasmaComponents3.Label {
@@ -298,6 +306,7 @@ Item {
                             text: i18n("Turn on Bluetooth")
                             font.family: bluetoothViewRoot.appFontFamily
                             font.bold: true
+                            font.pixelSize: bluetoothViewRoot.snap(Kirigami.Theme.defaultFont.pixelSize * LocalMetrics.Metrics.clampedScale)
                             color: Kirigami.Theme.highlightedTextColor
                         }
 
@@ -317,23 +326,23 @@ Item {
             // === 2. WHEN BLUETOOTH IS ENABLED ===
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: snap(1.6) // 2px fizycznych odstępu między kafelkami
+                spacing: bluetoothViewRoot.legacyDp(1.6)
                 visible: fullRep ? Boolean(fullRep.isBtOn) : true
 
                 // Bluetooth Label + Material 3 Switch Row
                 RowLayout {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: snap(32.0) // 40px fizycznych
-                    Layout.topMargin: snap(14.4)       // 18px fizycznych odstępu od separatora
-                    Layout.leftMargin: snap(19.2)      // wyrównanie z Wi-Fi
-                    Layout.rightMargin: snap(19.2)
-                    Layout.bottomMargin: snap(14.4)
+                    Layout.preferredHeight: bluetoothViewRoot.legacyDp(32.0)
+                    Layout.topMargin: bluetoothViewRoot.legacyDp(14.4)
+                    Layout.leftMargin: bluetoothViewRoot.legacyDp(19.2)
+                    Layout.rightMargin: bluetoothViewRoot.legacyDp(19.2)
+                    Layout.bottomMargin: bluetoothViewRoot.legacyDp(14.4)
 
                     PlasmaComponents3.Label {
                         text: i18n("Bluetooth")
                         font.family: bluetoothViewRoot.appFontFamily
                         font.bold: true
-                        font.pixelSize: snap(12.0) // 15px fizycznych
+                        font.pixelSize: bluetoothViewRoot.legacyDp(12.0)
                         color: Kirigami.Theme.textColor
                         Layout.alignment: Qt.AlignVCenter
                     }
@@ -345,8 +354,8 @@ Item {
                     // Material 3 Expressive Switch
                     Item {
                         id: m3Switch
-                        Layout.preferredWidth: snap(36.8)  // 46px fizycznych
-                        Layout.preferredHeight: snap(22.4) // 28px fizycznych
+                        Layout.preferredWidth: bluetoothViewRoot.legacyDp(36.8)
+                        Layout.preferredHeight: bluetoothViewRoot.legacyDp(22.4)
                         Layout.alignment: Qt.AlignVCenter
 
                         readonly property bool checked: Boolean(fullRep ? fullRep.isBtOn : false)
@@ -366,13 +375,13 @@ Item {
 
                             Rectangle {
                                 id: switchThumb
-                                height: m3Switch.checked ? snap(16.8) : snap(11.2) // 21px vs 14px
+                                height: m3Switch.checked ? bluetoothViewRoot.legacyDp(16.8) : bluetoothViewRoot.legacyDp(11.2)
                                 width: height
                                 radius: height / 2.0
                                 anchors.verticalCenter: parent.verticalCenter
                                 x: m3Switch.checked
-                                   ? (parent.width - width - snap(2.8))
-                                   : snap(3.6)
+                                   ? (parent.width - width - bluetoothViewRoot.legacyDp(2.8))
+                                   : bluetoothViewRoot.legacyDp(3.6)
 
                                 color: m3Switch.checked
                                        ? (Kirigami.Theme.highlightedTextColor)
@@ -394,8 +403,8 @@ Item {
 
                                 Kirigami.Icon {
                                     anchors.centerIn: parent
-                                    width: snap(9.6)
-                                    height: snap(9.6)
+                                    width: bluetoothViewRoot.legacyDp(9.6)
+                                    height: bluetoothViewRoot.legacyDp(9.6)
                                     source: Qt.resolvedUrl("icons/check.svg")
                                     isMask: true
                                     color: fullRep ? fullRep.effectiveAccentColor : Kirigami.Theme.highlightColor
@@ -426,12 +435,12 @@ Item {
                 Rectangle {
                     id: activeDevTile
                     Layout.fillWidth: true
-                    Layout.preferredHeight: snap(64.8) // 81px fizycznych
-                    radius: 16
-                    topLeftRadius: 16
-                    topRightRadius: 16
-                    bottomLeftRadius: 16
-                    bottomRightRadius: 16
+                    Layout.preferredHeight: bluetoothViewRoot.px(72.0)
+                    radius: bluetoothViewRoot.legacyDp(16.0)
+                    topLeftRadius: bluetoothViewRoot.legacyDp(16.0)
+                    topRightRadius: bluetoothViewRoot.legacyDp(16.0)
+                    bottomLeftRadius: bluetoothViewRoot.legacyDp(16.0)
+                    bottomRightRadius: bluetoothViewRoot.legacyDp(16.0)
                     visible: bluetoothViewRoot.connectedList.length > 0
                     color: fullRep ? fullRep.effectiveAccentColor : Kirigami.Theme.highlightColor
 
@@ -442,21 +451,21 @@ Item {
 
                     RowLayout {
                         anchors.fill: parent
-                        anchors.leftMargin: snap(18.4)  // 23px fizyczne
-                        anchors.rightMargin: snap(17.6) // 22px fizyczne
-                        spacing: 12
+                        anchors.leftMargin: bluetoothViewRoot.legacyDp(18.4)
+                        anchors.rightMargin: bluetoothViewRoot.legacyDp(17.6)
+                        spacing: bluetoothViewRoot.legacyDp(12.0)
 
-                        // Czysta ikona urządzenia 22px (bez kwadratowego badge)
+                        // Czysta ikona urządzenia
                         Item {
-                            Layout.preferredWidth: 22
-                            Layout.preferredHeight: 22
+                            Layout.preferredWidth: bluetoothViewRoot.legacyDp(22.0)
+                            Layout.preferredHeight: bluetoothViewRoot.legacyDp(22.0)
                             Layout.alignment: Qt.AlignVCenter
 
                             Image {
                                 visible: activeDevTile.isPixelBuds
                                 anchors.centerIn: parent
-                                width: 22
-                                height: 22
+                                width: bluetoothViewRoot.legacyDp(22.0)
+                                height: bluetoothViewRoot.legacyDp(22.0)
                                 source: Qt.resolvedUrl("assets/pixel_buds.png")
                                 fillMode: Image.PreserveAspectFit
                                 smooth: true
@@ -466,8 +475,8 @@ Item {
                             Kirigami.Icon {
                                 visible: !activeDevTile.isPixelBuds
                                 anchors.centerIn: parent
-                                width: 22
-                                height: 22
+                                width: bluetoothViewRoot.legacyDp(22.0)
+                                height: bluetoothViewRoot.legacyDp(22.0)
                                 source: (activeDevTile.activeDev && activeDevTile.activeDev.icon) ? activeDevTile.activeDev.icon : "preferences-system-bluetooth"
                                 color: activeDevTile.onPrimaryColor
                             }
@@ -477,14 +486,14 @@ Item {
                         ColumnLayout {
                             Layout.fillWidth: true
                             Layout.alignment: Qt.AlignVCenter
-                            spacing: snap(2.4)
+                            spacing: bluetoothViewRoot.legacyDp(2.4)
 
                             PlasmaComponents3.Label {
                                 text: activeDevTile.devName
                                 font.family: bluetoothViewRoot.appFontFamily
                                 font.bold: false
                                 font.weight: Font.DemiBold // waga 600
-                                font.pixelSize: snap(12.4) // 15.5px fizycznych
+                                font.pixelSize: bluetoothViewRoot.legacyDp(12.4)
                                 color: activeDevTile.onPrimaryColor
                                 elide: Text.ElideRight
                                 Layout.fillWidth: true
@@ -498,7 +507,7 @@ Item {
                                     return i18n("Connected");
                                 }
                                 font.family: bluetoothViewRoot.appFontFamily
-                                font.pixelSize: snap(9.6) // 12px fizycznych
+                                font.pixelSize: bluetoothViewRoot.legacyDp(9.6)
                                 color: Qt.rgba(activeDevTile.onPrimaryColor.r, activeDevTile.onPrimaryColor.g, activeDevTile.onPrimaryColor.b, 0.92)
                                 Layout.fillWidth: true
                             }
@@ -506,8 +515,8 @@ Item {
 
                         // Przycisk Disconnect
                         Rectangle {
-                            Layout.preferredWidth: snap(56.0) // 70px fizycznych
-                            Layout.preferredHeight: snap(24.0) // 30px fizycznych
+                            Layout.preferredWidth: bluetoothViewRoot.legacyDp(56.0)
+                            Layout.preferredHeight: bluetoothViewRoot.legacyDp(24.0)
                             radius: height / 2.0
                             Layout.alignment: Qt.AlignVCenter
                             color: disconnBtMouse.pressed
@@ -519,7 +528,7 @@ Item {
                                 text: i18n("Disconnect")
                                 font.family: bluetoothViewRoot.appFontFamily
                                 font.weight: Font.Medium
-                                font.pixelSize: snap(9.6)
+                                font.pixelSize: bluetoothViewRoot.legacyDp(9.6)
                                 color: activeDevTile.onPrimaryColor
                             }
 
@@ -540,17 +549,17 @@ Item {
 
                         // Ikonka ustawień
                         Rectangle {
-                            Layout.preferredWidth: snap(28.8) // 36px fizycznych
-                            Layout.preferredHeight: snap(28.8)
+                            Layout.preferredWidth: bluetoothViewRoot.legacyDp(28.8)
+                            Layout.preferredHeight: bluetoothViewRoot.legacyDp(28.8)
                             Layout.alignment: Qt.AlignVCenter
-                            radius: snap(7.2)
+                            radius: bluetoothViewRoot.legacyDp(7.2)
                             color: activeSettingsBtMouse.pressed ? Qt.rgba(0, 0, 0, 0.25)
                                                                  : (activeSettingsBtMouse.containsMouse ? Qt.rgba(0, 0, 0, 0.15) : "transparent")
 
                             Kirigami.Icon {
                                 anchors.centerIn: parent
-                                width: snap(22.4)  // 28px fizycznych
-                                height: snap(22.4)
+                                width: bluetoothViewRoot.legacyDp(22.4)
+                                height: bluetoothViewRoot.legacyDp(22.4)
                                 source: Qt.resolvedUrl("icons/settings1.svg")
                                 isMask: true
                                 color: activeDevTile.onPrimaryColor
@@ -593,33 +602,33 @@ Item {
                         visible: !bluetoothViewRoot.shouldShowSeeAll || otherIdx < bluetoothViewRoot.maxVisibleOther
 
                         Layout.fillWidth: true
-                        Layout.preferredHeight: snap(64.8) // 81px fizycznych
+                        Layout.preferredHeight: bluetoothViewRoot.px(72.0)
                         radius: 1
-                        topLeftRadius: (isSingleItem || isFirstItem) ? 16 : 1
-                        topRightRadius: (isSingleItem || isFirstItem) ? 16 : 1
-                        bottomLeftRadius: (!bluetoothViewRoot.shouldShowSeeAll && (isSingleItem || isLastItem)) ? 16 : 1
-                        bottomRightRadius: (!bluetoothViewRoot.shouldShowSeeAll && (isSingleItem || isLastItem)) ? 16 : 1
+                        topLeftRadius: (isSingleItem || isFirstItem) ? bluetoothViewRoot.legacyDp(16.0) : 1
+                        topRightRadius: (isSingleItem || isFirstItem) ? bluetoothViewRoot.legacyDp(16.0) : 1
+                        bottomLeftRadius: (!bluetoothViewRoot.shouldShowSeeAll && (isSingleItem || isLastItem)) ? bluetoothViewRoot.legacyDp(16.0) : 1
+                        bottomRightRadius: (!bluetoothViewRoot.shouldShowSeeAll && (isSingleItem || isLastItem)) ? bluetoothViewRoot.legacyDp(16.0) : 1
                         color: otherMouse.pressed
                                ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.16)
                                : (otherMouse.containsMouse ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08) : (fullRep ? fullRep.oneUiTrackBg : Kirigami.Theme.alternateBackgroundColor))
 
                         RowLayout {
                             anchors.fill: parent
-                            anchors.leftMargin: snap(18.4)  // 23px fizyczne
-                            anchors.rightMargin: snap(17.6) // 22px fizyczne
-                            spacing: 12
+                            anchors.leftMargin: bluetoothViewRoot.legacyDp(18.4)
+                            anchors.rightMargin: bluetoothViewRoot.legacyDp(17.6)
+                            spacing: bluetoothViewRoot.legacyDp(12.0)
 
-                            // Czysta ikona urządzenia 22px
+                            // Czysta ikona urządzenia
                             Item {
-                                Layout.preferredWidth: 22
-                                Layout.preferredHeight: 22
+                                Layout.preferredWidth: bluetoothViewRoot.legacyDp(22.0)
+                                Layout.preferredHeight: bluetoothViewRoot.legacyDp(22.0)
                                 Layout.alignment: Qt.AlignVCenter
 
                                 Image {
                                     visible: otherDevDelegate.isPixelBuds
                                     anchors.centerIn: parent
-                                    width: 22
-                                    height: 22
+                                    width: bluetoothViewRoot.legacyDp(22.0)
+                                    height: bluetoothViewRoot.legacyDp(22.0)
                                     source: Qt.resolvedUrl("assets/pixel_buds.png")
                                     fillMode: Image.PreserveAspectFit
                                     smooth: true
@@ -629,8 +638,8 @@ Item {
                                 Kirigami.Icon {
                                     visible: !otherDevDelegate.isPixelBuds
                                     anchors.centerIn: parent
-                                    width: 22
-                                    height: 22
+                                    width: bluetoothViewRoot.legacyDp(22.0)
+                                    height: bluetoothViewRoot.legacyDp(22.0)
                                     source: (modelData && modelData.icon) ? modelData.icon : "preferences-system-bluetooth"
                                     color: Kirigami.Theme.textColor
                                 }
@@ -642,7 +651,7 @@ Item {
                                 font.family: bluetoothViewRoot.appFontFamily
                                 font.bold: false
                                 font.weight: Font.DemiBold // waga 600
-                                font.pixelSize: snap(12.4) // 15.5px fizycznych
+                                font.pixelSize: bluetoothViewRoot.legacyDp(12.4)
                                 color: Kirigami.Theme.textColor
                                 elide: Text.ElideRight
                                 Layout.fillWidth: true
@@ -654,7 +663,7 @@ Item {
                                 visible: modelData && modelData.battery !== null
                                 text: modelData && modelData.battery ? (modelData.battery.percentage + "%") : ""
                                 font.family: bluetoothViewRoot.appFontFamily
-                                font.pixelSize: snap(9.6)
+                                font.pixelSize: bluetoothViewRoot.legacyDp(9.6)
                                 color: Kirigami.Theme.disabledTextColor
                                 Layout.alignment: Qt.AlignVCenter
                             }
@@ -680,12 +689,12 @@ Item {
                 Rectangle {
                     id: seeAllBtTile
                     Layout.fillWidth: true
-                    Layout.preferredHeight: snap(64.8) // 81px fizycznych
+                    Layout.preferredHeight: bluetoothViewRoot.px(72.0)
                     radius: 1
                     topLeftRadius: 1
                     topRightRadius: 1
-                    bottomLeftRadius: 16
-                    bottomRightRadius: 16
+                    bottomLeftRadius: bluetoothViewRoot.legacyDp(16.0)
+                    bottomRightRadius: bluetoothViewRoot.legacyDp(16.0)
                     visible: bluetoothViewRoot.shouldShowSeeAll
                     color: seeAllBtMouse.pressed
                            ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.16)
@@ -693,13 +702,13 @@ Item {
 
                     RowLayout {
                         anchors.fill: parent
-                        anchors.leftMargin: snap(18.4)  // 23px fizyczne
-                        anchors.rightMargin: snap(17.6) // 22px fizyczne
-                        spacing: 12
+                        anchors.leftMargin: bluetoothViewRoot.legacyDp(18.4)
+                        anchors.rightMargin: bluetoothViewRoot.legacyDp(17.6)
+                        spacing: bluetoothViewRoot.legacyDp(12.0)
 
                         Kirigami.Icon {
-                            Layout.preferredWidth: 22
-                            Layout.preferredHeight: 22
+                            Layout.preferredWidth: bluetoothViewRoot.legacyDp(22.0)
+                            Layout.preferredHeight: bluetoothViewRoot.legacyDp(22.0)
                             Layout.alignment: Qt.AlignVCenter
                             source: Qt.resolvedUrl("icons/arrow_right.svg")
                             isMask: true
@@ -711,7 +720,7 @@ Item {
                             font.family: bluetoothViewRoot.appFontFamily
                             font.bold: false
                             font.weight: Font.Medium
-                            font.pixelSize: snap(12.4)
+                            font.pixelSize: bluetoothViewRoot.legacyDp(12.4)
                             color: Kirigami.Theme.textColor
                             elide: Text.ElideRight
                             Layout.fillWidth: true
@@ -734,20 +743,20 @@ Item {
             // === 3. BOTTOM MORE SETTINGS ACTION ===
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: snap(36.0) // 45px fizycznych
-                Layout.topMargin: snap(80.0)       // 100px fizycznych odstępu
-                radius: height / 2.0               // pełna kapsułka / pill
+                Layout.preferredHeight: bluetoothViewRoot.legacyDp(36.0)
+                Layout.topMargin: bluetoothViewRoot.legacyDp(80.0)
+                radius: height / 2.0
                 color: moreBtMouse.pressed
                        ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.18)
                        : (moreBtMouse.containsMouse ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08) : (fullRep ? fullRep.oneUiTrackBg : Kirigami.Theme.alternateBackgroundColor))
 
                 RowLayout {
                     anchors.centerIn: parent
-                    spacing: snap(8.0) // 10px fizycznych
+                    spacing: bluetoothViewRoot.legacyDp(8.0)
 
                     Kirigami.Icon {
-                        Layout.preferredWidth: snap(16.0) // 20px fizycznych
-                        Layout.preferredHeight: snap(16.0)
+                        Layout.preferredWidth: bluetoothViewRoot.legacyDp(16.0)
+                        Layout.preferredHeight: bluetoothViewRoot.legacyDp(16.0)
                         Layout.alignment: Qt.AlignVCenter
                         source: Qt.resolvedUrl("icons/settings.svg")
                         isMask: true
@@ -757,7 +766,7 @@ Item {
                     PlasmaComponents3.Label {
                         text: i18n("More Bluetooth settings...")
                         font.family: bluetoothViewRoot.appFontFamily
-                        font.pixelSize: Math.round(Kirigami.Theme.defaultFont.pixelSize * 1.0)
+                        font.pixelSize: bluetoothViewRoot.snap(Kirigami.Theme.defaultFont.pixelSize * LocalMetrics.Metrics.clampedScale)
                         color: Kirigami.Theme.textColor
                         Layout.alignment: Qt.AlignVCenter
                     }

@@ -1,0 +1,12 @@
+[Unit]
+Description=DoodlebookOS StatusNotifier Tray Bridge
+PartOf=graphical-session.target
+After=plasma-core.target
+
+[Service]
+ExecStart=%h/.local/bin/doodlebook-tray-bridge.py
+Restart=always
+RestartSec=1s
+
+[Install]
+WantedBy=plasma-core.target

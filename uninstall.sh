@@ -17,13 +17,18 @@ echo -e "${C_CYAN}${C_BOLD}==> Uninstalling DoodlebookOS...${C_RESET}"
 if command -v systemctl &>/dev/null; then
     systemctl --user stop doodlebookos-topbar.service 2>/dev/null || true
     systemctl --user disable doodlebookos-topbar.service 2>/dev/null || true
+    systemctl --user stop doodlebook-tray-bridge.service 2>/dev/null || true
+    systemctl --user disable doodlebook-tray-bridge.service 2>/dev/null || true
 fi
 rm -f "$HOME/.config/systemd/user/doodlebookos-topbar.service"
+rm -f "$HOME/.config/systemd/user/doodlebook-tray-bridge.service"
 rm -f "$HOME/.config/systemd/user/plasma-krunner.service"
 rm -f "$HOME/.local/bin/doodlebookos-topbar-color" \
       "$HOME/.local/bin/dostheme" \
+      "$HOME/.local/bin/doodlebook-tray-bridge.py" \
       "$HOME/.local/bin/doodlebook-krunner-bridge.py" \
       "$HOME/.local/bin/doodlebook-icon-studio"
+rm -rf "${XDG_RUNTIME_DIR:-/tmp/doodlebookos-runtime-$(id -u)}/doodlebookos-tray-icons"
 rm -f "$HOME/.local/share/applications/doodlebook-icon-studio.desktop"
 rm -rf "$HOME/.local/share/doodlebookos/icon-studio"
 rm -f "$HOME/.config/environment.d/10-qt-plugins.conf"

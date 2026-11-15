@@ -15,6 +15,7 @@ import org.kde.plasma.plasma5support as Plasma5Support
 import QtQuick.Effects
 import org.kde.plasma.private.sessions as Sessions
 import "i18n.js" as I18n
+import "../metrics" as LocalMetrics
 
 PlasmaExtras.Representation {
     id: fullRep
@@ -27,9 +28,15 @@ PlasmaExtras.Representation {
     property bool isEditingTiles: false
     property string activeSubView: "" // "", "wifi", "bluetooth", "power"
 
-    readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
+    readonly property real dpr: LocalMetrics.Metrics.dpr
     function snap(val) {
-        return Math.round(val * dpr) / dpr;
+        return LocalMetrics.Metrics.snap(val);
+    }
+    function px(refPx) {
+        return LocalMetrics.Metrics.px(refPx);
+    }
+    function legacyDp(oldDp) {
+        return LocalMetrics.Metrics.legacyDp(oldDp);
     }
 
     readonly property bool isSystemDark: {
@@ -41,7 +48,7 @@ PlasmaExtras.Representation {
     readonly property var defaultTiles: ["wifi", "bluetooth", "dark_mode", "battery_saver", "modes", "mic", "screenshot", "quickshare"]
     property var activeTiles: ["wifi", "bluetooth", "dark_mode", "battery_saver", "modes", "mic", "screenshot", "quickshare"]
     property var tileSpans: ({})
-    readonly property var allSupportedTiles: ["wifi", "bluetooth", "dark_mode", "battery_saver", "modes", "mic", "screenshot", "quickshare", "keyboard"]
+    readonly property var allSupportedTiles: ["wifi", "bluetooth", "dark_mode", "battery_saver", "modes", "mic", "screenshot", "quickshare", "keyboard", "ui_scale"]
 
     function getTileSpan(id) {
         if (tileSpans && tileSpans[id] !== undefined) {
@@ -176,6 +183,7 @@ PlasmaExtras.Representation {
             case "screenshot": return i18n("Screenshot");
             case "quickshare": return i18n("Quick Share");
             case "keyboard": return i18n("Keyboard");
+            case "ui_scale": return i18n("UI scale");
             default: return id;
         }
     }
@@ -193,6 +201,12 @@ PlasmaExtras.Representation {
             case "screenshot": return i18n("Area capture");
             case "quickshare": return i18n("KDE Connect");
             case "keyboard": return i18n("Virtual keyboard");
+            case "ui_scale": {
+                var s = LocalMetrics.Metrics.clampedScale;
+                if (s < 0.92) return i18n("Compact");
+                if (s > 1.08) return i18n("Large");
+                return i18n("Default");
+            }
             default: return "";
         }
     }
@@ -208,6 +222,7 @@ PlasmaExtras.Representation {
             case "screenshot": return Qt.resolvedUrl("icons/screenshot.svg");
             case "quickshare": return Qt.resolvedUrl("icons/quickshare.svg");
             case "keyboard": return Qt.resolvedUrl("icons/keyboard.svg");
+            case "ui_scale": return Qt.resolvedUrl("icons/display_scale.svg");
             default: return Qt.resolvedUrl("icons/settings.svg");
         }
     }
@@ -227,6 +242,7 @@ PlasmaExtras.Representation {
             case "screenshot": return false;
             case "quickshare": return false;
             case "keyboard": return false;
+            case "ui_scale": return Math.abs(LocalMetrics.Metrics.clampedScale - 1.0) > 0.01;
             default: return false;
         }
     }
@@ -269,9 +285,73 @@ PlasmaExtras.Representation {
             case "keyboard":
                 executable.exec("$(command -v qdbus-qt6 || command -v qdbus6 || command -v qdbus) org.kde.KWin /KWin org.kde.KWin.showVirtualKeyboard");
                 break;
+            case "ui_scale":
+                fullRep.cycleUiScale();
+                break;
             default:
                 break;
         }
+    }
+
+    function cycleUiScale() {
+        var cur = LocalMetrics.Metrics.clampedScale;
+        var nextScale = 1.0;
+        var topH = 29;
+        var dockH = 45;
+        if (cur < 0.92) {
+            nextScale = 1.0;
+            topH = 29;
+            dockH = 45;
+        } else if (cur < 1.08) {
+            nextScale = 1.1625;
+            topH = 33;
+            dockH = 52;
+        } else {
+            nextScale = 0.85;
+            topH = 25;
+            dockH = 38;
+        }
+
+        if (Plasmoid && Plasmoid.configuration) {
+            Plasmoid.configuration.shellScale = nextScale;
+        }
+
+        var js =
+            "var s = " + nextScale + ";" +
+            "var ps = panels();" +
+            "for (var i = 0; i < ps.length; ++i) {" +
+            "  var p = ps[i];" +
+            "  if (p.location === 'top') p.height = " + topH + ";" +
+            "  else if (p.location === 'bottom') p.height = " + dockH + ";" +
+            "  var ws = p.widgets();" +
+            "  for (var j = 0; j < ws.length; ++j) {" +
+            "    var w = ws[j];" +
+            "    if (w.type === 'org.doodlebookos.datetime') {" +
+            "      w.currentConfigGroup = ['Appearance'];" +
+            "      w.writeConfig('shellScale', String(s));" +
+            "    } else if (w.type === 'org.doodlebookos.statuscluster' || w.type === 'org.doodlebookos.dock' || w.type === 'org.doodlebookos.panelspacer') {" +
+            "      w.currentConfigGroup = ['General'];" +
+            "      w.writeConfig('shellScale', String(s));" +
+            "    }" +
+            "  }" +
+            "}" +
+            "var ds = desktops();" +
+            "for (var i = 0; i < ds.length; ++i) {" +
+            "  var d = ds[i];" +
+            "  d.currentConfigGroup = ['General'];" +
+            "  d.writeConfig('shellScale', String(s));" +
+            "  var dws = d.widgets();" +
+            "  for (var j = 0; j < dws.length; ++j) {" +
+            "    var dw = dws[j];" +
+            "    if (dw.type === 'org.doodlebookos.appgroup') {" +
+            "      dw.currentConfigGroup = ['General'];" +
+            "      dw.writeConfig('shellScale', String(s));" +
+            "    }" +
+            "  }" +
+            "}";
+
+        var b64 = Qt.btoa(js);
+        executable.exec("sh -c '$(command -v qdbus-qt6 || command -v qdbus6 || command -v qdbus) org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript \"$(printf %s " + b64 + " | base64 -d)\"'");
     }
 
     function executeTileIconAction(id) {
@@ -291,6 +371,13 @@ PlasmaExtras.Representation {
 
     Component.onCompleted: {
         loadActiveTiles();
+    }
+
+    Connections {
+        target: Plasmoid ? Plasmoid.configuration : null
+        function onActiveTilesChanged() {
+            fullRep.loadActiveTiles();
+        }
     }
 
     Sessions.SessionManagement {
@@ -553,34 +640,34 @@ PlasmaExtras.Representation {
 
     readonly property color oneUiTrackBg: containerScope ? containerScope.Kirigami.Theme.backgroundColor : Kirigami.Theme.backgroundColor
 
-    Layout.preferredWidth: snap(338.4) // 423px fizycznych: 18px lewy margines + 387px siatka kafelków + 18px prawy margines
+    Layout.preferredWidth: px(376.0) // 376 px Punkt 0: 16 px L/R marginesy + 344 px siatka kafelków
     Layout.minimumWidth: Layout.preferredWidth
     Layout.maximumWidth: Layout.preferredWidth
 
     readonly property real availableScreenH: (typeof Screen !== "undefined" && Screen.desktopAvailableHeight > 0)
         ? Screen.desktopAvailableHeight
         : ((typeof Screen !== "undefined" && Screen.height > 0) ? Screen.height : 1080)
-    readonly property real maxDrawerHeight: Math.max(snap(360.0), availableScreenH - snap(52.0) - snap(16.0))
+    readonly property real maxDrawerHeight: Math.max(px(360.0), availableScreenH - px(45.0) - px(16.0))
 
     Layout.preferredHeight: {
-        var wantedH = snap(440.0);
+        var wantedH = px(424.0);
         if (fullRep.activeSubView === "wifi") {
-            wantedH = (wifiDetailsView ? wifiDetailsView.implicitHeight : 0) + fullRep.snap(14.4) + fullRep.snap(28.8);
-            wantedH = Math.max(fullRep.snap(260.0), wantedH);
+            wantedH = (wifiDetailsView ? wifiDetailsView.implicitHeight : 0) + fullRep.px(16.0) + fullRep.legacyDp(28.8);
+            wantedH = Math.max(fullRep.legacyDp(260.0), wantedH);
         } else if (fullRep.activeSubView === "bluetooth") {
-            wantedH = (bluetoothDetailsView ? bluetoothDetailsView.implicitHeight : 0) + fullRep.snap(14.4) + fullRep.snap(28.8);
-            wantedH = Math.max(fullRep.snap(260.0), wantedH);
+            wantedH = (bluetoothDetailsView ? bluetoothDetailsView.implicitHeight : 0) + fullRep.px(16.0) + fullRep.legacyDp(28.8);
+            wantedH = Math.max(fullRep.legacyDp(260.0), wantedH);
         } else if (fullRep.isEditingTiles) {
-            wantedH = (editTilesView ? editTilesView.implicitHeight : 0) + fullRep.snap(14.4) + fullRep.snap(28.8);
-            wantedH = Math.max(fullRep.snap(300.0), wantedH);
+            wantedH = (editTilesView ? editTilesView.implicitHeight : 0) + fullRep.px(16.0) + fullRep.legacyDp(28.8);
+            wantedH = Math.max(fullRep.legacyDp(300.0), wantedH);
         } else if (fullRep.activeSubView !== "") {
-            wantedH = snap(544.0);
+            wantedH = legacyDp(544.0);
         } else {
-            wantedH = (mainCol && mainCol.implicitHeight > 100) ? (mainCol.implicitHeight + fullRep.snap(14.4) * 2) : snap(440.0);
+            wantedH = (mainCol && mainCol.implicitHeight > 100) ? (mainCol.implicitHeight + fullRep.px(8.0) + fullRep.px(16.0)) : px(424.0);
         }
-        return Math.min(maxDrawerHeight, Math.max(snap(280.0), wantedH));
+        return Math.min(maxDrawerHeight, Math.max(px(260.0), wantedH));
     }
-    Layout.minimumHeight: snap(260.0)
+    Layout.minimumHeight: px(260.0)
     Layout.maximumHeight: maxDrawerHeight
 
     implicitWidth: Layout.preferredWidth
@@ -604,32 +691,32 @@ PlasmaExtras.Representation {
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.right: parent.right
-            anchors.leftMargin: fullRep.snap(14.4)   // 18px fizycznych
-            anchors.rightMargin: fullRep.snap(14.4)  // 18px fizycznych
-            anchors.topMargin: fullRep.snap(14.4)    // 18px fizycznych
-            spacing: fullRep.snap(8)
+            anchors.leftMargin: fullRep.px(16.0)
+            anchors.rightMargin: fullRep.px(16.0)
+            anchors.topMargin: fullRep.px(8.0)
+            spacing: fullRep.px(8.0)
 
             // 1. Top Header Row
             RowLayout {
                 id: headerRow
                 Layout.fillWidth: true
-                Layout.preferredHeight: fullRep.snap(29.6) // dokładnie 37px fizycznych (29.6 dp)
-                Layout.bottomMargin: fullRep.snap(14.4) - fullRep.snap(3.6) - mainCol.spacing // dokładnie 18px fizycznych od dolnej krawędzi boxów do toru suwaka jasności (na linii testowej)
-                spacing: fullRep.snap(6.4)
+                Layout.preferredHeight: fullRep.px(30.0)
+                Layout.bottomMargin: fullRep.px(5.0)
+                spacing: fullRep.legacyDp(6.4)
 
                 // Edit tiles icon button (grid with pencil)
                 Rectangle {
-                    Layout.preferredWidth: fullRep.snap(29.6)  // 37px fizycznych
-                    Layout.preferredHeight: fullRep.snap(29.6) // 37px fizycznych
-                    radius: fullRep.snap(8)
+                    Layout.preferredWidth: fullRep.px(30.0)
+                    Layout.preferredHeight: fullRep.px(30.0)
+                    radius: fullRep.legacyDp(8)
                     Layout.alignment: Qt.AlignVCenter
                     color: editMouse.pressed ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.18)
                                              : (editMouse.containsMouse ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.1) : "transparent")
 
                     Kirigami.Icon {
                         anchors.centerIn: parent
-                        width: fullRep.snap(17.6)  // zwiększone o 1px: 22px fizyczne (17.6 dp)
-                        height: fullRep.snap(17.6)
+                        width: fullRep.legacyDp(17.6)
+                        height: fullRep.legacyDp(17.6)
                         source: Qt.resolvedUrl("icons/edit.svg")
                         isMask: true
                         color: Kirigami.Theme.textColor
@@ -649,17 +736,17 @@ PlasmaExtras.Representation {
 
                 // Settings gear button
                 Rectangle {
-                    Layout.preferredWidth: fullRep.snap(29.6)  // 37px fizycznych
-                    Layout.preferredHeight: fullRep.snap(29.6) // 37px fizycznych
-                    radius: fullRep.snap(8)
+                    Layout.preferredWidth: fullRep.px(30.0)
+                    Layout.preferredHeight: fullRep.px(30.0)
+                    radius: fullRep.legacyDp(8)
                     Layout.alignment: Qt.AlignVCenter
                     color: settingsMouse.pressed ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.18)
                                                  : (settingsMouse.containsMouse ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.1) : "transparent")
 
                     Kirigami.Icon {
                         anchors.centerIn: parent
-                        width: fullRep.snap(15.2)  // 19px fizycznych
-                        height: fullRep.snap(15.2) // 19px fizycznych
+                        width: fullRep.legacyDp(15.2)
+                        height: fullRep.legacyDp(15.2)
                         source: Qt.resolvedUrl("icons/settings.svg")
                         isMask: true
                         color: Kirigami.Theme.textColor
@@ -680,8 +767,8 @@ PlasmaExtras.Representation {
                 // Power button: Power icon + Chevron
                 Rectangle {
                     id: powerButton
-                    Layout.preferredHeight: fullRep.snap(29.6) // 37px fizycznych
-                    Layout.preferredWidth: pwrRow.implicitWidth + fullRep.snap(16.0)
+                    Layout.preferredHeight: fullRep.px(30.0)
+                    Layout.preferredWidth: pwrRow.implicitWidth + fullRep.legacyDp(16.0)
                     radius: Math.round(height / 2)
                     Layout.alignment: Qt.AlignVCenter
 
@@ -697,12 +784,12 @@ PlasmaExtras.Representation {
                     Row {
                         id: pwrRow
                         anchors.centerIn: parent
-                        spacing: fullRep.snap(4.0)
+                        spacing: fullRep.legacyDp(4.0)
 
                         Kirigami.Icon {
                             anchors.verticalCenter: parent.verticalCenter
-                            width: fullRep.snap(17.28)  // canvas 21.6px -> rysowana ścieżka zasilania ma dokładnie 18px fizycznych
-                            height: fullRep.snap(17.28) // 21.6px fizycznych (17.28 dp)
+                            width: fullRep.legacyDp(17.28)
+                            height: fullRep.legacyDp(17.28)
                             implicitWidth: width
                             implicitHeight: height
                             source: Qt.resolvedUrl("icons/power_btn.svg")
@@ -713,8 +800,8 @@ PlasmaExtras.Representation {
 
                         Kirigami.Icon {
                             anchors.verticalCenter: parent.verticalCenter
-                            width: fullRep.snap(20.48)  // canvas 25.6px -> rysowana strzałka (chevron) ma dokładnie 7px fizycznych
-                            height: fullRep.snap(20.48) // 25.6px fizycznych (20.48 dp)
+                            width: fullRep.legacyDp(20.48)
+                            height: fullRep.legacyDp(20.48)
                             implicitWidth: width
                             implicitHeight: height
                             source: Qt.resolvedUrl(fullRep.powerMenuOpen ? "icons/chevron_up.svg" : "icons/chevron_down.svg")
@@ -739,28 +826,28 @@ PlasmaExtras.Representation {
             ColumnLayout {
                 id: slidersCol
                 Layout.fillWidth: true
-                spacing: fullRep.snap(10.4) // zwiększone o 2px fizyczne (+1.6 dp) dla idealnego odstępu między suwakami (10.4 dp = 13px fizycznych)
-                Layout.bottomMargin: fullRep.snap(21.6) - fullRep.snap(3.6) - mainCol.spacing // dokładnie 27px fizycznych od toru suwaka do kafelków
+                spacing: fullRep.px(8.0)
+                Layout.bottomMargin: fullRep.px(12.0)
 
                 // Row 1: Brightness Slider + Moon Button
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: fullRep.snap(9.6) // 12px fizycznych
+                    spacing: fullRep.legacyDp(9.6)
 
                     // Slider 1: Brightness
                     Item {
                         id: slider1Item
                         Layout.fillWidth: true
-                        Layout.preferredHeight: handleHeight // 36dp (45px fizycznych)
+                        Layout.preferredHeight: handleHeight
                         clip: false
 
                         property real value: 0.5
                         property bool isDragging: sliderMouse.pressed
 
-                        readonly property real trackHeight: fullRep.snap(28.8) // 36px fizycznych
-                        readonly property real handleWidth: fullRep.snap(2.4)  // 3px fizycznych
-                        readonly property real handleHeight: fullRep.snap(36.0) // 45px fizycznych
-                        readonly property real gapSize: fullRep.snap(5.6)       // 7px fizycznych
+                        readonly property real trackHeight: fullRep.px(32.0)
+                        readonly property real handleWidth: Math.max(1.0 / fullRep.dpr, fullRep.legacyDp(2.4))
+                        readonly property real handleHeight: fullRep.px(40.0)
+                        readonly property real gapSize: fullRep.px(6.0)
                         readonly property real clampedValue: Math.max(0.01, Math.min(1.0, value))
                         readonly property real handleX: width > handleWidth ? fullRep.snap(clampedValue * (width - handleWidth)) : 0
 
@@ -802,10 +889,10 @@ PlasmaExtras.Representation {
                             color: fullRep.effectiveAccentColor
                             visible: width > 0
 
-                            topLeftRadius: fullRep.snap(11.2) // 14px fizycznych
-                            bottomLeftRadius: fullRep.snap(11.2) // 14px fizycznych
-                            topRightRadius: width < height ? (width / 2) : fullRep.snap(2)
-                            bottomRightRadius: width < height ? (width / 2) : fullRep.snap(2)
+                            topLeftRadius: fullRep.legacyDp(11.2)
+                            bottomLeftRadius: fullRep.legacyDp(11.2)
+                            topRightRadius: width < height ? (width / 2) : fullRep.legacyDp(2)
+                            bottomRightRadius: width < height ? (width / 2) : fullRep.legacyDp(2)
                         }
 
 
@@ -831,10 +918,10 @@ PlasmaExtras.Representation {
                             color: fullRep.oneUiTrackBg
                             visible: width > 0
 
-                            topLeftRadius: width < height ? (width / 2) : fullRep.snap(2)
-                            bottomLeftRadius: width < height ? (width / 2) : fullRep.snap(2)
-                            topRightRadius: fullRep.snap(11.2) // 14px fizycznych
-                            bottomRightRadius: fullRep.snap(11.2) // 14px fizycznych
+                            topLeftRadius: width < height ? (width / 2) : fullRep.legacyDp(2)
+                            bottomLeftRadius: width < height ? (width / 2) : fullRep.legacyDp(2)
+                            topRightRadius: fullRep.legacyDp(11.2)
+                            bottomRightRadius: fullRep.legacyDp(11.2)
                         }
 
                         // Interactive MouseArea across full slider width
@@ -881,8 +968,8 @@ PlasmaExtras.Representation {
                             Kirigami.Icon {
                                 id: icon1
                                 anchors.centerIn: parent
-                                width: fullRep.snap(17.6)  // zmniejszone z 26 (22px fizyczne / 17.6 dp)
-                                height: fullRep.snap(17.6)
+                                width: fullRep.legacyDp(17.6)
+                                height: fullRep.legacyDp(17.6)
                                 source: Qt.resolvedUrl("icons/sun.svg")
                                 isMask: true
                                 color: icon1Container.isOnBar
@@ -896,8 +983,8 @@ PlasmaExtras.Representation {
                     // Button: Moon / Night light
                     Rectangle {
                         id: moonButton
-                        Layout.preferredWidth: fullRep.snap(28.8) // 36px fizycznych
-                        Layout.preferredHeight: fullRep.snap(28.8) // 36px fizycznych
+                        Layout.preferredWidth: fullRep.px(32.0)
+                        Layout.preferredHeight: fullRep.px(32.0)
                         radius: Math.round(height / 2)
 
                         readonly property bool isNightLightOn: {
@@ -927,8 +1014,8 @@ PlasmaExtras.Representation {
 
                         Kirigami.Icon {
                             anchors.centerIn: parent
-                            width: fullRep.snap(14.4)  // 18px fizycznych (zbalansowany margines)
-                            height: fullRep.snap(14.4) // 18px fizycznych
+                            width: fullRep.legacyDp(14.4)
+                            height: fullRep.legacyDp(14.4)
                             source: Qt.resolvedUrl("icons/moon.svg")
                             isMask: true
                             color: moonButton.isNightLightOn ? moonButton.activeContentColor : Kirigami.Theme.textColor
@@ -975,22 +1062,22 @@ PlasmaExtras.Representation {
                 // Row 2: Volume Slider + Equalizer Button
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: fullRep.snap(9.6) // 12px fizycznych
+                    spacing: fullRep.legacyDp(9.6)
 
                     // Slider 2: Volume
                     Item {
                         id: slider2Item
                         Layout.fillWidth: true
-                        Layout.preferredHeight: handleHeight // 36dp (45px fizycznych)
+                        Layout.preferredHeight: handleHeight
                         clip: false
 
                         property real value: 0.70
                         property bool isDragging: slider2Mouse.pressed
 
-                        readonly property real trackHeight: fullRep.snap(28.8) // 36px fizycznych
-                        readonly property real handleWidth: fullRep.snap(2.4)  // 3px fizycznych
-                        readonly property real handleHeight: fullRep.snap(36.0) // 45px fizycznych
-                        readonly property real gapSize: fullRep.snap(5.6)       // 7px fizycznych
+                        readonly property real trackHeight: fullRep.px(32.0)
+                        readonly property real handleWidth: Math.max(1.0 / fullRep.dpr, fullRep.legacyDp(2.4))
+                        readonly property real handleHeight: fullRep.px(40.0)
+                        readonly property real gapSize: fullRep.px(6.0)
                         readonly property real clampedValue: Math.max(0.0, Math.min(1.0, value))
                         readonly property real handleX: width > handleWidth ? fullRep.snap(clampedValue * (width - handleWidth)) : 0
 
@@ -1038,10 +1125,10 @@ PlasmaExtras.Representation {
                             opacity: (fullRep.activeSink && fullRep.activeSink.muted) ? 0.45 : 1.0
                             Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration } }
 
-                            topLeftRadius: fullRep.snap(11.2) // 14px fizycznych
-                            bottomLeftRadius: fullRep.snap(11.2) // 14px fizycznych
-                            topRightRadius: width < height ? (width / 2) : fullRep.snap(2)
-                            bottomRightRadius: width < height ? (width / 2) : fullRep.snap(2)
+                            topLeftRadius: fullRep.legacyDp(11.2)
+                            bottomLeftRadius: fullRep.legacyDp(11.2)
+                            topRightRadius: width < height ? (width / 2) : fullRep.legacyDp(2)
+                            bottomRightRadius: width < height ? (width / 2) : fullRep.legacyDp(2)
                         }
 
                         // Vertical floating handle (protrudes symmetrically)
@@ -1068,10 +1155,10 @@ PlasmaExtras.Representation {
                             color: fullRep.oneUiTrackBg
                             visible: width > 0
 
-                            topLeftRadius: width < height ? (width / 2) : fullRep.snap(2)
-                            bottomLeftRadius: width < height ? (width / 2) : fullRep.snap(2)
-                            topRightRadius: fullRep.snap(11.2) // 14px fizycznych
-                            bottomRightRadius: fullRep.snap(11.2) // 14px fizycznych
+                            topLeftRadius: width < height ? (width / 2) : fullRep.legacyDp(2)
+                            bottomLeftRadius: width < height ? (width / 2) : fullRep.legacyDp(2)
+                            topRightRadius: fullRep.legacyDp(11.2)
+                            bottomRightRadius: fullRep.legacyDp(11.2)
                         }
 
                         // MouseArea for dragging & clicking
@@ -1123,8 +1210,8 @@ PlasmaExtras.Representation {
                             Kirigami.Icon {
                                 id: musicNoteIcon
                                 anchors.centerIn: parent
-                                width: fullRep.snap(17.6)  // zmniejszone z 26 (22px fizyczne / 17.6 dp)
-                                height: fullRep.snap(17.6)
+                                width: fullRep.legacyDp(17.6)
+                                height: fullRep.legacyDp(17.6)
                                 source: Qt.resolvedUrl("icons/music_note.svg")
                                 isMask: true
                                 color: icon2Container.isOnBar
@@ -1150,8 +1237,8 @@ PlasmaExtras.Representation {
                     // Button: Equalizer / Sound settings
                     Rectangle {
                         id: eqButton
-                        Layout.preferredWidth: fullRep.snap(28.8) // 36px fizycznych
-                        Layout.preferredHeight: fullRep.snap(28.8) // 36px fizycznych
+                        Layout.preferredWidth: fullRep.px(32.0)
+                        Layout.preferredHeight: fullRep.px(32.0)
                         radius: Math.round(height / 2)
 
                         color: fullRep.oneUiTrackBg
@@ -1167,8 +1254,8 @@ PlasmaExtras.Representation {
 
                         Kirigami.Icon {
                             anchors.centerIn: parent
-                            width: fullRep.snap(14.4)  // 18px fizycznych (zbalansowany margines)
-                            height: fullRep.snap(14.4) // 18px fizycznych
+                            width: fullRep.legacyDp(14.4)
+                            height: fullRep.legacyDp(14.4)
                             source: Qt.resolvedUrl("icons/equalizer.svg")
                             isMask: true
                             color: Kirigami.Theme.textColor
@@ -1191,8 +1278,8 @@ PlasmaExtras.Representation {
                 id: tilesGrid
                 Layout.fillWidth: true
                 columns: 4
-                rowSpacing: fullRep.snap(7.2)    // 9px fizycznych
-                columnSpacing: fullRep.snap(7.2) // 9px fizycznych
+                rowSpacing: fullRep.px(8.0)
+                columnSpacing: fullRep.px(8.0)
 
                 // Reusable Marquee Label with edge fade overlays and smooth hover scrolling (pattern from MediaPill)
                 component MarqueeText: Item {
@@ -1200,7 +1287,7 @@ PlasmaExtras.Representation {
                     property string text: ""
                     property color color: Kirigami.Theme.textColor
                     property color fadeColor: tile.color
-                    property real fontPixelSize: fullRep.snap(10.4)
+                    property real fontPixelSize: fullRep.legacyDp(10.4)
                     property int fontWeight: Font.Normal
                     property real textOpacity: 1.0
                     property bool isHovered: false
@@ -1284,7 +1371,7 @@ PlasmaExtras.Representation {
                         anchors.left: parent.left
                         anchors.top: parent.top
                         anchors.bottom: parent.bottom
-                        width: fullRep.snap(12.0)
+                        width: fullRep.legacyDp(12.0)
                         z: 5
                         opacity: (scrollLabel.x < -1.0) ? 1.0 : 0.0
                         Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration } }
@@ -1301,7 +1388,7 @@ PlasmaExtras.Representation {
                         anchors.right: parent.right
                         anchors.top: parent.top
                         anchors.bottom: parent.bottom
-                        width: fullRep.snap(16.0)
+                        width: fullRep.legacyDp(16.0)
                         z: 5
                         opacity: mRoot.needsScroll ? 1.0 : 0.0
                         Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration } }
@@ -1331,9 +1418,9 @@ PlasmaExtras.Representation {
 
                     Layout.fillWidth: false
                     Layout.columnSpan: span
-                    Layout.preferredWidth: isCompact ? fullRep.snap(72.0) : fullRep.snap(151.2)
-                    Layout.preferredHeight: fullRep.snap(50.4) // 63px fizycznych
-                    radius: isActive ? fullRep.snap(16) : Math.round(height / 2)
+                    Layout.preferredWidth: isCompact ? fullRep.px(80.0) : fullRep.px(168.0)
+                    Layout.preferredHeight: fullRep.px(56.0)
+                    radius: isActive ? fullRep.px(16.0) : Math.round(height / 2)
                     Behavior on radius { NumberAnimation { duration: Kirigami.Units.shortDuration; easing.type: Easing.OutCubic } }
 
                     color: isCompact
@@ -1372,7 +1459,7 @@ PlasmaExtras.Representation {
                     Kirigami.Icon {
                         visible: tile.isCompact
                         anchors.centerIn: parent
-                        width: fullRep.snap(20.8)
+                        width: fullRep.legacyDp(20.8)
                         height: width
                         source: tile.iconSource
                         color: tile.contentColor
@@ -1384,21 +1471,21 @@ PlasmaExtras.Representation {
                         id: tileRow
                         visible: !tile.isCompact
                         anchors.fill: parent
-                        anchors.leftMargin: tile.hasCircleBadge ? fullRep.snap(5.6) : fullRep.snap(9.6)
-                        anchors.rightMargin: fullRep.snap(5.6)
-                        anchors.topMargin: fullRep.snap(5.6)
-                        anchors.bottomMargin: fullRep.snap(5.6)
-                        spacing: fullRep.snap(9.6)
+                        anchors.leftMargin: tile.hasCircleBadge ? fullRep.legacyDp(5.6) : fullRep.legacyDp(9.6)
+                        anchors.rightMargin: fullRep.legacyDp(5.6)
+                        anchors.topMargin: fullRep.legacyDp(5.6)
+                        anchors.bottomMargin: fullRep.legacyDp(5.6)
+                        spacing: fullRep.legacyDp(9.6)
 
-                        // Icon badge / container: 50x50px (40x40 dp) dla wifi i bluetooth
+                        // Icon badge / container
                         Rectangle {
                             id: badgeContainer
                             Layout.alignment: Qt.AlignVCenter
-                            Layout.preferredWidth: tile.hasCircleBadge ? fullRep.snap(40.0) : fullRep.snap(28.8)
-                            Layout.preferredHeight: tile.hasCircleBadge ? fullRep.snap(40.0) : fullRep.snap(28.8)
+                            Layout.preferredWidth: tile.hasCircleBadge ? fullRep.legacyDp(40.0) : fullRep.legacyDp(28.8)
+                            Layout.preferredHeight: tile.hasCircleBadge ? fullRep.legacyDp(40.0) : fullRep.legacyDp(28.8)
                             radius: tile.hasCircleBadge
-                                    ? (tile.isActive ? fullRep.snap(12.0) : Math.round(height / 2))
-                                    : fullRep.snap(12.0)
+                                    ? (tile.isActive ? fullRep.legacyDp(12.0) : Math.round(height / 2))
+                                    : fullRep.legacyDp(12.0)
                             Behavior on radius { NumberAnimation { duration: Kirigami.Units.shortDuration; easing.type: Easing.OutCubic } }
 
                             color: tile.hasCircleBadge
@@ -1411,7 +1498,7 @@ PlasmaExtras.Representation {
 
                             Kirigami.Icon {
                                 anchors.centerIn: parent
-                                width: tile.hasCircleBadge ? fullRep.snap(20.8) : fullRep.snap(19.2)
+                                width: tile.hasCircleBadge ? fullRep.legacyDp(20.8) : fullRep.legacyDp(19.2)
                                 height: width
                                 source: tile.iconSource
                                 color: (tile.hasCircleBadge && tile.isActive)
@@ -1442,7 +1529,7 @@ PlasmaExtras.Representation {
                             MarqueeText {
                                 text: tile.title
                                 fontWeight: Font.Medium
-                                fontPixelSize: fullRep.snap(12.4)
+                                fontPixelSize: fullRep.legacyDp(12.4)
                                 color: tile.contentColor
                                 isHovered: tile.isBodyHovered || tile.isBadgeHovered
                             }
@@ -1451,7 +1538,7 @@ PlasmaExtras.Representation {
                                 visible: tile.subtitle.length > 0
                                 text: tile.subtitle
                                 fontWeight: Font.Normal
-                                fontPixelSize: fullRep.snap(9.6)
+                                fontPixelSize: fullRep.legacyDp(9.6)
                                 color: (!tile.hasCircleBadge && tile.isActive) ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.disabledTextColor
                                 textOpacity: (!tile.hasCircleBadge && tile.isActive) ? 0.85 : 1.0
                                 isHovered: tile.isBodyHovered || tile.isBadgeHovered
@@ -1568,10 +1655,10 @@ PlasmaExtras.Representation {
         EditTilesView {
             id: editTilesView
             anchors.fill: parent
-            anchors.leftMargin: fullRep.snap(14.4)   // 18px fizycznych
-            anchors.rightMargin: fullRep.snap(14.4)  // 18px fizycznych
-            anchors.topMargin: fullRep.snap(14.4)    // 18px fizycznych
-            anchors.bottomMargin: fullRep.snap(28.8) // 36px fizycznych
+            anchors.leftMargin: fullRep.px(16.0)
+            anchors.rightMargin: fullRep.px(16.0)
+            anchors.topMargin: fullRep.px(16.0)
+            anchors.bottomMargin: fullRep.legacyDp(28.8)
             visible: fullRep.isEditingTiles
             fullRep: fullRep
             onCloseRequested: {
@@ -1583,10 +1670,10 @@ PlasmaExtras.Representation {
         WifiDetailsView {
             id: wifiDetailsView
             anchors.fill: parent
-            anchors.leftMargin: fullRep.snap(14.4)   // 18px fizycznych
-            anchors.rightMargin: fullRep.snap(14.4)  // 18px fizycznych
-            anchors.topMargin: fullRep.snap(14.4)    // 18px fizycznych
-            anchors.bottomMargin: fullRep.snap(28.8) // 36px fizycznych
+            anchors.leftMargin: fullRep.px(16.0)
+            anchors.rightMargin: fullRep.px(16.0)
+            anchors.topMargin: fullRep.px(16.0)
+            anchors.bottomMargin: fullRep.legacyDp(28.8)
             visible: (!fullRep.isEditingTiles && fullRep.activeSubView === "wifi")
             fullRep: fullRep
             onCloseRequested: {
@@ -1598,10 +1685,10 @@ PlasmaExtras.Representation {
         BluetoothDetailsView {
             id: bluetoothDetailsView
             anchors.fill: parent
-            anchors.leftMargin: fullRep.snap(14.4)   // 18px fizycznych
-            anchors.rightMargin: fullRep.snap(14.4)  // 18px fizycznych
-            anchors.topMargin: fullRep.snap(14.4)    // 18px fizycznych
-            anchors.bottomMargin: fullRep.snap(28.8) // 36px fizycznych
+            anchors.leftMargin: fullRep.px(16.0)
+            anchors.rightMargin: fullRep.px(16.0)
+            anchors.topMargin: fullRep.px(16.0)
+            anchors.bottomMargin: fullRep.legacyDp(28.8)
             visible: (!fullRep.isEditingTiles && fullRep.activeSubView === "bluetooth")
             fullRep: fullRep
             onCloseRequested: {
@@ -1613,10 +1700,10 @@ PlasmaExtras.Representation {
         PowerDetailsView {
             id: powerDetailsView
             anchors.fill: parent
-            anchors.leftMargin: fullRep.snap(14.4)
-            anchors.rightMargin: fullRep.snap(14.4)
-            anchors.topMargin: fullRep.snap(14.4)
-            anchors.bottomMargin: fullRep.snap(28.8)
+            anchors.leftMargin: fullRep.px(16.0)
+            anchors.rightMargin: fullRep.px(16.0)
+            anchors.topMargin: fullRep.px(16.0)
+            anchors.bottomMargin: fullRep.legacyDp(28.8)
             visible: (!fullRep.isEditingTiles && fullRep.activeSubView === "power")
             appletRoot: fullRep.appletRoot
             fullRep: fullRep
@@ -1643,12 +1730,12 @@ PlasmaExtras.Representation {
             z: 100
             visible: fullRep.powerMenuOpen && !fullRep.isEditingTiles && fullRep.activeSubView === ""
             anchors.top: parent.top
-            anchors.topMargin: mainCol.y + headerRow.y + powerButton.y + powerButton.height + fullRep.snap(6.4)
+            anchors.topMargin: mainCol.y + headerRow.y + powerButton.y + powerButton.height + fullRep.legacyDp(6.4)
             anchors.right: parent.right
-            anchors.rightMargin: fullRep.snap(14.4) // 18px fizycznych (wyrównany z prawym marginesem szuflady)
-            width: fullRep.snap(156.0)  // dokładnie 195px fizycznych
-            height: fullRep.snap(120.0) // dokładnie 150px fizycznych
-            radius: 16
+            anchors.rightMargin: fullRep.px(16.0)
+            width: fullRep.legacyDp(156.0)
+            height: fullRep.legacyDp(120.0)
+            radius: fullRep.legacyDp(16.0)
             color: fullRep.isSystemDark ? "#23252d" : "#ffffff"
             border.width: 1
             border.color: fullRep.isSystemDark ? Qt.rgba(255, 255, 255, 0.08) : Qt.rgba(0, 0, 0, 0.12)
@@ -1665,8 +1752,8 @@ PlasmaExtras.Representation {
             ColumnLayout {
                 id: menuCol
                 anchors.fill: parent
-                anchors.margins: fullRep.snap(6.4)
-                spacing: fullRep.snap(4.0)
+                anchors.margins: fullRep.legacyDp(6.4)
+                spacing: fullRep.legacyDp(4.0)
 
                 component PowerMenuItem: Rectangle {
                     id: menuItem
@@ -1676,19 +1763,19 @@ PlasmaExtras.Representation {
 
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    radius: 10
+                    radius: fullRep.legacyDp(10.0)
                     color: itemMouse.pressed ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.15)
                                              : (itemMouse.containsMouse ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08) : "transparent")
 
                     RowLayout {
                         anchors.fill: parent
-                        anchors.leftMargin: fullRep.snap(9.6)
-                        anchors.rightMargin: fullRep.snap(9.6)
-                        spacing: fullRep.snap(9.6)
+                        anchors.leftMargin: fullRep.legacyDp(9.6)
+                        anchors.rightMargin: fullRep.legacyDp(9.6)
+                        spacing: fullRep.legacyDp(9.6)
 
                         Kirigami.Icon {
-                            Layout.preferredWidth: fullRep.snap(17.6)
-                            Layout.preferredHeight: fullRep.snap(17.6)
+                            Layout.preferredWidth: fullRep.legacyDp(17.6)
+                            Layout.preferredHeight: fullRep.legacyDp(17.6)
                             source: menuItem.iconName
                             isMask: true
                             color: Kirigami.Theme.textColor
@@ -1698,7 +1785,7 @@ PlasmaExtras.Representation {
                             Layout.fillWidth: true
                             text: menuItem.title
                             font.family: "Google Sans Flex"
-                            font.pixelSize: fullRep.snap(10.4)
+                            font.pixelSize: fullRep.legacyDp(10.4)
                             font.weight: Font.Normal
                             color: Kirigami.Theme.textColor
                             elide: Text.ElideRight

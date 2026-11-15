@@ -6,15 +6,11 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import "../metrics" as LocalMetrics
 
 Item {
     id: keyboardLayoutPopupRoot
 
-    readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
-    function snap(val) {
-        return Math.round(val * dpr) / dpr;
-    }
-
-    implicitWidth: snap(128.0)
-    implicitHeight: snap(44.8)
+    implicitWidth: LocalMetrics.Metrics.legacyDp(128.0)
+    implicitHeight: LocalMetrics.Metrics.legacyDp(44.8)
 }

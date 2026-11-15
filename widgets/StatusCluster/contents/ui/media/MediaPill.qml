@@ -20,7 +20,7 @@ Rectangle {
     radius: height / 2
 
     readonly property bool isPillHovered: mediaMouse.containsMouse || ppMouse.containsMouse
-    width: visible ? appletRoot.snap(126.4) : 0
+    width: visible ? appletRoot.legacyDp(126.4) : 0
     implicitWidth: width
     implicitHeight: height
 
@@ -30,7 +30,7 @@ Rectangle {
     color: pillSurfaceColor
 
     border.color: isExpanded ? "transparent" : "#42494f"
-    border.width: appletRoot.snap(1.6)
+    border.width: Math.max(1.0 / appletRoot.dpr, appletRoot.legacyDp(1.6))
 
     Behavior on color { ColorAnimation { duration: Kirigami.Units.shortDuration } }
     Behavior on border.color { ColorAnimation { duration: Kirigami.Units.shortDuration } }
@@ -70,9 +70,9 @@ Rectangle {
     Rectangle {
         id: playPauseCircle
         anchors.left: parent.left
-        anchors.leftMargin: mediaPillButton.appletRoot.snap(4.8)
+        anchors.leftMargin: mediaPillButton.appletRoot.legacyDp(4.8)
         anchors.verticalCenter: parent.verticalCenter
-        readonly property real baseTargetSize: mediaPillButton.appletRoot.snap(mediaPillButton.appletRoot.effectiveHeight * 0.45)
+        readonly property real baseTargetSize: mediaPillButton.appletRoot.barPx(16.2, 36.0)
         width: baseTargetSize
         height: width
         radius: width / 2
@@ -98,7 +98,7 @@ Rectangle {
         PlayPauseIcon {
             id: playPauseSymbol
             anchors.centerIn: parent
-            anchors.horizontalCenterOffset: mediaPillButton.mediaBackend.isPlaying ? 0 : mediaPillButton.appletRoot.snap(0.8)
+            anchors.horizontalCenterOffset: mediaPillButton.mediaBackend.isPlaying ? 0 : mediaPillButton.appletRoot.legacyDp(0.8)
             isPlaying: mediaPillButton.mediaBackend.isPlaying
             iconSize: mediaPillButton.appletRoot.snap(playPauseCircle.baseTargetSize * 0.5)
             color: mediaPillButton.isExpanded
@@ -123,11 +123,11 @@ Rectangle {
     MarqueeText {
         id: marqueeTitle
         anchors.left: playPauseCircle.right
-        anchors.leftMargin: mediaPillButton.appletRoot.snap(5.6)
+        anchors.leftMargin: mediaPillButton.appletRoot.legacyDp(5.6)
         anchors.right: parent.right
-        anchors.rightMargin: mediaPillButton.appletRoot.snap(7.2)
+        anchors.rightMargin: mediaPillButton.appletRoot.legacyDp(7.2)
         anchors.verticalCenter: parent.verticalCenter
-        anchors.verticalCenterOffset: mediaPillButton.appletRoot.snap(0.8)
+        anchors.verticalCenterOffset: mediaPillButton.appletRoot.legacyDp(0.8)
         height: parent.height
 
         text: mediaPillButton.mediaBackend.track
@@ -149,7 +149,7 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.topMargin: mediaPillButton.border.width
         anchors.bottomMargin: mediaPillButton.border.width
-        width: mediaPillButton.appletRoot.snap(14.4)
+        width: mediaPillButton.appletRoot.legacyDp(14.4)
         z: 5
         opacity: (marqueeTitle.textOffset < -1.0) ? 1.0 : 0.0
         Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration } }
@@ -169,7 +169,7 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.topMargin: mediaPillButton.border.width
         anchors.bottomMargin: mediaPillButton.border.width
-        width: mediaPillButton.appletRoot.snap(14.4)
+        width: mediaPillButton.appletRoot.legacyDp(14.4)
         radius: height / 2
         z: 5
         opacity: marqueeTitle.overflowing ? 1.0 : 0.0

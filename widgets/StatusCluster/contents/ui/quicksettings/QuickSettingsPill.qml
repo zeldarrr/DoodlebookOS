@@ -15,11 +15,12 @@ Item {
     required property var appletRoot
     required property bool expanded
 
-    readonly property real qsPadding: appletRoot.snap(appletRoot.effectiveHeight * 0.175) // 7 px on each side and between icons
-    readonly property real qsIconH: appletRoot.qsIconHeight // 16 px box -> 14x15 BT, 15x15 DND, 20x15 Wi-Fi & 15 px Battery centered on y=13..27
+    readonly property real qsPaddingLeft: appletRoot.barPx(9.0, 36.0)
+    readonly property real qsPaddingRight: appletRoot.barPx(5.0, 36.0)
+    readonly property real qsIconH: appletRoot.qsIconHeight
 
     height: appletRoot.railHeight // Normalized Quick Settings pill height
-    width: qsPadding + qsIconsRow.implicitWidth + qsPadding
+    width: qsPaddingLeft + qsIconsRow.implicitWidth + qsPaddingRight
     implicitWidth: width
     implicitHeight: height
 
@@ -36,7 +37,7 @@ Item {
 
     Row {
         id: qsIconsRow
-        x: qsPillButton.appletRoot.snap((qsPillButton.width - width) / 2)
+        x: qsPillButton.qsPaddingLeft
         y: qsPillButton.appletRoot.snap((qsPillButton.height - height) / 2)
         spacing: qsPillButton.appletRoot.qsIconSpacing
 
@@ -74,7 +75,7 @@ Item {
 
         Item {
             id: batteryTrayWrapper
-            readonly property real tightLeftOffset: Math.max(1.0 / qsPillButton.appletRoot.dpr, qsPillButton.appletRoot.snap(qsPillButton.appletRoot.effectiveHeight * 0.025))
+            readonly property real tightLeftOffset: Math.max(1.0 / qsPillButton.appletRoot.dpr, qsPillButton.appletRoot.barPx(1.0, 36.0))
             width: batteryTrayIcon.width - batteryTrayWrapper.tightLeftOffset
             height: batteryTrayIcon.height
 

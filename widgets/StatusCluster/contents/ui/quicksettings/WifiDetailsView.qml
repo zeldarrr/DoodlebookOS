@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import QtQuick.Layouts
 import QtQuick.Controls as QQC2
 import org.kde.kirigami as Kirigami
@@ -6,6 +7,7 @@ import org.kde.plasma.components as PlasmaComponents3
 import org.kde.plasma.networkmanagement as PlasmaNM
 import org.kde.kcmutils as KCMUtils
 import "i18n.js" as I18n
+import "../metrics" as LocalMetrics
 
 Item {
     id: wifiViewRoot
@@ -24,9 +26,15 @@ Item {
     readonly property bool shouldShowSeeAll: !isExpanded && totalNetworksCount > 4
     readonly property int maxVisibleAvailable: (currentConnFinder && currentConnFinder.hasActive) ? 2 : 3
 
-    readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
+    readonly property real dpr: LocalMetrics.Metrics.dpr
     function snap(val) {
-        return Math.round(val * dpr) / dpr;
+        return LocalMetrics.Metrics.snap(val);
+    }
+    function px(val) {
+        return LocalMetrics.Metrics.px(val);
+    }
+    function legacyDp(val) {
+        return LocalMetrics.Metrics.legacyDp(val);
     }
 
     function wifiSignalIcon(signal) {
@@ -109,7 +117,7 @@ Item {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        height: headerCol.anchors.topMargin + headerCol.implicitHeight + snap(8.0)
+        height: headerCol.anchors.topMargin + headerCol.implicitHeight + wifiViewRoot.legacyDp(8.0)
         color: "transparent"
         z: 10
 
@@ -118,17 +126,17 @@ Item {
             id: backBtn
             anchors.left: parent.left
             anchors.top: parent.top
-            width: snap(32.0)  // 40px fizycznych
-            height: snap(32.0) // 40px fizycznych
-            radius: snap(8.0)
+            width: wifiViewRoot.legacyDp(32.0)
+            height: wifiViewRoot.legacyDp(32.0)
+            radius: wifiViewRoot.legacyDp(8.0)
             color: backMouse.pressed
                    ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.18)
                    : (backMouse.containsMouse ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.1) : "transparent")
 
             Kirigami.Icon {
                 anchors.centerIn: parent
-                width: snap(24.0) // 30px fizycznych (powiększona o 5px z 25px)
-                height: snap(24.0)
+                width: wifiViewRoot.legacyDp(24.0)
+                height: wifiViewRoot.legacyDp(24.0)
                 source: Qt.resolvedUrl("icons/arrow_back.svg")
                 isMask: true
                 color: Kirigami.Theme.textColor
@@ -149,15 +157,15 @@ Item {
             id: headerCol
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
-            anchors.topMargin: snap((backBtn.height - internetLabel.implicitHeight) / 2)
-            spacing: snap(4.8) // dokładnie 6px fizycznych (dwukrotnie więcej niż dotychczasowe 3px)
+            anchors.topMargin: wifiViewRoot.snap((backBtn.height - internetLabel.implicitHeight) / 2)
+            spacing: wifiViewRoot.legacyDp(4.8)
 
             PlasmaComponents3.Label {
                 id: internetLabel
                 text: i18n("Internet")
                 font.family: wifiViewRoot.appFontFamily
                 font.bold: true
-                font.pixelSize: snap(12.0) // 15px fizycznych (zwiększone o 1px)
+                font.pixelSize: wifiViewRoot.legacyDp(12.0)
                 color: Kirigami.Theme.textColor
                 Layout.alignment: Qt.AlignHCenter
             }
@@ -165,17 +173,17 @@ Item {
             PlasmaComponents3.Label {
                 text: i18n("Tap a network to connect")
                 font.family: wifiViewRoot.appFontFamily
-                font.pixelSize: snap(9.6) // 12px fizycznych
+                font.pixelSize: wifiViewRoot.legacyDp(9.6)
                 color: Kirigami.Theme.disabledTextColor
                 Layout.alignment: Qt.AlignHCenter
             }
 
             Rectangle {
-                Layout.topMargin: snap(4.8) // dodatkowe 6px fizycznych (łącznie 12px fizycznych odstępu od napisu)
-                Layout.preferredWidth: snap(136.8) // 171px fizycznych
-                Layout.preferredHeight: snap(4.0)   // 5px fizycznych
+                Layout.topMargin: wifiViewRoot.legacyDp(4.8)
+                Layout.preferredWidth: wifiViewRoot.legacyDp(136.8)
+                Layout.preferredHeight: wifiViewRoot.legacyDp(4.0)
                 Layout.alignment: Qt.AlignHCenter
-                radius: snap(2.0)
+                radius: wifiViewRoot.legacyDp(2.0)
                 color: fullRep ? fullRep.oneUiTrackBg : Kirigami.Theme.alternateBackgroundColor
             }
         }
@@ -184,9 +192,9 @@ Item {
         Rectangle {
             anchors.right: parent.right
             anchors.top: parent.top
-            width: snap(32.0)  // 40px fizycznych
-            height: snap(32.0) // 40px fizycznych
-            radius: snap(8.0)
+            width: wifiViewRoot.legacyDp(32.0)
+            height: wifiViewRoot.legacyDp(32.0)
+            radius: wifiViewRoot.legacyDp(8.0)
             visible: Boolean(nmEnabled.wirelessEnabled)
             color: scanMouse.pressed
                    ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.18)
@@ -195,8 +203,8 @@ Item {
             Kirigami.Icon {
                 id: refreshIcon
                 anchors.centerIn: parent
-                width: snap(25.6) // 32px fizyczne (powiększona o 8px z 24px)
-                height: snap(25.6)
+                width: wifiViewRoot.legacyDp(25.6)
+                height: wifiViewRoot.legacyDp(25.6)
                 source: Qt.resolvedUrl("icons/refresh.svg")
                 isMask: true
                 color: Kirigami.Theme.textColor
@@ -228,7 +236,7 @@ Item {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.topMargin: snap(8.0)
+        anchors.topMargin: wifiViewRoot.legacyDp(8.0)
         clip: true
         contentWidth: availableWidth
         QQC2.ScrollBar.vertical.policy: QQC2.ScrollBar.AlwaysOff
@@ -242,19 +250,19 @@ Item {
             // === 1. WHEN WI-FI IS DISABLED ===
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 180
-                radius: 16
+                Layout.preferredHeight: wifiViewRoot.legacyDp(180.0)
+                radius: wifiViewRoot.legacyDp(16.0)
                 color: fullRep ? fullRep.oneUiTrackBg : Kirigami.Theme.alternateBackgroundColor
                 visible: !nmEnabled.wirelessEnabled
 
                 ColumnLayout {
                     anchors.centerIn: parent
-                    spacing: 10
+                    spacing: wifiViewRoot.legacyDp(10.0)
 
                     Kirigami.Icon {
                         source: Qt.resolvedUrl("icons/wifi_panel.svg")
-                        Layout.preferredWidth: 42
-                        Layout.preferredHeight: 42
+                        Layout.preferredWidth: wifiViewRoot.legacyDp(42.0)
+                        Layout.preferredHeight: wifiViewRoot.legacyDp(42.0)
                         Layout.alignment: Qt.AlignHCenter
                         opacity: 0.4
                         isMask: true
@@ -265,7 +273,7 @@ Item {
                         text: i18n("Wi-Fi is off")
                         font.family: wifiViewRoot.appFontFamily
                         font.bold: true
-                        font.pixelSize: Math.round(Kirigami.Theme.defaultFont.pixelSize * 1.15)
+                        font.pixelSize: wifiViewRoot.snap(Kirigami.Theme.defaultFont.pixelSize * 1.15 * LocalMetrics.Metrics.clampedScale)
                         color: Kirigami.Theme.textColor
                         Layout.alignment: Qt.AlignHCenter
                     }
@@ -273,16 +281,16 @@ Item {
                     PlasmaComponents3.Label {
                         text: i18n("Turn on Wi-Fi to see available networks.")
                         font.family: wifiViewRoot.appFontFamily
-                        font.pixelSize: Math.round(Kirigami.Theme.smallFont.pixelSize * 1.05)
+                        font.pixelSize: wifiViewRoot.snap(Kirigami.Theme.smallFont.pixelSize * 1.05 * LocalMetrics.Metrics.clampedScale)
                         color: Kirigami.Theme.disabledTextColor
                         Layout.alignment: Qt.AlignHCenter
                     }
 
                     Rectangle {
                         Layout.alignment: Qt.AlignHCenter
-                        Layout.preferredHeight: 36
-                        Layout.preferredWidth: 130
-                        radius: 18
+                        Layout.preferredHeight: wifiViewRoot.legacyDp(36.0)
+                        Layout.preferredWidth: wifiViewRoot.legacyDp(130.0)
+                        radius: wifiViewRoot.legacyDp(18.0)
                         color: fullRep ? fullRep.effectiveAccentColor : Kirigami.Theme.highlightColor
 
                         PlasmaComponents3.Label {
@@ -290,6 +298,7 @@ Item {
                             text: i18n("Turn on Wi-Fi")
                             font.family: wifiViewRoot.appFontFamily
                             font.bold: true
+                            font.pixelSize: wifiViewRoot.snap(Kirigami.Theme.defaultFont.pixelSize * LocalMetrics.Metrics.clampedScale)
                             color: Kirigami.Theme.highlightedTextColor
                         }
 
@@ -306,23 +315,23 @@ Item {
             // === 2. WHEN WI-FI IS ENABLED ===
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: snap(1.6) // 2px fizycznych odstępu między wszystkimi kafelkami sieci
+                spacing: wifiViewRoot.legacyDp(1.6)
                 visible: Boolean(nmEnabled.wirelessEnabled)
 
                 // Wi-Fi Label + Material 3 Switch Row
                 RowLayout {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: snap(32.0) // 40px fizycznych
-                    Layout.topMargin: snap(14.4)       // dokładnie o 18px fizycznych (14.4 dp) większy odstęp od separatora
-                    Layout.leftMargin: snap(19.2)      // 24px z kafelka + 18px z okna = 42px fizyczne od lewej krawędzi
-                    Layout.rightMargin: snap(19.2)     // 24px z kafelka + 18px z okna = 42px fizyczne od prawej krawędzi
-                    Layout.bottomMargin: snap(14.4)    // 18px fizycznych (14.4 dp) odstępu do pierwszego kafelka sieci
+                    Layout.preferredHeight: wifiViewRoot.legacyDp(32.0)
+                    Layout.topMargin: wifiViewRoot.legacyDp(14.4)
+                    Layout.leftMargin: wifiViewRoot.legacyDp(19.2)
+                    Layout.rightMargin: wifiViewRoot.legacyDp(19.2)
+                    Layout.bottomMargin: wifiViewRoot.legacyDp(14.4)
 
                     PlasmaComponents3.Label {
                         text: i18n("Wi-Fi")
                         font.family: wifiViewRoot.appFontFamily
                         font.bold: true
-                        font.pixelSize: snap(12.0) // 15px fizycznych (zwiększone o 1px)
+                        font.pixelSize: wifiViewRoot.legacyDp(12.0)
                         color: Kirigami.Theme.textColor
                         Layout.alignment: Qt.AlignVCenter
                     }
@@ -334,8 +343,8 @@ Item {
                     // Material 3 Expressive Switch
                     Item {
                         id: m3Switch
-                        Layout.preferredWidth: snap(36.8)  // 46px fizycznych szerokości szyny M3
-                        Layout.preferredHeight: snap(22.4) // dokładnie 28px fizycznych wysokości szyny M3
+                        Layout.preferredWidth: wifiViewRoot.legacyDp(36.8)
+                        Layout.preferredHeight: wifiViewRoot.legacyDp(22.4)
                         Layout.alignment: Qt.AlignVCenter
 
                         readonly property bool checked: Boolean(nmEnabled.wirelessEnabled)
@@ -357,13 +366,13 @@ Item {
                             // Thumb (Gałka M3 powiększająca się i przesuwająca)
                             Rectangle {
                                 id: switchThumb
-                                height: m3Switch.checked ? snap(16.8) : snap(11.2) // 21px vs 14px fizyczne
+                                height: m3Switch.checked ? wifiViewRoot.legacyDp(16.8) : wifiViewRoot.legacyDp(11.2)
                                 width: height
                                 radius: height / 2.0
                                 anchors.verticalCenter: parent.verticalCenter
                                 x: m3Switch.checked
-                                   ? (parent.width - width - snap(2.8))
-                                   : snap(3.6)
+                                   ? (parent.width - width - wifiViewRoot.legacyDp(2.8))
+                                   : wifiViewRoot.legacyDp(3.6)
 
                                 color: m3Switch.checked
                                        ? (Kirigami.Theme.highlightedTextColor)
@@ -386,8 +395,8 @@ Item {
                                 // Checkmark icon wewnątrz gałki po włączeniu
                                 Kirigami.Icon {
                                     anchors.centerIn: parent
-                                    width: snap(9.6) // 12px fizycznych
-                                    height: snap(9.6)
+                                    width: wifiViewRoot.legacyDp(9.6)
+                                    height: wifiViewRoot.legacyDp(9.6)
                                     source: Qt.resolvedUrl("icons/check.svg")
                                     isMask: true
                                     color: fullRep ? fullRep.effectiveAccentColor : Kirigami.Theme.highlightColor
@@ -463,12 +472,12 @@ Item {
                 Rectangle {
                     id: activeNetTile
                     Layout.fillWidth: true
-                    Layout.preferredHeight: snap(64.8) // 81px fizycznych
-                    radius: 16
-                    topLeftRadius: 16
-                    topRightRadius: 16
-                    bottomLeftRadius: 16
-                    bottomRightRadius: 16
+                    Layout.preferredHeight: wifiViewRoot.px(72.0)
+                    radius: wifiViewRoot.legacyDp(16.0)
+                    topLeftRadius: wifiViewRoot.legacyDp(16.0)
+                    topRightRadius: wifiViewRoot.legacyDp(16.0)
+                    bottomLeftRadius: wifiViewRoot.legacyDp(16.0)
+                    bottomRightRadius: wifiViewRoot.legacyDp(16.0)
                     visible: Boolean(currentConnFinder.hasActive)
                     color: fullRep ? fullRep.effectiveAccentColor : Kirigami.Theme.highlightColor
 
@@ -476,14 +485,14 @@ Item {
 
                     RowLayout {
                         anchors.fill: parent
-                        anchors.leftMargin: snap(18.4)  // 23px fizyczne (zwiększone o 8px z 15px)
-                        anchors.rightMargin: snap(17.6) // 22px fizyczne (zwiększone o 7px z 15px)
-                        spacing: 12
+                        anchors.leftMargin: wifiViewRoot.legacyDp(18.4)
+                        anchors.rightMargin: wifiViewRoot.legacyDp(17.6)
+                        spacing: wifiViewRoot.legacyDp(12.0)
 
                         // Wi-Fi Signal Icon (z gradientem/stopniami siły sygnału)
                         Kirigami.Icon {
-                            Layout.preferredWidth: 22
-                            Layout.preferredHeight: 22
+                            Layout.preferredWidth: wifiViewRoot.legacyDp(22.0)
+                            Layout.preferredHeight: wifiViewRoot.legacyDp(22.0)
                             Layout.alignment: Qt.AlignVCenter
                             source: wifiViewRoot.wifiSignalIcon(currentConnFinder.activeSignalInt)
                             isMask: true
@@ -494,14 +503,14 @@ Item {
                         ColumnLayout {
                             Layout.fillWidth: true
                             Layout.alignment: Qt.AlignVCenter
-                            spacing: snap(2.4) // 3px fizyczne
+                            spacing: wifiViewRoot.legacyDp(2.4)
 
                             PlasmaComponents3.Label {
                                 text: currentConnFinder.activeName
                                 font.family: wifiViewRoot.appFontFamily
                                 font.bold: false
                                 font.weight: Font.DemiBold // waga 600
-                                font.pixelSize: snap(12.4) // 15.5px fizycznych (jak w referencji)
+                                font.pixelSize: wifiViewRoot.legacyDp(12.4)
                                 color: activeNetTile.onPrimaryColor
                                 elide: Text.ElideRight
                                 Layout.fillWidth: true
@@ -510,7 +519,7 @@ Item {
                             PlasmaComponents3.Label {
                                 text: i18n("Connected")
                                 font.family: wifiViewRoot.appFontFamily
-                                font.pixelSize: snap(9.6) // 12px fizycznych (jak w referencji)
+                                font.pixelSize: wifiViewRoot.legacyDp(9.6)
                                 color: Qt.rgba(activeNetTile.onPrimaryColor.r, activeNetTile.onPrimaryColor.g, activeNetTile.onPrimaryColor.b, 0.92)
                                 Layout.fillWidth: true
                             }
@@ -518,17 +527,17 @@ Item {
 
                         // Ikonka ustawień po prawej stronie (settings1.svg) powiększona
                         Rectangle {
-                            Layout.preferredWidth: snap(28.8) // 36px fizycznych
-                            Layout.preferredHeight: snap(28.8)
+                            Layout.preferredWidth: wifiViewRoot.legacyDp(28.8)
+                            Layout.preferredHeight: wifiViewRoot.legacyDp(28.8)
                             Layout.alignment: Qt.AlignVCenter
-                            radius: snap(7.2)
+                            radius: wifiViewRoot.legacyDp(7.2)
                             color: activeSettingsMouse.pressed ? Qt.rgba(0, 0, 0, 0.25)
                                                                : (activeSettingsMouse.containsMouse ? Qt.rgba(0, 0, 0, 0.15) : "transparent")
 
                             Kirigami.Icon {
                                 anchors.centerIn: parent
-                                width: snap(22.4)  // 28px fizycznych (powiększona)
-                                height: snap(22.4) // 28px fizycznych
+                                width: wifiViewRoot.legacyDp(22.4)
+                                height: wifiViewRoot.legacyDp(22.4)
                                 source: Qt.resolvedUrl("icons/settings1.svg")
                                 isMask: true
                                 color: activeNetTile.onPrimaryColor
@@ -557,7 +566,7 @@ Item {
                     delegate: ColumnLayout {
                         id: networkDelegate
                         Layout.fillWidth: true
-                        spacing: snap(1.6) // 2px fizycznych
+                        spacing: wifiViewRoot.legacyDp(1.6)
 
                         readonly property string netName: model.Name || ""
                         readonly property int netSignal: (model.Signal !== undefined && model.Signal !== null) ? model.Signal : 0
@@ -582,26 +591,26 @@ Item {
                         // Network Tile Row
                         Rectangle {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: snap(64.8) // dokładnie 81px fizycznych (64.8 dp)
+                            Layout.preferredHeight: wifiViewRoot.px(72.0)
                             radius: 1
-                            topLeftRadius: (networkDelegate.isSingleItem || networkDelegate.isFirstItem) ? 16 : 1
-                            topRightRadius: (networkDelegate.isSingleItem || networkDelegate.isFirstItem) ? 16 : 1
-                            bottomLeftRadius: (!wifiViewRoot.shouldShowSeeAll && (networkDelegate.isSingleItem || networkDelegate.isLastItem)) ? 16 : 1
-                            bottomRightRadius: (!wifiViewRoot.shouldShowSeeAll && (networkDelegate.isSingleItem || networkDelegate.isLastItem)) ? 16 : 1
+                            topLeftRadius: (networkDelegate.isSingleItem || networkDelegate.isFirstItem) ? wifiViewRoot.legacyDp(16.0) : 1
+                            topRightRadius: (networkDelegate.isSingleItem || networkDelegate.isFirstItem) ? wifiViewRoot.legacyDp(16.0) : 1
+                            bottomLeftRadius: (!wifiViewRoot.shouldShowSeeAll && (networkDelegate.isSingleItem || networkDelegate.isLastItem)) ? wifiViewRoot.legacyDp(16.0) : 1
+                            bottomRightRadius: (!wifiViewRoot.shouldShowSeeAll && (networkDelegate.isSingleItem || networkDelegate.isLastItem)) ? wifiViewRoot.legacyDp(16.0) : 1
                             color: itemMouseArea.pressed
                                    ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.16)
                                    : (itemMouseArea.containsMouse ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08) : (fullRep ? fullRep.oneUiTrackBg : Kirigami.Theme.alternateBackgroundColor))
 
                             RowLayout {
                                 anchors.fill: parent
-                                anchors.leftMargin: snap(18.4)  // 23px fizyczne (zwiększone o 8px z 15px)
-                                anchors.rightMargin: snap(17.6) // 22px fizyczne (zwiększone o 7px z 15px)
-                                spacing: 12
+                                anchors.leftMargin: wifiViewRoot.legacyDp(18.4)
+                                anchors.rightMargin: wifiViewRoot.legacyDp(17.6)
+                                spacing: wifiViewRoot.legacyDp(12.0)
 
                                 // Wi-Fi Signal Icon (ze stopniami siły sygnału)
                                 Kirigami.Icon {
-                                    Layout.preferredWidth: 22
-                                    Layout.preferredHeight: 22
+                                    Layout.preferredWidth: wifiViewRoot.legacyDp(22.0)
+                                    Layout.preferredHeight: wifiViewRoot.legacyDp(22.0)
                                     Layout.alignment: Qt.AlignVCenter
                                     source: wifiViewRoot.wifiSignalIcon(networkDelegate.netSignal)
                                     isMask: true
@@ -614,24 +623,24 @@ Item {
                                     font.family: wifiViewRoot.appFontFamily
                                     font.bold: false
                                     font.weight: Font.DemiBold // waga 600
-                                    font.pixelSize: snap(12.4) // 15.5px fizycznych (jak w referencji)
+                                    font.pixelSize: wifiViewRoot.legacyDp(12.4)
                                     color: Kirigami.Theme.textColor
                                     elide: Text.ElideRight
                                     Layout.fillWidth: true
                                     Layout.alignment: Qt.AlignVCenter
                                 }
 
-                                // Kłódka po prawej stronie kafelka (w identycznym kontenerze 36px jak ikona ustawień - idealna linia w pionie)
+                                // Kłódka po prawej stronie kafelka
                                 Item {
-                                    Layout.preferredWidth: snap(28.8)  // 36px fizycznych
-                                    Layout.preferredHeight: snap(28.8) // 36px fizycznych
+                                    Layout.preferredWidth: wifiViewRoot.legacyDp(28.8)
+                                    Layout.preferredHeight: wifiViewRoot.legacyDp(28.8)
                                     Layout.alignment: Qt.AlignVCenter
                                     visible: networkDelegate.isSecured
 
                                     Kirigami.Icon {
                                         anchors.centerIn: parent
-                                        width: snap(22.4)  // 28px fizycznych (powiększona odrobinę z 27px)
-                                        height: snap(22.4) // 28px fizycznych
+                                        width: wifiViewRoot.legacyDp(22.4)
+                                        height: wifiViewRoot.legacyDp(22.4)
                                         source: Qt.resolvedUrl("icons/custom_lock.svg")
                                         isMask: true
                                         color: Kirigami.Theme.disabledTextColor
@@ -639,8 +648,8 @@ Item {
                                 }
 
                                 PlasmaComponents3.BusyIndicator {
-                                    Layout.preferredWidth: 22
-                                    Layout.preferredHeight: 22
+                                    Layout.preferredWidth: wifiViewRoot.legacyDp(22.0)
+                                    Layout.preferredHeight: wifiViewRoot.legacyDp(22.0)
                                     Layout.alignment: Qt.AlignVCenter
                                     running: networkDelegate.isActivating
                                     visible: networkDelegate.isActivating
@@ -675,8 +684,8 @@ Item {
                         // Inline Password Input Card
                         Rectangle {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: pwdCol.implicitHeight + 20
-                            radius: 12
+                            Layout.preferredHeight: pwdCol.implicitHeight + wifiViewRoot.legacyDp(20.0)
+                            radius: wifiViewRoot.legacyDp(12.0)
                             color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.06)
                             border.width: 1
                             border.color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.12)
@@ -685,25 +694,26 @@ Item {
                             ColumnLayout {
                                 id: pwdCol
                                 anchors.fill: parent
-                                anchors.margins: 10
-                                spacing: 8
+                                anchors.margins: wifiViewRoot.legacyDp(10.0)
+                                spacing: wifiViewRoot.legacyDp(8.0)
 
                                 PlasmaComponents3.Label {
                                     text: i18n("Enter password for %1:", networkDelegate.netName)
                                     font.family: wifiViewRoot.appFontFamily
                                     font.bold: true
-                                    font.pixelSize: Math.round(Kirigami.Theme.smallFont.pixelSize * 1.0)
+                                    font.pixelSize: wifiViewRoot.snap(Kirigami.Theme.smallFont.pixelSize * LocalMetrics.Metrics.clampedScale)
                                     color: Kirigami.Theme.textColor
                                 }
 
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    spacing: 8
+                                    spacing: wifiViewRoot.legacyDp(8.0)
 
                                     QQC2.TextField {
                                         id: pwdField
                                         Layout.fillWidth: true
                                         font.family: wifiViewRoot.appFontFamily
+                                        font.pixelSize: wifiViewRoot.snap(Kirigami.Theme.defaultFont.pixelSize * LocalMetrics.Metrics.clampedScale)
                                         placeholderText: i18n("Network password")
                                         echoMode: wifiViewRoot.showPassword ? TextInput.Normal : TextInput.Password
                                         text: wifiViewRoot.passwordInput
@@ -720,15 +730,15 @@ Item {
 
                                     // Eye toggle
                                     Rectangle {
-                                        width: 32
-                                        height: 32
-                                        radius: 6
+                                        width: wifiViewRoot.legacyDp(32.0)
+                                        height: wifiViewRoot.legacyDp(32.0)
+                                        radius: wifiViewRoot.legacyDp(6.0)
                                         color: eyeMouse.containsMouse ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.12) : "transparent"
 
                                         Kirigami.Icon {
                                             anchors.centerIn: parent
-                                            width: 18
-                                            height: 18
+                                            width: wifiViewRoot.legacyDp(18.0)
+                                            height: wifiViewRoot.legacyDp(18.0)
                                             source: wifiViewRoot.showPassword ? "visibility" : "hint"
                                             color: Kirigami.Theme.textColor
                                         }
@@ -746,7 +756,7 @@ Item {
 
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    spacing: 8
+                                    spacing: wifiViewRoot.legacyDp(8.0)
 
                                     Item { Layout.fillWidth: true }
 
@@ -778,12 +788,12 @@ Item {
                 Rectangle {
                     id: seeAllTile
                     Layout.fillWidth: true
-                    Layout.preferredHeight: snap(64.8) // dokładnie 81px fizycznych (64.8 dp) - identyczna jak kafelki sieci
+                    Layout.preferredHeight: wifiViewRoot.px(72.0)
                     radius: 1
                     topLeftRadius: 1
                     topRightRadius: 1
-                    bottomLeftRadius: 16
-                    bottomRightRadius: 16
+                    bottomLeftRadius: wifiViewRoot.legacyDp(16.0)
+                    bottomRightRadius: wifiViewRoot.legacyDp(16.0)
                     visible: wifiViewRoot.shouldShowSeeAll
                     color: seeAllMouse.pressed
                            ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.16)
@@ -791,14 +801,14 @@ Item {
 
                     RowLayout {
                         anchors.fill: parent
-                        anchors.leftMargin: snap(18.4)  // 23px fizyczne
-                        anchors.rightMargin: snap(17.6) // 22px fizyczne
-                        spacing: 12
+                        anchors.leftMargin: wifiViewRoot.legacyDp(18.4)
+                        anchors.rightMargin: wifiViewRoot.legacyDp(17.6)
+                        spacing: wifiViewRoot.legacyDp(12.0)
 
                         // Arrow right icon
                         Kirigami.Icon {
-                            Layout.preferredWidth: 22
-                            Layout.preferredHeight: 22
+                            Layout.preferredWidth: wifiViewRoot.legacyDp(22.0)
+                            Layout.preferredHeight: wifiViewRoot.legacyDp(22.0)
                             Layout.alignment: Qt.AlignVCenter
                             source: Qt.resolvedUrl("icons/arrow_right.svg")
                             isMask: true
@@ -811,7 +821,7 @@ Item {
                             font.family: wifiViewRoot.appFontFamily
                             font.bold: false
                             font.weight: Font.Medium // waga 500
-                            font.pixelSize: snap(12.4) // 15.5px fizycznych
+                            font.pixelSize: wifiViewRoot.legacyDp(12.4)
                             color: Kirigami.Theme.textColor
                             elide: Text.ElideRight
                             Layout.fillWidth: true
@@ -834,20 +844,20 @@ Item {
             // === 3. BOTTOM MORE SETTINGS ACTION ===
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: snap(36.0) // dokładnie 45px fizycznych (36.0 dp)
-                Layout.topMargin: snap(80.0)       // dokładnie 100px fizycznych odstępu (80.0 dp)
-                radius: height / 2.0               // maksymalnie zaokrąglone rogi (pełna kapsułka / pill)
+                Layout.preferredHeight: wifiViewRoot.legacyDp(36.0)
+                Layout.topMargin: wifiViewRoot.legacyDp(80.0)
+                radius: height / 2.0
                 color: moreNetMouse.pressed
                        ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.18)
                        : (moreNetMouse.containsMouse ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08) : (fullRep ? fullRep.oneUiTrackBg : Kirigami.Theme.alternateBackgroundColor))
 
                 RowLayout {
                     anchors.centerIn: parent
-                    spacing: snap(8.0) // 10px fizycznych
+                    spacing: wifiViewRoot.legacyDp(8.0)
 
                     Kirigami.Icon {
-                        Layout.preferredWidth: snap(16.0) // 20px fizycznych
-                        Layout.preferredHeight: snap(16.0)
+                        Layout.preferredWidth: wifiViewRoot.legacyDp(16.0)
+                        Layout.preferredHeight: wifiViewRoot.legacyDp(16.0)
                         Layout.alignment: Qt.AlignVCenter
                         source: Qt.resolvedUrl("icons/settings.svg")
                         isMask: true
@@ -857,7 +867,7 @@ Item {
                     PlasmaComponents3.Label {
                         text: i18n("More Wi-Fi settings")
                         font.family: wifiViewRoot.appFontFamily
-                        font.pixelSize: Math.round(Kirigami.Theme.defaultFont.pixelSize * 1.0)
+                        font.pixelSize: wifiViewRoot.snap(Kirigami.Theme.defaultFont.pixelSize * LocalMetrics.Metrics.clampedScale)
                         color: Kirigami.Theme.textColor
                         Layout.alignment: Qt.AlignVCenter
                     }

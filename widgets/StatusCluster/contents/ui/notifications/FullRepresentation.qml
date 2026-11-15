@@ -8,6 +8,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Window
 import QtQuick.Layouts
 
 import org.kde.plasma.plasmoid
@@ -19,6 +20,7 @@ import org.kde.kcmutils as KCMUtils
 import org.kde.notificationmanager as NotificationManager
 
 import "i18n.js" as I18n
+import "../metrics" as LocalMetrics
 
 PlasmaExtras.Representation {
     id: fullRepresentationRoot
@@ -39,26 +41,32 @@ PlasmaExtras.Representation {
 
     readonly property color cardBackgroundColor: buttonThemeScope ? buttonThemeScope.Kirigami.Theme.backgroundColor : Kirigami.Theme.backgroundColor
 
-    readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
+    readonly property real dpr: LocalMetrics.Metrics.dpr
     function snap(val) {
-        return Math.round(val * dpr) / dpr;
+        return LocalMetrics.Metrics.snap(val);
+    }
+    function px(val) {
+        return LocalMetrics.Metrics.px(val);
+    }
+    function legacyDp(val) {
+        return LocalMetrics.Metrics.legacyDp(val);
     }
 
-    // Ta sama szerokość co okno Quick Settings (423px fizycznych)
-    Layout.preferredWidth: snap(338.4)
+    // Punkt 0 referencyjna szerokość panelu powiadomień (376 px fizycznych)
+    Layout.preferredWidth: px(376.0)
     Layout.minimumWidth: Layout.preferredWidth
     Layout.maximumWidth: Layout.preferredWidth
 
-    // Marginesy okna powiadomień: boczne i górny 18px (14.4 dp), dolny 27px (21.6 dp)
-    readonly property real sideMargin: snap(14.4)      // 18px fizycznych
-    readonly property real topMargin: snap(14.4)       // 18px fizycznych
-    readonly property real bottomMargin: snap(21.6)    // 27px fizycznych
+    // Marginesy z Notifications.png: boczne i górny 16px, dolny 14px
+    readonly property real sideMargin: px(16.0)
+    readonly property real topMargin: px(16.0)
+    readonly property real bottomMargin: px(14.0)
 
-    readonly property real baseHeight: snap(240.0)
+    readonly property real baseHeight: legacyDp(240.0)
     readonly property real availableScreenH: (typeof Screen !== "undefined" && Screen.desktopAvailableHeight > 0)
         ? Screen.desktopAvailableHeight
         : ((typeof Screen !== "undefined" && Screen.height > 0) ? Screen.height : 1080)
-    readonly property real maxPopupHeight: Math.min(snap(750.0), Math.max(snap(240.0), availableScreenH - snap(52.0) - snap(16.0)))
+    readonly property real maxPopupHeight: Math.min(legacyDp(750.0), Math.max(legacyDp(240.0), availableScreenH - px(56.0) - px(16.0)))
 
     readonly property real calculatedHeight: {
         if (!hasNotifications) {
@@ -66,8 +74,8 @@ PlasmaExtras.Representation {
         }
         var ch = (historyList && historyList.contentHeight > 0)
             ? historyList.contentHeight
-            : (historyModel ? historyModel.count * 95 : 0);
-        var extraVertical = topMargin + snap(16.0) + snap(36.8) + bottomMargin;
+            : (historyModel ? historyModel.count * legacyDp(76.0) : 0);
+        var extraVertical = topMargin + px(16.0) + px(40.0) + bottomMargin;
         return Math.min(maxPopupHeight, Math.max(baseHeight, ch + extraVertical));
     }
 
@@ -170,7 +178,7 @@ PlasmaExtras.Representation {
                 topMargin: fullRepresentationRoot.topMargin
                 leftMargin: fullRepresentationRoot.sideMargin
                 rightMargin: fullRepresentationRoot.sideMargin
-                bottomMargin: fullRepresentationRoot.snap(16.0)
+                bottomMargin: fullRepresentationRoot.px(16.0)
             }
             model: fullRepresentationRoot.historyModel
             spacing: 0
@@ -238,7 +246,7 @@ PlasmaExtras.Representation {
                 readonly property bool isFirstOfSegment: !prevSameApp
                 readonly property bool isLastOfSegment: !nextSameApp
 
-                height: delegateCol.implicitHeight + (isLastOfSegment ? fullRepresentationRoot.snap(6.4) : fullRepresentationRoot.snap(1.6))
+                height: delegateCol.implicitHeight + (isLastOfSegment ? fullRepresentationRoot.legacyDp(6.4) : fullRepresentationRoot.legacyDp(1.6))
 
                 Column {
                     id: delegateCol
@@ -249,17 +257,17 @@ PlasmaExtras.Representation {
                     // Section header "Ciche"
                     Item {
                         width: parent.width
-                        height: visible ? 36 : 0
+                        height: visible ? fullRepresentationRoot.legacyDp(36) : 0
                         visible: delegateRoot.showSilentHeader
 
                         Text {
                             anchors.left: parent.left
-                            anchors.leftMargin: 4
+                            anchors.leftMargin: fullRepresentationRoot.legacyDp(4)
                             anchors.bottom: parent.bottom
-                            anchors.bottomMargin: 8
+                            anchors.bottomMargin: fullRepresentationRoot.legacyDp(8)
                             text: i18n("Silent")
                             font.bold: true
-                            font.pixelSize: 15
+                            font.pixelSize: fullRepresentationRoot.legacyDp(15)
                             color: Kirigami.Theme.textColor
                             opacity: 0.75
                         }
@@ -269,13 +277,13 @@ PlasmaExtras.Representation {
                     Rectangle {
                         id: cardRect
                         width: parent.width
-                        height: cardInnerCol.implicitHeight + fullRepresentationRoot.snap(24)
+                        height: cardInnerCol.implicitHeight + fullRepresentationRoot.legacyDp(24)
                         implicitHeight: height
                         radius: 1
-                        topLeftRadius: delegateRoot.isFirstOfSegment ? fullRepresentationRoot.snap(16) : 1
-                        topRightRadius: delegateRoot.isFirstOfSegment ? fullRepresentationRoot.snap(16) : 1
-                        bottomLeftRadius: delegateRoot.isLastOfSegment ? fullRepresentationRoot.snap(16) : 1
-                        bottomRightRadius: delegateRoot.isLastOfSegment ? fullRepresentationRoot.snap(16) : 1
+                        topLeftRadius: delegateRoot.isFirstOfSegment ? fullRepresentationRoot.legacyDp(16) : 1
+                        topRightRadius: delegateRoot.isFirstOfSegment ? fullRepresentationRoot.legacyDp(16) : 1
+                        bottomLeftRadius: delegateRoot.isLastOfSegment ? fullRepresentationRoot.legacyDp(16) : 1
+                        bottomRightRadius: delegateRoot.isLastOfSegment ? fullRepresentationRoot.legacyDp(16) : 1
                         color: fullRepresentationRoot.cardBackgroundColor
 
                         HoverHandler {
@@ -300,25 +308,25 @@ PlasmaExtras.Representation {
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.top: parent.top
-                            anchors.margins: fullRepresentationRoot.snap(12)
-                            spacing: fullRepresentationRoot.snap(6)
+                            anchors.margins: fullRepresentationRoot.legacyDp(12)
+                            spacing: fullRepresentationRoot.legacyDp(6)
 
                             // Top row
                             RowLayout {
                                 Layout.fillWidth: true
-                                spacing: fullRepresentationRoot.snap(10)
+                                spacing: fullRepresentationRoot.legacyDp(10)
 
                                 // App Icon Badge
                                 Rectangle {
-                                    Layout.preferredWidth: fullRepresentationRoot.snap(36)
-                                    Layout.preferredHeight: fullRepresentationRoot.snap(36)
+                                    Layout.preferredWidth: fullRepresentationRoot.legacyDp(36)
+                                    Layout.preferredHeight: fullRepresentationRoot.legacyDp(36)
                                     Layout.alignment: Qt.AlignTop
                                     radius: width / 2
                                     color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.12)
 
                                     Kirigami.Icon {
                                         anchors.centerIn: parent
-                                        width: fullRepresentationRoot.snap(20)
+                                        width: fullRepresentationRoot.legacyDp(20)
                                         height: width
                                         readonly property string resolvedIconName: String(delegateRoot.iconName || delegateRoot.applicationIconName || "preferences-system-notifications")
                                         source: delegateRoot.iconName || delegateRoot.applicationIconName || "preferences-system-notifications"
@@ -330,7 +338,7 @@ PlasmaExtras.Representation {
                                     Kirigami.Icon {
                                         id: cardImg
                                         anchors.centerIn: parent
-                                        width: fullRepresentationRoot.snap(22)
+                                        width: fullRepresentationRoot.legacyDp(22)
                                         height: width
                                         source: delegateRoot.image || ""
                                         visible: Boolean(delegateRoot.image) && valid
@@ -341,9 +349,9 @@ PlasmaExtras.Representation {
                                 ColumnLayout {
                                     Layout.fillWidth: true
                                     Layout.alignment: Qt.AlignTop
-                                    spacing: 2
+                                    spacing: fullRepresentationRoot.legacyDp(2)
 
-                                    // App Name • Relative Time (lub sam Czas dla kolejnych kart w segmencie)
+                                    // App Name • Relative Time
                                     Text {
                                         Layout.fillWidth: true
                                         text: {
@@ -356,7 +364,7 @@ PlasmaExtras.Representation {
                                             var app = delegateRoot.applicationName || i18n("System");
                                             return t ? (app + " • " + t) : app;
                                         }
-                                        font.pixelSize: 12
+                                        font.pixelSize: fullRepresentationRoot.legacyDp(12)
                                         color: Kirigami.Theme.textColor
                                         opacity: 0.75
                                         elide: Text.ElideRight
@@ -367,7 +375,7 @@ PlasmaExtras.Representation {
                                         Layout.fillWidth: true
                                         text: delegateRoot.summary || delegateRoot.body || ""
                                         font.weight: Font.DemiBold
-                                        font.pixelSize: 14
+                                        font.pixelSize: fullRepresentationRoot.legacyDp(14)
                                         color: Kirigami.Theme.textColor
                                         wrapMode: delegateRoot.cardExpanded ? Text.Wrap : Text.NoWrap
                                         elide: Text.ElideRight
@@ -379,7 +387,7 @@ PlasmaExtras.Representation {
                                         Layout.fillWidth: true
                                         visible: delegateRoot.cardExpanded && delegateRoot.body && delegateRoot.body.length > 0 && delegateRoot.summary && delegateRoot.summary.length > 0
                                         text: delegateRoot.body || ""
-                                        font.pixelSize: 13
+                                        font.pixelSize: fullRepresentationRoot.legacyDp(13)
                                         color: Kirigami.Theme.textColor
                                         opacity: 0.85
                                         wrapMode: Text.Wrap
@@ -390,16 +398,16 @@ PlasmaExtras.Representation {
                                     // Job progress bar (if JobType)
                                     Rectangle {
                                         Layout.fillWidth: true
-                                        Layout.topMargin: 4
-                                        height: 4
-                                        radius: 2
+                                        Layout.topMargin: fullRepresentationRoot.legacyDp(4)
+                                        height: fullRepresentationRoot.legacyDp(4)
+                                        radius: fullRepresentationRoot.legacyDp(2)
                                         color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.12)
                                         visible: delegateRoot.type === NotificationManager.Notifications.JobType
 
                                         Rectangle {
                                             width: parent.width * (Math.max(0, Math.min(100, delegateRoot.percentage || 0)) / 100)
                                             height: parent.height
-                                            radius: 2
+                                            radius: fullRepresentationRoot.legacyDp(2)
                                             color: Kirigami.Theme.highlightColor
                                         }
                                     }
@@ -408,12 +416,12 @@ PlasmaExtras.Representation {
                                 // Control buttons (close on hover + chevron)
                                 RowLayout {
                                     Layout.alignment: Qt.AlignTop
-                                    spacing: fullRepresentationRoot.snap(4)
+                                    spacing: fullRepresentationRoot.legacyDp(4)
 
                                     // Close button (visible on card hover)
                                     Rectangle {
-                                        Layout.preferredWidth: fullRepresentationRoot.snap(26)
-                                        Layout.preferredHeight: fullRepresentationRoot.snap(26)
+                                        Layout.preferredWidth: fullRepresentationRoot.legacyDp(26)
+                                        Layout.preferredHeight: fullRepresentationRoot.legacyDp(26)
                                         Layout.alignment: Qt.AlignVCenter
                                         radius: width / 2
                                         color: closeMouse.pressed
@@ -424,7 +432,7 @@ PlasmaExtras.Representation {
 
                                         Kirigami.Icon {
                                             anchors.centerIn: parent
-                                            width: fullRepresentationRoot.snap(13)
+                                            width: fullRepresentationRoot.legacyDp(13)
                                             height: width
                                             source: "window-close-symbolic"
                                             color: Kirigami.Theme.textColor
@@ -440,10 +448,10 @@ PlasmaExtras.Representation {
                                         }
                                     }
 
-                                    // Chevron button (Elipsa 30x20 px fizycznych)
+                                    // Chevron button
                                     Rectangle {
-                                        Layout.preferredWidth: fullRepresentationRoot.snap(24)
-                                        Layout.preferredHeight: fullRepresentationRoot.snap(16)
+                                        Layout.preferredWidth: fullRepresentationRoot.legacyDp(24)
+                                        Layout.preferredHeight: fullRepresentationRoot.legacyDp(16)
                                         Layout.alignment: Qt.AlignVCenter
                                         radius: height / 2.0
                                         color: chevMouse.pressed
@@ -453,7 +461,7 @@ PlasmaExtras.Representation {
 
                                         Kirigami.Icon {
                                             anchors.centerIn: parent
-                                            width: fullRepresentationRoot.snap(11)
+                                            width: fullRepresentationRoot.legacyDp(11)
                                             height: width
                                             source: delegateRoot.cardExpanded ? Qt.resolvedUrl("icons/chevron_up.svg") : Qt.resolvedUrl("icons/chevron_down.svg")
                                             isMask: true
@@ -475,11 +483,11 @@ PlasmaExtras.Representation {
                             Flow {
                                 id: actionsFlow
                                 Layout.fillWidth: true
-                                Layout.leftMargin: fullRepresentationRoot.snap(46)
-                                Layout.topMargin: 2
-                                spacing: fullRepresentationRoot.snap(14)
+                                Layout.leftMargin: fullRepresentationRoot.legacyDp(46)
+                                Layout.topMargin: fullRepresentationRoot.legacyDp(2)
+                                spacing: fullRepresentationRoot.legacyDp(14)
                                 visible: delegateRoot.cardExpanded && delegateRoot.actionLabels && delegateRoot.actionLabels.length > 0
-                                width: cardRect.width - fullRepresentationRoot.snap(24) - fullRepresentationRoot.snap(46)
+                                width: cardRect.width - fullRepresentationRoot.legacyDp(24) - fullRepresentationRoot.legacyDp(46)
 
                                 Repeater {
                                     model: (delegateRoot.cardExpanded && delegateRoot.actionLabels) ? delegateRoot.actionLabels : []
@@ -494,7 +502,7 @@ PlasmaExtras.Representation {
                                             id: actText
                                             text: parent.modelData
                                             font.bold: true
-                                            font.pixelSize: 13
+                                            font.pixelSize: fullRepresentationRoot.legacyDp(13)
                                             color: actMouse.containsMouse ? Kirigami.Theme.highlightColor : Kirigami.Theme.linkColor
                                         }
 
@@ -517,25 +525,25 @@ PlasmaExtras.Representation {
                             RowLayout {
                                 id: replyRow
                                 Layout.fillWidth: true
-                                Layout.leftMargin: fullRepresentationRoot.snap(46)
-                                Layout.topMargin: 4
+                                Layout.leftMargin: fullRepresentationRoot.legacyDp(46)
+                                Layout.topMargin: fullRepresentationRoot.legacyDp(4)
                                 visible: delegateRoot.cardExpanded && delegateRoot.hasReplyAction
-                                spacing: fullRepresentationRoot.snap(6)
+                                spacing: fullRepresentationRoot.legacyDp(6)
 
                                 Rectangle {
                                     Layout.fillWidth: true
-                                    height: fullRepresentationRoot.snap(30)
+                                    height: fullRepresentationRoot.legacyDp(30)
                                     radius: height / 2
                                     color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.12)
 
                                     TextInput {
                                         id: replyInput
                                         anchors.fill: parent
-                                        anchors.leftMargin: fullRepresentationRoot.snap(10)
-                                        anchors.rightMargin: fullRepresentationRoot.snap(10)
+                                        anchors.leftMargin: fullRepresentationRoot.legacyDp(10)
+                                        anchors.rightMargin: fullRepresentationRoot.legacyDp(10)
                                         verticalAlignment: TextInput.AlignVCenter
                                         color: Kirigami.Theme.textColor
-                                        font.pixelSize: 13
+                                        font.pixelSize: fullRepresentationRoot.legacyDp(13)
                                         clip: true
                                         onAccepted: {
                                             if (text.trim().length > 0) {
@@ -551,15 +559,15 @@ PlasmaExtras.Representation {
                                             verticalAlignment: Text.AlignVCenter
                                             text: delegateRoot.replyPlaceholderText || i18n("Reply…")
                                             color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.5)
-                                            font.pixelSize: 13
+                                            font.pixelSize: fullRepresentationRoot.legacyDp(13)
                                             visible: !replyInput.text && !replyInput.activeFocus
                                         }
                                     }
                                 }
 
                                 Rectangle {
-                                    width: fullRepresentationRoot.snap(30)
-                                    height: fullRepresentationRoot.snap(30)
+                                    width: fullRepresentationRoot.legacyDp(30)
+                                    height: fullRepresentationRoot.legacyDp(30)
                                     radius: height / 2
                                     color: sendMouse.pressed
                                            ? Qt.darker(Kirigami.Theme.highlightColor, 1.2)
@@ -567,7 +575,7 @@ PlasmaExtras.Representation {
 
                                     Kirigami.Icon {
                                         anchors.centerIn: parent
-                                        width: fullRepresentationRoot.snap(14)
+                                        width: fullRepresentationRoot.legacyDp(14)
                                         height: width
                                         source: "document-send"
                                         color: Kirigami.Theme.highlightedTextColor
@@ -623,18 +631,18 @@ PlasmaExtras.Representation {
                 topMargin: fullRepresentationRoot.topMargin
                 leftMargin: fullRepresentationRoot.sideMargin
                 rightMargin: fullRepresentationRoot.sideMargin
-                bottomMargin: fullRepresentationRoot.snap(16.0)
+                bottomMargin: fullRepresentationRoot.px(16.0)
             }
             visible: !fullRepresentationRoot.hasNotifications
 
             ColumnLayout {
                 anchors.centerIn: parent
-                spacing: 16
+                spacing: fullRepresentationRoot.legacyDp(16)
 
                 Kirigami.Icon {
                     Layout.alignment: Qt.AlignHCenter
                     source: Qt.resolvedUrl("assets/trophy.svg")
-                    width: fullRepresentationRoot.snap(42)
+                    width: fullRepresentationRoot.legacyDp(42)
                     height: width
                     isMask: true
                     color: Kirigami.Theme.textColor
@@ -645,7 +653,7 @@ PlasmaExtras.Representation {
                     Layout.alignment: Qt.AlignHCenter
                     text: i18n("No notifications")
                     font.weight: Font.DemiBold
-                    font.pixelSize: 17
+                    font.pixelSize: fullRepresentationRoot.legacyDp(17)
                     color: Kirigami.Theme.textColor
                 }
             }
@@ -662,13 +670,13 @@ PlasmaExtras.Representation {
                 rightMargin: fullRepresentationRoot.sideMargin
                 bottomMargin: fullRepresentationRoot.bottomMargin
             }
-            height: fullRepresentationRoot.snap(36.8)
-            spacing: fullRepresentationRoot.snap(6)
+            height: fullRepresentationRoot.px(40.0)
+            spacing: fullRepresentationRoot.px(8.0)
 
             // History Button (Left)
             Rectangle {
-                Layout.preferredWidth: fullRepresentationRoot.snap(fullRepresentationRoot.hasNotifications ? 52 : 60)
-                Layout.preferredHeight: fullRepresentationRoot.snap(36.8)
+                Layout.preferredWidth: fullRepresentationRoot.px(60.0)
+                Layout.preferredHeight: fullRepresentationRoot.px(40.0)
                 radius: height / 2
                 color: histMouse.pressed
                        ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.20)
@@ -678,7 +686,7 @@ PlasmaExtras.Representation {
                 Kirigami.Icon {
                     anchors.centerIn: parent
                     source: Qt.resolvedUrl("icons/history.svg")
-                    width: fullRepresentationRoot.snap(20)
+                    width: fullRepresentationRoot.legacyDp(20)
                     height: width
                     isMask: true
                     color: Kirigami.Theme.textColor
@@ -697,7 +705,7 @@ PlasmaExtras.Representation {
                 id: clearBtn
                 visible: fullRepresentationRoot.hasNotifications
                 Layout.fillWidth: true
-                Layout.preferredHeight: fullRepresentationRoot.snap(36.8)
+                Layout.preferredHeight: fullRepresentationRoot.px(40.0)
                 radius: height / 2
                 color: clearMouse.pressed
                        ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.20)
@@ -709,7 +717,7 @@ PlasmaExtras.Representation {
                     text: i18n("Clear all")
                     color: Kirigami.Theme.textColor
                     font.weight: Font.DemiBold
-                    font.pixelSize: 14
+                    font.pixelSize: fullRepresentationRoot.legacyDp(14)
                 }
 
                 MouseArea {
@@ -728,8 +736,8 @@ PlasmaExtras.Representation {
 
             // Notification Settings Button (Right)
             Rectangle {
-                Layout.preferredWidth: fullRepresentationRoot.snap(fullRepresentationRoot.hasNotifications ? 52 : 60)
-                Layout.preferredHeight: fullRepresentationRoot.snap(36.8)
+                Layout.preferredWidth: fullRepresentationRoot.px(60.0)
+                Layout.preferredHeight: fullRepresentationRoot.px(40.0)
                 radius: height / 2
                 color: setMouse.pressed
                        ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.20)
@@ -739,7 +747,7 @@ PlasmaExtras.Representation {
                 Kirigami.Icon {
                     anchors.centerIn: parent
                     source: Qt.resolvedUrl("icons/notification_settings.svg")
-                    width: fullRepresentationRoot.snap(20)
+                    width: fullRepresentationRoot.legacyDp(20)
                     height: width
                     isMask: true
                     color: Kirigami.Theme.textColor

@@ -7,6 +7,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Window
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
 import org.kde.kirigami as Kirigami
@@ -30,12 +31,27 @@ import "magicpointer" as MagicPointerUI
 import "notifications" as NotificationsUI
 import "notifications/global" as NotifGlobal
 import "quicksettings" as QuickSettingsUI
+import "tray" as TrayUI
+import "metrics" as LocalMetrics
 
 PlasmoidItem {
     id: root
 
     Plasmoid.backgroundHints: PlasmaCore.Types.NoBackground
     Plasmoid.contextualActions: []
+
+    Binding {
+        target: LocalMetrics.Metrics
+        property: "hostDpr"
+        value: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
+    }
+    Binding {
+        target: LocalMetrics.Metrics
+        property: "uiScale"
+        value: (Plasmoid.configuration && typeof Plasmoid.configuration.shellScale === "number" && Plasmoid.configuration.shellScale > 0)
+            ? Plasmoid.configuration.shellScale
+            : 1.0
+    }
 
     Connections {
         target: Plasmoid
@@ -53,7 +69,7 @@ PlasmoidItem {
     }
 
     readonly property bool isVertical: Plasmoid.formFactor === PlasmaCore.Types.Vertical
-    readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
+    readonly property real dpr: LocalMetrics.Metrics.dpr
     readonly property bool isTop: Plasmoid.location === PlasmaCore.Types.TopEdge || (Plasmoid.containment && Plasmoid.containment.location === PlasmaCore.Types.TopEdge)
 
     TaskManager.VirtualDesktopInfo {
@@ -89,23 +105,35 @@ PlasmoidItem {
         } else if (parent && (isVertical ? parent.width : parent.height) > 20) {
             h = isVertical ? parent.width : parent.height;
         }
-        return (h > 20) ? h : 32.0;
+        return (h > 20) ? h : LocalMetrics.Metrics.px(36.0);
     }
 
     function snap(val) {
-        return Math.round(val * dpr) / dpr;
+        return LocalMetrics.Metrics.snap(val);
+    }
+
+    function px(refPx) {
+        return LocalMetrics.Metrics.px(refPx);
+    }
+
+    function legacyDp(oldDp) {
+        return LocalMetrics.Metrics.legacyDp(oldDp);
+    }
+
+    function barPx(itemRefPx, refBarPx) {
+        return LocalMetrics.Metrics.barPx(effectiveHeight, itemRefPx, refBarPx);
     }
 
     // ==========================================
-    // UNIFIED RAIL METRICS (Top Bar Design Tokens - Option B Full Symmetry)
+    // UNIFIED RAIL METRICS (Punkt 0 Top Bar Design Tokens: 36 px = 29 dp)
     // ==========================================
-    readonly property real railHeight: snap(effectiveHeight * 0.675)             // 27 px physical at 40 px panel height (21.6 dp)
-    readonly property real qsIconHeight: snap(effectiveHeight * 0.400)           // 16 px physical at 40 px panel height (12.8 dp)
-    readonly property real railTopMargin: snap((effectiveHeight - railHeight) / 2) // 7 px physical at 40 px panel height (centered in rail)
-    readonly property real clusterRightMargin: Math.max(0, snap(effectiveHeight * 0.625) - 4.0) // 20 px physical (symmetrical 34 px screen edge margin)
-    readonly property real itemSpacing: snap(effectiveHeight * 0.35)            // 14 px physical (28 px glyph-to-glyph gap)
-    readonly property real qsIconSpacing: snap(effectiveHeight * 0.20)          // 8 px physical between QS icons (6.4 dp)
-    readonly property real keyboardLayoutFontSize: effectiveHeight * 0.3125       // 12.5 px physical at 40 px panel height (10.0 dp -> 9 px cap height)
+    readonly property real railHeight: LocalMetrics.Metrics.barPx(effectiveHeight, 24.0, 36.0)             // 24 px physical at 36 px panel height
+    readonly property real qsIconHeight: LocalMetrics.Metrics.barPx(effectiveHeight, 14.4, 36.0)           // 14.4 px box
+    readonly property real railTopMargin: LocalMetrics.Metrics.snap((effectiveHeight - railHeight) / 2)   // 6 px physical at 36 px panel height
+    readonly property real clusterRightMargin: LocalMetrics.Metrics.barPx(effectiveHeight, 20.0, 36.0)     // 20 px + 4 px Plasma panel padding = 24 px right screen margin
+    readonly property real itemSpacing: LocalMetrics.Metrics.barPx(effectiveHeight, 8.0, 36.0)             // 8 px physical between pills
+    readonly property real qsIconSpacing: LocalMetrics.Metrics.barPx(effectiveHeight, 6.0, 36.0)           // 6 px physical between QS icons
+    readonly property real keyboardLayoutFontSize: effectiveHeight * 0.3125                                // 11.25 px physical at 36 px panel height
 
     // Common Colors & Styling Tokens
     readonly property color topBarContentColor: {
@@ -558,12 +586,19 @@ PlasmoidItem {
     // POPUP MANAGEMENT (Handshake & Seamless Switching)
     // ==========================================
     readonly property var popupDialogs: ({
+        "trayOverflow": trayOverflowDialog,
+        "trayMenu": trayMenuDialog,
         "media": mediaDialog,
         "keyboardlayout": keyboardLayoutDialog,
         "magicpointer": magicPointerDialog,
         "notif": notifDialog,
         "qs": qsDialog
     })
+
+    TrayUI.TrayBackend {
+        id: trayBackend
+        appletRoot: root
+    }
 
     Timer {
         id: popupSwitchTimer
@@ -624,6 +659,37 @@ PlasmoidItem {
         requestTogglePopup("qs");
     }
 
+    function requestOpenTrayMenu(itemData, anchorButton, wasExpandedOnPress) {
+        popupSwitchTimer.stop();
+        if (!itemData || !anchorButton) {
+            return;
+        }
+        if (wasExpandedOnPress) {
+            closeAllPopups();
+            return;
+        }
+
+        var anyOtherOpen = false;
+        for (var key in root.popupDialogs) {
+            var dlg = root.popupDialogs[key];
+            if (dlg && dlg.visible) {
+                anyOtherOpen = true;
+                break;
+            }
+        }
+        closeAllPopups();
+
+        trayMenuDialog.visualParent = anchorButton;
+        trayMenuView.openForItem(itemData);
+
+        if (anyOtherOpen) {
+            popupSwitchTimer.targetPopup = "trayMenu";
+            popupSwitchTimer.restart();
+        } else {
+            trayMenuDialog.visible = true;
+        }
+    }
+
     // ==========================================
     // CLUSTER COMPACT PANEL REPRESENTATION
     // ==========================================
@@ -658,6 +724,15 @@ PlasmoidItem {
             anchors.horizontalCenter: root.isVertical ? parent.horizontalCenter : undefined
             spacing: root.itemSpacing
             height: root.railHeight
+
+            // 0. APP TRAY GROUP (StatusNotifierItem apps + overflow capsule)
+            TrayUI.TrayGroup {
+                id: trayGroup
+                appletRoot: root
+                trayBackend: trayBackend
+                trayOverflowVisible: trayOverflowDialog.visible
+                activeTrayMenuKey: trayMenuDialog.visible ? trayMenuView.itemKey : ""
+            }
 
             // 1. MEDIA PILL BUTTON
             Media.MediaPill {
@@ -723,8 +798,8 @@ PlasmoidItem {
         flags: Qt.Popup | Qt.WindowStaysOnTopHint
         hideOnWindowDeactivate: true
         backgroundHints: PlasmaCore.Types.NoBackground
-        width: mediaExpandedView ? mediaExpandedView.implicitWidth : root.snap(360.0)
-        height: mediaExpandedView ? mediaExpandedView.implicitHeight : root.snap(158.4)
+        width: mediaExpandedView ? mediaExpandedView.implicitWidth : root.legacyDp(360.0)
+        height: mediaExpandedView ? mediaExpandedView.implicitHeight : root.legacyDp(158.4)
 
         mainItem: Media.ExpandedRepresentation {
             id: mediaExpandedView
@@ -742,8 +817,8 @@ PlasmoidItem {
         removeBorderStrategy: PlasmaCore.AppletPopup.Never
         hideOnWindowDeactivate: true
         backgroundHints: PlasmaCore.AppletPopup.StandardBackground
-        width: keyboardLayoutView ? keyboardLayoutView.implicitWidth : root.snap(128.0)
-        height: keyboardLayoutView ? keyboardLayoutView.implicitHeight : root.snap(44.8)
+        width: keyboardLayoutView ? keyboardLayoutView.implicitWidth : root.legacyDp(128.0)
+        height: keyboardLayoutView ? keyboardLayoutView.implicitHeight : root.legacyDp(44.8)
 
         mainItem: KeyboardLayoutUI.KeyboardLayoutPopup {
             id: keyboardLayoutView
@@ -760,8 +835,8 @@ PlasmoidItem {
         removeBorderStrategy: PlasmaCore.AppletPopup.Never
         hideOnWindowDeactivate: true
         backgroundHints: PlasmaCore.AppletPopup.StandardBackground
-        width: magicPointerView ? magicPointerView.implicitWidth : root.snap(160.0)
-        height: magicPointerView ? magicPointerView.implicitHeight : root.snap(56.0)
+        width: magicPointerView ? magicPointerView.implicitWidth : root.legacyDp(160.0)
+        height: magicPointerView ? magicPointerView.implicitHeight : root.legacyDp(56.0)
 
         mainItem: MagicPointerUI.MagicPointerPopup {
             id: magicPointerView
@@ -778,8 +853,8 @@ PlasmoidItem {
         removeBorderStrategy: PlasmaCore.AppletPopup.Never
         hideOnWindowDeactivate: true
         backgroundHints: PlasmaCore.AppletPopup.StandardBackground
-        width: notifFullView ? notifFullView.implicitWidth : root.snap(338.4)
-        height: notifFullView ? notifFullView.implicitHeight : root.snap(240.0)
+        width: notifFullView ? notifFullView.implicitWidth : root.px(376.0)
+        height: notifFullView ? notifFullView.implicitHeight : root.px(588.0)
 
         onVisibleChanged: {
             if (notifDialog.visible) {
@@ -818,12 +893,58 @@ PlasmoidItem {
         removeBorderStrategy: PlasmaCore.AppletPopup.Never
         hideOnWindowDeactivate: true
         backgroundHints: PlasmaCore.AppletPopup.StandardBackground
-        width: qsFullView ? qsFullView.implicitWidth : root.snap(338.4)
-        height: qsFullView ? qsFullView.implicitHeight : root.snap(440.0)
+        width: qsFullView ? qsFullView.implicitWidth : root.px(376.0)
+        height: qsFullView ? qsFullView.implicitHeight : root.px(540.0)
 
         mainItem: QuickSettingsUI.FullRepresentation {
             id: qsFullView
             appletRoot: root
+        }
+    }
+
+    // 4. App Tray Overflow Popup Dialog
+    PlasmaCore.AppletPopup {
+        id: trayOverflowDialog
+        visualParent: trayGroup.overflowAnchorButton
+        appletInterface: root
+        popupDirection: Qt.BottomEdge
+        margin: 1
+        removeBorderStrategy: PlasmaCore.AppletPopup.Never
+        hideOnWindowDeactivate: true
+        backgroundHints: PlasmaCore.AppletPopup.StandardBackground
+        width: trayOverflowView ? trayOverflowView.implicitWidth : root.legacyDp(260.0)
+        height: trayOverflowView ? trayOverflowView.implicitHeight : root.legacyDp(160.0)
+
+        mainItem: TrayUI.TrayOverflowPopup {
+            id: trayOverflowView
+            appletRoot: root
+            trayBackend: trayBackend
+        }
+    }
+
+    // 5. App Tray Item Menu Popup Dialog (DBusMenu Material You)
+    PlasmaCore.AppletPopup {
+        id: trayMenuDialog
+        visualParent: trayGroup
+        appletInterface: root
+        popupDirection: Qt.BottomEdge
+        margin: 1
+        removeBorderStrategy: PlasmaCore.AppletPopup.Never
+        hideOnWindowDeactivate: true
+        backgroundHints: PlasmaCore.AppletPopup.StandardBackground
+        width: trayMenuView ? trayMenuView.implicitWidth : root.legacyDp(224.0)
+        height: trayMenuView ? trayMenuView.implicitHeight : root.legacyDp(140.0)
+
+        onVisibleChanged: {
+            if (!visible && trayMenuView && trayMenuView.itemKey.length > 0) {
+                trayBackend.notifyMenuClosed(trayMenuView.itemKey);
+            }
+        }
+
+        mainItem: TrayUI.TrayMenuPopup {
+            id: trayMenuView
+            appletRoot: root
+            trayBackend: trayBackend
         }
     }
 }

@@ -37,7 +37,7 @@ Item {
         x: notifBellButton.appletRoot.snap((notifBellButton.width - width) / 2)
         y: notifBellButton.appletRoot.snap((notifBellButton.height - height) / 2)
         dpr: notifBellButton.appletRoot.dpr
-        iconHeight: notifBellButton.appletRoot.qsIconHeight
+        iconHeight: notifBellButton.appletRoot.barPx(13.0, 36.0)
         preserveSvgAspect: true
         source: (notifBellButton.appletRoot.unreadNotifCount > 0)
             ? (notifBellButton.appletRoot.isLightContent
