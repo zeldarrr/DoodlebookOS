@@ -59,31 +59,13 @@ PlasmoidItem {
 
     readonly property bool hasMaximizedWindow: root.isTop && maximizedTasksModel.count > 0
 
-    onParentChanged: {
-        if (root.parent && root.isTop) {
-            setupOverlayTimer.restart();
-        }
-    }
-
-    Timer {
-        id: setupOverlayTimer
-        interval: 10
-        repeat: false
-        onTriggered: {
-            if (!root.isTop) return;
-            var candidate = root.parent;
-            while (candidate && candidate.parent) {
-                candidate = candidate.parent;
-            }
-            if (candidate) {
-                topBarBackgroundOverlay.parent = candidate;
-                topBarBackgroundOverlay.anchors.fill = candidate;
-            }
-        }
-    }
-
+    // black bar behind the whole top panel while a window is maximised. Bound to the panel
+    // window's root item: it follows the applet into the panel whenever Plasma finishes placing it
+    // (walking up the parents once after a 10 ms timer could stop at a half-built tree).
     Item {
         id: topBarBackgroundOverlay
+        parent: root.isTop && root.Window.contentItem ? root.Window.contentItem : root
+        anchors.fill: parent
         visible: root.isTop
         z: -9999
 
@@ -104,9 +86,6 @@ PlasmoidItem {
     Component.onCompleted: {
         if (Plasmoid.containment && typeof Plasmoid.containment.setContainmentActions === "function") {
             Plasmoid.containment.setContainmentActions("RightButton;NoModifier", "");
-        }
-        if (root.parent && root.isTop) {
-            setupOverlayTimer.restart();
         }
     }
 
