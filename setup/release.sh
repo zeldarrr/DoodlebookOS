@@ -21,8 +21,9 @@ bash setup/make-installer.sh --capture --desktop --version "$TAG"
 git add setup/profile
 git diff --cached --quiet || git commit -q -m "Profil exporté pour $TAG"
 git tag -a "$TAG" -m "DoodlebookOS $TAG"
-git push -q origin HEAD "$TAG"
-gh release create "$TAG" dist/DoodlebookOS-Installer.run dist/DoodlebookOS-Installer.run.sig \
+git push -q origin HEAD "refs/tags/$TAG"
+GH_REPO="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["repo"])' setup/update.json)"
+gh release create "$TAG" dist/DoodlebookOS-Installer.run dist/DoodlebookOS-Installer.run.sig --repo "$GH_REPO" \
     --title "DoodlebookOS $TAG" --notes "$NOTES
 
 Installer : télécharger **DoodlebookOS-Installer.run**, double-clic (ou \`bash DoodlebookOS-Installer.run\`).
