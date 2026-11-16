@@ -41,6 +41,7 @@ Item {
         if (s === "flatpak-system") return i18n("Flatpak (system)");
         if (s === "flatpak-user") return i18n("Flatpak (user)");
         if (s === "rpm") return i18n("System package (rpm)");
+        if (s === "pacman") return i18n("System package (pacman)");
         return i18n("Local");
     }
 

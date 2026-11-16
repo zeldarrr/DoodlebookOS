@@ -7,8 +7,9 @@ set -u
 STATE="${XDG_CONFIG_HOME:-$HOME/.config}/doodlebookos/focus.state"
 DOCK="org.doodlebookos.dock"
 
-ps_eval() { qdbus-qt6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "$1" 2>/dev/null; }
-effect() { qdbus-qt6 org.kde.KWin /Effects "org.kde.kwin.Effects.$1" doodlebookos_focus >/dev/null 2>&1; }
+QDBUS="$(command -v qdbus-qt6 || command -v qdbus6 || command -v qdbus)"
+ps_eval() { "$QDBUS" org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "$1" 2>/dev/null; }
+effect() { "$QDBUS" org.kde.KWin /Effects "org.kde.kwin.Effects.$1" doodlebookos_focus >/dev/null 2>&1; }
 
 case "${1:-status}" in
   on)

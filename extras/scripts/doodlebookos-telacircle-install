@@ -165,7 +165,10 @@ def install(src):
     install_dark(src)
     templates(src)
     for name in (STD, DARK):
-        subprocess.run(["gtk-update-icon-cache", "-f", "-q", os.path.join(ICONS, name)], capture_output=True)
+        try:
+            subprocess.run(["gtk-update-icon-cache", "-f", "-q", os.path.join(ICONS, name)], capture_output=True)
+        except FileNotFoundError:   # gtk-update-icon-cache absent (no GTK 3): Qt does not need the cache
+            pass
     print(f"{STD}, {DARK} installés dans {ICONS}")
 
 

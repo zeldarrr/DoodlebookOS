@@ -10,6 +10,9 @@ d'avis de modification au sens de la GPL-3.0 (§ 5a).
   `setup/make-installer.sh`), sauvegarde automatique du bureau (`theme-switch`), profil exporté
   (`setup/profile/`, sans données personnelles), modules C++ précompilés vérifiés avant usage
   (version de Plasma + `ldd -r`), sinon compilés si les outils sont là.
+- Vérifie les paquets dont les widgets ont besoin (son, réseau, Bluetooth, KDE Connect, Pillow, PyGObject…)
+  et propose de les installer en une fois (pacman, dnf, apt, zypper) ; testé sur Arch (Plasma 6.8.3, Qt 6.12).
+  Dock et widget Appareils se chargent même sans KDE Connect.
 - Mises à jour automatiques signées (`doodlebookos-update`, minuteur quotidien, installation à la
   connexion suivante, `setup/release.sh` pour publier).
 - Faux liens (fichiers texte) de l'archive remplacés par de vrais liens symboliques (curseurs,

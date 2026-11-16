@@ -20,7 +20,8 @@ PlasmoidItem {
     property alias rootModel: rootModel
     property alias runnerModel: runnerModel
     property alias launcherPopup: launcherPopup
-    property alias phoneHubPopup: phoneHubPopup
+    // null when KDE Connect (org.kde.kdeconnect) is missing: the rest of the dock still loads
+    readonly property var phoneHubPopup: phoneHubLoader.status === Loader.Ready ? phoneHubLoader.item : null
     property Item compactRepItem: null
 
     property QtObject globalFavorites: rootModel.favoritesModel
@@ -195,13 +196,18 @@ PlasmoidItem {
 
     fullRepresentation: compactRepresentation
 
-    PhoneHubPopup {
-        id: phoneHubPopup
-        visualParentItem: (kicker.compactRepItem && kicker.compactRepItem.phoneHubBtn) ? kicker.compactRepItem.phoneHubBtn : null
-        plasmoidConfiguration: Plasmoid.configuration
-        popupWidth: Math.max(360, Math.min(440, Math.round(Screen.width * 0.26)))
-        maxPopupHeight: Math.round(Screen.height * 0.72)
-        panelHeight: kicker.compactRepItem ? kicker.compactRepItem.effectiveHeight : 52
+    // Loaded apart: a missing KDE Connect only disables the Phone Hub, never the whole dock
+    Loader {
+        id: phoneHubLoader
+        Component.onCompleted: setSource("PhoneHubPopup.qml", { plasmoidConfiguration: Plasmoid.configuration })
+        onLoaded: {
+            item.visualParentItem = Qt.binding(function () {
+                return (kicker.compactRepItem && kicker.compactRepItem.phoneHubBtn) ? kicker.compactRepItem.phoneHubBtn : null;
+            });
+            item.popupWidth = Qt.binding(function () { return Math.max(360, Math.min(440, Math.round(Screen.width * 0.26))); });
+            item.maxPopupHeight = Qt.binding(function () { return Math.round(Screen.height * 0.72); });
+            item.panelHeight = Qt.binding(function () { return kicker.compactRepItem ? kicker.compactRepItem.effectiveHeight : 52; });
+        }
     }
 
     DimOverlay {

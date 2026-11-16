@@ -199,6 +199,17 @@ def info(sid):
                 out["installed"] = time.strftime("%Y-%m-%d", time.localtime(int(line[3])))
             except ValueError:
                 pass
+        elif shutil.which("pacman"):                    # Arch / EndeavourOS / Manjaro
+            rc, txt = run(["pacman", "-Qqo", path])
+            name = txt.split()[0] if rc == 0 and txt.split() else ""
+            if name:
+                rc, txt = run(["pacman", "-Qi", name])
+                f = {k.strip(): v.strip() for k, _, v in (l.partition(":") for l in txt.splitlines())}
+                out["source"], out["package"], out["version"] = "pacman", name, f.get("Version", "")
+                out["size"] = f.get("Installed Size", "").replace(".", ",")
+                db = f"/var/lib/pacman/local/{name}-{f.get('Version', '')}"
+                if os.path.isdir(db):
+                    out["installed"] = time.strftime("%Y-%m-%d", time.localtime(os.path.getmtime(db)))
     else:
         out["installed"] = time.strftime("%Y-%m-%d", time.localtime(os.path.getmtime(path)))
     print(json.dumps(out, ensure_ascii=False))

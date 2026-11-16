@@ -633,7 +633,15 @@ Type=Scalable
 
 
 def change_icons(name):
-    subprocess.run(["/usr/libexec/plasma-changeicons", name], capture_output=True, timeout=30)
+    for p in ("/usr/libexec/plasma-changeicons", "/usr/lib/plasma-changeicons", "/usr/lib64/libexec/plasma-changeicons",
+              "/usr/lib/x86_64-linux-gnu/libexec/plasma-changeicons", "/usr/lib/aarch64-linux-gnu/libexec/plasma-changeicons"):
+        if os.access(p, os.X_OK):                 # Fedora: libexec, Arch: /usr/lib, Debian: multiarch libexec
+            subprocess.run([p, name], capture_output=True, timeout=30)
+            return
+    # not found: what plasma-changeicons does (key + KIconLoader signal, apps reload their icons)
+    subprocess.run(["kwriteconfig6", "--file", "kdeglobals", "--group", "Icons", "--key", "Theme", name], capture_output=True)
+    subprocess.run(["dbus-send", "--session", "--type=signal", "/KIconLoader", "org.kde.KIconLoader.iconChanged", "int32:0"],
+                   capture_output=True)
 
 
 def build_icon_overlay(out, tpl, base, color):
@@ -655,7 +663,10 @@ def build_icon_overlay(out, tpl, base, color):
     with open(os.path.join(out, "index.theme"), "w", encoding="utf-8") as f:
         dirs = [d for d in ("places/16", "places/scalable", "apps/scalable") if os.path.isdir(os.path.join(tpl, d))]
         f.write(ICON_INDEX.format(name=os.path.basename(out), color=color, base=base, dirs=",".join(dirs)))
-    subprocess.run(["gtk-update-icon-cache", "-f", "-q", out], capture_output=True, timeout=30)
+    try:
+        subprocess.run(["gtk-update-icon-cache", "-f", "-q", out], capture_output=True, timeout=30)
+    except FileNotFoundError:   # gtk-update-icon-cache absent (no GTK 3): Qt does not need the cache
+        pass
 
 
 def icon_pack():

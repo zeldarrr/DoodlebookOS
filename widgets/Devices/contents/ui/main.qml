@@ -12,7 +12,6 @@ import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.plasma5support as Plasma5Support
 import org.kde.kirigami as Kirigami
 import org.kde.taskmanager as TaskManager
-import org.kde.kdeconnect as KDEConnect
 
 PlasmoidItem {
     id: root
@@ -95,17 +94,6 @@ PlasmoidItem {
         }
         if (!same(out, peripherals)) peripherals = out;
     }
-    function rebuildPhones() {
-        var out = [];
-        for (var i = 0; i < phoneInst.count; i++) {
-            var p = phoneInst.objectAt(i);
-            if (!p || p.charge < 0) continue;
-            out.push({ key: p.devId, name: p.devName, kind: p.devType === "tablet" ? "tablet" : "smartphone",
-                       percent: p.charge, charging: p.charging, deviceId: p.devId });
-        }
-        if (!same(out, phones)) phones = out;
-    }
-
     Plasma5Support.DataSource {
         id: pm
         engine: "powermanagement"
@@ -119,29 +107,16 @@ PlasmoidItem {
         }
     }
 
-    Instantiator {
-        id: phoneInst
+    // KDE Connect phones, loaded apart: without KDE Connect the peripherals still show
+    Loader {
+        id: phoneLoader
         active: Plasmoid.configuration.showPhones !== false
-        model: KDEConnect.DevicesModel {
-            displayFilter: KDEConnect.DevicesModel.Paired | KDEConnect.DevicesModel.Reachable
-        }
-        delegate: QtObject {
-            id: ph
-            readonly property string devId: model.deviceId || ""
-            readonly property KDEConnect.DeviceDbusInterface device: devId ? KDEConnect.DeviceDbusInterfaceFactory.create(devId) : null
-            readonly property string devName: device && device.name ? String(device.name) : String(model.name || devId)
-            readonly property string devType: device ? String(device.type || "") : ""
-            readonly property KDEConnect.PluginChecker chk: KDEConnect.PluginChecker { pluginName: "battery"; device: ph.device }
-            readonly property QtObject battery: chk.available ? KDEConnect.DeviceBatteryDbusInterfaceFactory.create(ph.devId) : null
-            readonly property int charge: battery && battery.charge !== undefined ? battery.charge : -1
-            readonly property bool charging: battery ? Boolean(battery.isCharging) : false
-            onChargeChanged: Qt.callLater(root.rebuildPhones)
-            onChargingChanged: Qt.callLater(root.rebuildPhones)
-            onDevNameChanged: Qt.callLater(root.rebuildPhones)
-        }
-        onObjectAdded: Qt.callLater(root.rebuildPhones)
-        onObjectRemoved: Qt.callLater(root.rebuildPhones)
+        source: "PhoneSource.qml"
         onActiveChanged: if (!active) root.phones = []
+    }
+    Connections {
+        target: phoneLoader.item
+        function onPhonesChanged() { root.phones = phoneLoader.item.phones; }
     }
 
     Plasma5Support.DataSource {

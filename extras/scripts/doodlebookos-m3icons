@@ -852,7 +852,10 @@ def build(out, name, inherits, pal):
             link(m, key, mime_d)
 
     mirror_fallbacks(tmp, inherits)
-    subprocess.run(["gtk-update-icon-cache", "-f", "-q", tmp], capture_output=True, timeout=60)
+    try:
+        subprocess.run(["gtk-update-icon-cache", "-f", "-q", tmp], capture_output=True, timeout=60)
+    except FileNotFoundError:   # gtk-update-icon-cache absent (no GTK 3): Qt does not need the cache
+        pass
     # swap in place: the theme directory is never half-written
     if os.path.lexists(out):
         old = out + ".old"

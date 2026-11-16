@@ -134,6 +134,7 @@ var dict = {
         "Shut down": "Éteindre",
         "Sleep": "Veille",
         "System package (rpm)": "Paquet système (rpm)",
+        "System package (pacman)": "Paquet système (pacman)",
         "Ungroup": "Dissocier",
         "Uninstall": "Désinstaller",
         "Uninstalling %1…": "Désinstallation de %1…",

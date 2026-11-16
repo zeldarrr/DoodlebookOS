@@ -458,7 +458,7 @@ Item {
         // 1b. Phone Hub Button
         PhoneHubButton {
             id: phoneHubBtn
-            visible: Plasmoid.configuration.showPhoneHub !== false
+            visible: Plasmoid.configuration.showPhoneHub !== false && !!mainDockRoot.phoneHubPopup
             buttonHeight: mainDockRoot.effectiveHeight
             isVertical: mainDockRoot.isVertical
             active: mainDockRoot.phoneHubPopup ? mainDockRoot.phoneHubPopup.visible : false

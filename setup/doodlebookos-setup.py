@@ -551,33 +551,84 @@ def free_right_click():
              "--group", cid, "--key", "RightButton;NoModifier", ""])
 
 
-def ensure_pillow():
-    if has_python_module("PIL"):
-        return True
-    cmds = None
+# feature → (QML module dir, PY:python module or BIN:command; package for pacman, dnf, apt-get, zypper)
+DEPS = (
+    ("son", "org/kde/plasma/private/volume", ("plasma-pa", "plasma-pa", "plasma-pa", "plasma6-pa")),
+    ("réseau / Wi-Fi", "org/kde/plasma/networkmanagement", ("plasma-nm", "plasma-nm", "plasma-nm", "plasma6-nm")),
+    ("Bluetooth", "org/kde/bluezqt", ("bluez-qt", "kf6-bluez-qt", "qml6-module-org-kde-bluezqt", "kf6-bluez-qt-imports")),
+    ("luminosité", "org/kde/plasma/private/brightnesscontrolplugin", ("powerdevil", "powerdevil", "powerdevil", "powerdevil6")),
+    ("téléphone (KDE Connect)", "org/kde/kdeconnect", ("kdeconnect", "kde-connect", "kdeconnect", "kdeconnect-kde")),
+    ("aperçu des fenêtres du dock", "org/kde/pipewire", ("kpipewire", "kpipewire", "qml6-module-org-kde-pipewire", "kpipewire6-imports")),
+    ("widget Système", "org/kde/ksysguard/sensors", ("libksysguard", "libksysguard", "qml6-module-org-kde-ksysguard", "libksysguard6-imports")),
+    ("couleurs Material You", "PY:PIL", ("python-pillow", "python3-pillow", "python3-pil", "python3-Pillow")),
+    ("icônes de la barre et presse-papiers", "PY:gi.repository.Gio",
+     ("python-gobject", "python3-gobject", "python3-gi", "python3-gobject")),
+    ("lanceur Alt+Espace", "PY:dbus", ("python-dbus", "python3-dbus", "python3-dbus", "python3-dbus-python")),
+    ("mises à jour signées", "BIN:ssh-keygen", ("openssh", "openssh-clients", "openssh-client", "openssh-clients")),
+)
+
+
+def qml_dirs():
+    dirs = []
+    r = run(["qtpaths6", "--query", "QT_INSTALL_QML"]) if which("qtpaths6") else None
+    if r and r.returncode == 0 and r.stdout.strip():
+        dirs.append(r.stdout.strip())
+    return dirs + ["/usr/lib64/qt6/qml", "/usr/lib/qt6/qml", "/usr/lib/x86_64-linux-gnu/qt6/qml",
+                   "/usr/lib/aarch64-linux-gnu/qt6/qml"]
+
+
+def missing_deps():
+    bases = qml_dirs()
+    out = []
+    for label, mod, pkgs in DEPS:
+        if mod.startswith("PY:"):
+            ok = has_python_module(mod[3:])
+        elif mod.startswith("BIN:"):
+            ok = bool(which(mod[4:]))
+        else:
+            ok = any(os.path.isfile(os.path.join(b, mod, "qmldir")) for b in bases)
+        if not ok:
+            out.append((label, pkgs))
+    return out
+
+
+def ensure_deps():
+    """Widgets need a few KDE parts that minimal installs may lack: one question, one password."""
+    miss = missing_deps()
+    if not miss:
+        return
+    labels = ", ".join(m[0] for m in miss)
+    col, cmd = None, None
     if which("rpm-ostree") and os.path.exists("/run/ostree-booted"):
-        cmds = None                                  # immutable system: no live package install
-    elif which("dnf"):
-        cmds = ["dnf", "install", "-y", "python3-pillow"]
-    elif which("apt-get"):
-        cmds = ["apt-get", "install", "-y", "python3-pil"]
+        pass                                             # immutable system: no live package install
     elif which("pacman"):
-        cmds = ["pacman", "-S", "--needed", "--noconfirm", "python-pillow"]
+        col, cmd = 0, "pacman -S --needed --noconfirm"   # no -Sy: never a partial upgrade
+    elif which("dnf"):
+        col, cmd = 1, "dnf install -y"
+    elif which("apt-get"):
+        col, cmd = 2, "apt-get install -y"
     elif which("zypper"):
-        cmds = ["zypper", "--non-interactive", "install", "python3-Pillow"]
-    if not cmds or not which("pkexec"):
-        return False
-    if not ui.ask("Les couleurs <b>Material You</b> (prises dans le fond d'écran) ont besoin du paquet "
-                  "<b>Pillow</b> (Python).<br>L'installer maintenant ? (mot de passe administrateur)"):
-        return False
-    run(["pkexec", *cmds], timeout=900)
-    return has_python_module("PIL")
+        col, cmd = 3, "zypper --non-interactive install"
+    if col is None or not which("pkexec"):
+        ui.note(f"Paquets KDE manquants ({labels}) : ces fonctions resteront absentes ; à installer "
+                "avec le gestionnaire de paquets puis relancer l'installeur.")
+        return
+    pkgs = [m[1][col] for m in miss]
+    if not ui.ask(f"Il manque des paquets pour : <b>{labels}</b>.<br>Paquets : {' '.join(pkgs)}<br><br>"
+                  "Les installer maintenant ? (mot de passe administrateur)"):
+        ui.note(f"Paquets non installés ({labels}) : ces fonctions resteront absentes.")
+        return
+    # one package at a time: a name unknown on this distribution never blocks the others
+    run(["pkexec", "sh", "-c", f'for p; do {cmd} "$p"; done', "sh", *pkgs], timeout=1800)
+    left = missing_deps()
+    if left:
+        ui.note("Toujours manquant : " + ", ".join(m[0] for m in left) + ".")
 
 
 def material_you(pack, mode):
     my = os.path.join(BIN, "doodlebookos-materialyou")
     run([os.path.join(BIN, "doodlebookos-m3icons"), "shape-json"], timeout=120)   # dock / photo shapes
-    if not ensure_pillow():
+    if not has_python_module("PIL"):
         ui.note("Material You désactivé (Pillow absent) : couleurs DoodlebookOS fixes.")
         if which("plasma-apply-colorscheme"):
             run(["plasma-apply-colorscheme", "DoodlebookOS_LIGHT" if mode == "light" else "DoodlebookOS_DARK"])
@@ -692,6 +743,7 @@ def main():
         return 0
     keep_wp = "--keep-wallpaper" in ARGS or (ui.gui and "--yes" not in ARGS and not ui.ask(
         "Mettre le <b>fond d'écran DoodlebookOS</b> ?<br>(Non = garder ton fond d'écran ; les couleurs en sont tirées)"))
+    ensure_deps()
     ts = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     ui.start(9)
     try:

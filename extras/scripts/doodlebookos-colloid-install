@@ -141,7 +141,10 @@ def install(src):
                 copy(p, os.path.join(t, "apps", "scalable", f))
 
     for d in (light, dark):
-        subprocess.run(["gtk-update-icon-cache", "-f", "-q", d], capture_output=True)
+        try:
+            subprocess.run(["gtk-update-icon-cache", "-f", "-q", d], capture_output=True)
+        except FileNotFoundError:   # gtk-update-icon-cache absent (no GTK 3): Qt does not need the cache
+            pass
     print("Colloid-Light, Colloid-Dark installés dans", ICONS)
 
 
