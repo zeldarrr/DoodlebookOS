@@ -7,6 +7,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Shapes
 import QtQuick.Effects
+import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.plasma5support as Plasma5Support
@@ -86,6 +87,7 @@ for (var i = 0; i < panels().length; i++) {
     onVisibleChanged: {
         if (!visible) {
             targetItem = null;
+            mainItem.shapePickerOpen = false;
         }
     }
 
@@ -93,8 +95,9 @@ for (var i = 0; i < panels().length; i++) {
         id: mainItem
         Kirigami.Theme.colorSet: Kirigami.Theme.Tooltip
         Kirigami.Theme.inherit: false
-        implicitWidth: 260
-        implicitHeight: 46
+        implicitWidth: 336
+        implicitHeight: 46 + (shapePickerOpen ? shapePicker.height + 8 : 0)
+        property bool shapePickerOpen: false
 
         function runCmd(cmd) {
             dbusRunner.connectSource(cmd + " # " + Date.now());
@@ -126,6 +129,56 @@ for (var i = 0; i < panels().length; i++) {
             NumberAnimation { duration: 140; easing.type: Easing.OutQuad }
         }
 
+        // Material 3 Expressive shape picker (icons + dock buttons)
+        Rectangle {
+            id: shapePicker
+            visible: mainItem.shapePickerOpen
+            x: 0
+            y: 0
+            width: parent.width
+            height: shapeGrid.implicitHeight + 16
+            radius: 20
+            color: taskbarMenuDialog.cBg
+            border.color: taskbarMenuDialog.cBorder
+            border.width: 1
+
+            Grid {
+                id: shapeGrid
+                anchors.centerIn: parent
+                columns: 8
+                spacing: 4
+                Repeater {
+                    model: appIndex.shapes
+                    delegate: Item {
+                        id: cell
+                        required property var modelData
+                        readonly property bool current: modelData.name === appIndex.shapeName
+                        width: 30
+                        height: 30
+                        ShapeBackground {
+                            anchors.centerIn: parent
+                            width: cell.current ? 26 : 22
+                            height: width
+                            pathData: cell.modelData.path
+                            turn: cell.modelData.turn || 0
+                            hovered: cellMa.containsMouse
+                            color: cell.current ? Kirigami.Theme.highlightColor
+                                 : Qt.rgba(taskbarMenuDialog.cText.r, taskbarMenuDialog.cText.g, taskbarMenuDialog.cText.b, cellMa.containsMouse ? 0.7 : 0.38)
+                            Behavior on width { SpringAnimation { spring: 4; damping: 0.3; epsilon: 0.1 } }
+                        }
+                        MouseArea {
+                            id: cellMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: appIndex.setShape(cell.modelData.name)
+                        }
+                        Accessible.name: cell.modelData.label
+                    }
+                }
+            }
+        }
+
         // Soft drop shadow
         Rectangle {
             x: pillBody.x
@@ -141,7 +194,7 @@ for (var i = 0; i < panels().length; i++) {
         Rectangle {
             id: pillBody
             x: 0
-            y: 0
+            y: mainItem.shapePickerOpen ? shapePicker.height + 8 : 0
             width: parent.width
             height: 38
             radius: 19
@@ -154,6 +207,69 @@ for (var i = 0; i < panels().length; i++) {
                 anchors.leftMargin: 16
                 anchors.rightMargin: 12
                 spacing: 12
+
+                // Shape button: opens the Material 3 Expressive shape picker
+                Item {
+                    Layout.preferredWidth: 28
+                    Layout.preferredHeight: 28
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: 14
+                        color: mainItem.shapePickerOpen ? Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.22)
+                             : (shapeBtnMa.containsMouse ? Qt.rgba(taskbarMenuDialog.cText.r, taskbarMenuDialog.cText.g, taskbarMenuDialog.cText.b, 0.12) : "transparent")
+                        Behavior on color { ColorAnimation { duration: 150 } }
+                    }
+                    ShapeBackground {
+                        anchors.centerIn: parent
+                        width: 18
+                        height: 18
+                        pathData: appIndex.shapePath.length > 0 ? appIndex.shapePath : "M0 50A50 50 0 1 1 100 50A50 50 0 1 1 0 50Z"
+                        turn: appIndex.shapeTurn
+                        hovered: shapeBtnMa.containsMouse
+                        color: mainItem.shapePickerOpen ? Kirigami.Theme.highlightColor : taskbarMenuDialog.cText
+                    }
+                    MouseArea {
+                        id: shapeBtnMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (!mainItem.shapePickerOpen) appIndex.loadShape();
+                            mainItem.shapePickerOpen = !mainItem.shapePickerOpen;
+                        }
+                    }
+                }
+
+                // Widget settings (Dock / Lanceur pages)
+                Item {
+                    Layout.preferredWidth: 28
+                    Layout.preferredHeight: 28
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: cfgMa.pressed ? 9 : 14
+                        color: cfgMa.containsMouse ? Qt.rgba(taskbarMenuDialog.cText.r, taskbarMenuDialog.cText.g, taskbarMenuDialog.cText.b, 0.12) : "transparent"
+                        Behavior on radius { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                    }
+                    Kirigami.Icon {
+                        anchors.centerIn: parent
+                        width: 18
+                        height: 18
+                        source: "configure"
+                        isMask: true
+                        color: taskbarMenuDialog.cText
+                    }
+                    MouseArea {
+                        id: cfgMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            taskbarMenuDialog.close();
+                            var a = Plasmoid.internalAction("configure");
+                            if (a) a.trigger();
+                        }
+                    }
+                }
 
                 // Eye / Visibility Icon
                 Item {
@@ -237,10 +353,10 @@ for (var i = 0; i < panels().length; i++) {
                 strokeWidth: 0
                 fillColor: taskbarMenuDialog.cBg
                 startX: pointerArrow.arrowX - 6
-                startY: 37
-                PathLine { x: pointerArrow.arrowX; y: 44 }
-                PathLine { x: pointerArrow.arrowX + 6; y: 37 }
-                PathLine { x: pointerArrow.arrowX - 6; y: 37 }
+                startY: pillBody.y + 37
+                PathLine { x: pointerArrow.arrowX; y: pillBody.y + 44 }
+                PathLine { x: pointerArrow.arrowX + 6; y: pillBody.y + 37 }
+                PathLine { x: pointerArrow.arrowX - 6; y: pillBody.y + 37 }
             }
         }
     }

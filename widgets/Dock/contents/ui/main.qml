@@ -102,6 +102,7 @@ PlasmoidItem {
         showRecentApps: true
         showRecentDocs: true
         showPowerSession: false
+        highlightNewlyInstalledApps: true
 
         onRecentOrderingChanged: {
             Plasmoid.configuration.recentOrdering = recentOrdering;
@@ -151,12 +152,36 @@ PlasmoidItem {
         favoritesModel: kicker.globalFavorites
         appletInterface: kicker
         mergeResults: true
+        // fast runners only (AppStream, Bazaar, dictionary, spell check, web shortcuts… made every
+        // keystroke slow; apps come from AppIndex, the web from the DuckDuckGo row)
+        runners: ["krunner_services", "calculator", "unitconverter", "krunner_systemsettings", "baloosearch",
+                  "krunner_recentdocuments", "locations", "krunner_placesrunner", "windows", "krunner_shell",
+                  "krunner_powerdevil", "krunner_sessions", "org.kde.datetime"]
     }
 
     readonly property Item dragSource: Item {
         id: dragSource
         property Item sourceItem
+        property string sourceId: ""        // storageId of the dragged app
+        property string sourceFolder: ""    // folder id when dragged out of a folder
+        property int sourcePinned: -1       // row in the launcher favourites, -1 otherwise
         Drag.dragType: Drag.Automatic
+    }
+
+    // launcher data hub: categories, search, folders, badges
+    AppIndex {
+        id: appIndex
+        appsModel: kicker.allAppsModel
+    }
+    property QtObject allAppsModel: null
+    function syncAllApps() {
+        var m = rootModel.count > 2 ? rootModel.modelForRow(2) : null;
+        if (m !== allAppsModel) allAppsModel = m;
+    }
+    Connections {
+        target: rootModel
+        function onRefreshed() { kicker.syncAllApps(); }
+        function onCountChanged() { kicker.syncAllApps(); }
     }
 
     preferredRepresentation: compactRepresentation
@@ -173,7 +198,9 @@ PlasmoidItem {
     PhoneHubPopup {
         id: phoneHubPopup
         visualParentItem: (kicker.compactRepItem && kicker.compactRepItem.phoneHubBtn) ? kicker.compactRepItem.phoneHubBtn : null
-        popupHeight: Math.round(Screen.height * 0.60)
+        plasmoidConfiguration: Plasmoid.configuration
+        popupWidth: Math.max(360, Math.min(440, Math.round(Screen.width * 0.26)))
+        maxPopupHeight: Math.round(Screen.height * 0.72)
         panelHeight: kicker.compactRepItem ? kicker.compactRepItem.effectiveHeight : 52
     }
 
@@ -188,8 +215,10 @@ PlasmoidItem {
         plasmoidConfiguration: Plasmoid.configuration
         dimOverlayItem: dimOverlay
         visualParentItem: (kicker.compactRepItem && kicker.compactRepItem.popupAnchor) ? kicker.compactRepItem.popupAnchor : kicker.compactRepItem
-        popupWidth: Math.min(Screen.width - 40, (Plasmoid.configuration.popupWidth || 680))
-        popupHeight: Math.round(Screen.height * 0.66)
+        fullscreen: Plasmoid.configuration.launcherFullscreen === true
+        popupWidth: fullscreen ? Screen.width - 48 : Math.min(Screen.width - 40, Math.max(420, Plasmoid.configuration.popupWidth || 600))
+        popupHeight: fullscreen ? Screen.height - (kicker.compactRepItem ? kicker.compactRepItem.effectiveHeight : 52) - 36
+                                : Math.round(Screen.height * 0.72)
         panelHeight: kicker.compactRepItem ? kicker.compactRepItem.effectiveHeight : 52
     }
 
@@ -230,6 +259,7 @@ PlasmoidItem {
     }
 
     Component.onCompleted: {
+        syncAllApps();
         if (Plasmoid.containment && typeof Plasmoid.containment.setContainmentActions === "function") {
             Plasmoid.containment.setContainmentActions("RightButton;NoModifier", "");
         }

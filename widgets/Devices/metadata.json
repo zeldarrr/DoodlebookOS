@@ -1,0 +1,16 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Category": "System Information",
+        "Description": "Battery level of your wireless mice, keyboards, headsets, gamepads and KDE Connect phones, as Material 3 chips (hidden when none report a battery)",
+        "Description[fr]": "Niveau de batterie des souris, claviers, casques, manettes sans fil et téléphones KDE Connect, en pastilles Material 3 (masqué s'il n'y en a aucun)",
+        "Icon": "battery-good-symbolic",
+        "Id": "org.doodlebookos.devices",
+        "License": "GPL-3.0-or-later",
+        "Name": "DoodlebookOS Devices",
+        "Name[fr]": "Appareils DoodlebookOS",
+        "Version": "1.0.0",
+        "Website": "https://github.com/PanOptikuum/DoodlebookOS"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

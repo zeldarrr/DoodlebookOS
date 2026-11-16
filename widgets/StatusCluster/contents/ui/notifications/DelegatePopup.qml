@@ -390,5 +390,88 @@ Item {
                 }
             }
         }
+
+        // M3 Expressive linear progress with stop indicator: time left before the popup goes away.
+        // Drains while the hide timer runs, springs back to full when the pointer pauses it.
+        // Only geometry changes per frame (two rounded rects), no repaint of the card.
+        Item {
+            id: countdown
+            property real progress: 1
+            property bool started: false
+            readonly property bool counting: delegateRoot.modelInterface.timeout > 0
+            readonly property real activeWidth: Math.max(height, width * Math.min(1, progress))
+            readonly property color indicatorColor: Kirigami.Theme.highlightColor
+
+            visible: delegateRoot.countdownVisible
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.leftMargin: delegateRoot.snap(16)
+            anchors.rightMargin: delegateRoot.snap(16)
+            anchors.bottomMargin: delegateRoot.snap(5)
+            height: delegateRoot.snap(4)
+
+            function restart() {
+                refill.stop();
+                started = true;
+                drain.duration = Math.max(1, delegateRoot.modelInterface.timeout);
+                drain.restart();
+            }
+            onCountingChanged: {
+                if (counting) {
+                    restart();
+                } else {
+                    drain.stop();
+                    refill.restart();
+                }
+            }
+            Component.onCompleted: if (counting) restart()
+
+            NumberAnimation {
+                id: drain
+                target: countdown; property: "progress"
+                from: 1; to: 0
+            }
+            NumberAnimation {
+                id: refill
+                target: countdown; property: "progress"
+                to: 1
+                duration: Kirigami.Units.longDuration * 2
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1, 1]   // M3 emphasized decelerate
+            }
+
+            // active indicator
+            Rectangle {
+                width: countdown.activeWidth
+                height: parent.height
+                radius: height / 2
+                color: countdown.indicatorColor
+            }
+            // remaining track, after a gap
+            Rectangle {
+                x: countdown.activeWidth + delegateRoot.snap(4)
+                width: Math.max(0, countdown.width - x)
+                height: parent.height
+                radius: height / 2
+                visible: width > height
+                color: Qt.rgba(countdown.indicatorColor.r, countdown.indicatorColor.g, countdown.indicatorColor.b, 0.24)
+            }
+            // stop indicator
+            Rectangle {
+                anchors.right: parent.right
+                width: parent.height
+                height: parent.height
+                radius: height / 2
+                visible: countdown.activeWidth < countdown.width - delegateRoot.snap(8)
+                color: countdown.indicatorColor
+            }
+        }
+    }
+
+    // shown by NotificationPopup (the history list reuses nothing of this)
+    property bool countdownVisible: countdown.started
+    function restartCountdown() {
+        if (countdown.counting) countdown.restart();
     }
 }

@@ -1,0 +1,173 @@
+{
+ "panels": [
+  {
+   "alignment": "center",
+   "applets": [
+    {
+     "plugin": "org.doodlebookos.panelspacer",
+     "config": {
+      "/General": {
+       "expanding": "true"
+      }
+     }
+    },
+    {
+     "plugin": "org.doodlebookos.dock",
+     "config": {
+      "/General": {
+       "launcherHeight": "50",
+       "launcherRowHeight": "60",
+       "launchers": "applications:systemsettings.desktop,applications:app.zen_browser.zen.desktop,applications:dev.vencord.Vesktop.desktop,applications:org.kde.dolphin.desktop,applications:steam.desktop,applications:org.kde.konsole.desktop",
+       "numberColumns": "4",
+       "phoneHubPhotos": "true"
+      }
+     }
+    },
+    {
+     "plugin": "org.doodlebookos.panelspacer",
+     "config": {
+      "/General": {
+       "expanding": "true"
+      }
+     }
+    }
+   ],
+   "config": {
+    "/": {
+     "formfactor": "2",
+     "immutability": "1",
+     "lastScreen": "0",
+     "wallpaperplugin": "org.kde.image"
+    }
+   },
+   "floating": false,
+   "floatingApplets": false,
+   "height": 3.25,
+   "hiding": "normal",
+   "lengthMode": "fill",
+   "location": "bottom",
+   "maximumLength": 0.625,
+   "minimumLength": 0.625,
+   "offset": 0,
+   "opacity": "translucent"
+  },
+  {
+   "alignment": "left",
+   "applets": [
+    {
+     "plugin": "org.doodlebookos.workspaces",
+     "config": {
+      "/Appearance": {
+       "contentColor": "#ffffff"
+      }
+     }
+    },
+    {
+     "plugin": "org.doodlebookos.datetime",
+     "config": {
+      "/": {
+       "popupHeight": "354",
+       "popupWidth": "338"
+      },
+      "/Appearance": {
+       "contentColor": "#ffffff",
+       "popupWidth": "339"
+      }
+     }
+    },
+    {
+     "plugin": "org.doodlebookos.panelspacer",
+     "config": {
+      "/General": {
+       "expanding": "true"
+      }
+     }
+    },
+    {
+     "plugin": "org.doodlebookos.devices",
+     "config": {
+      "/General": {
+       "contentColor": "#ffffff"
+      }
+     }
+    },
+    {
+     "plugin": "org.doodlebookos.statuscluster",
+     "config": {
+      "/General": {
+       "activeTiles": "wifi:2,bluetooth:2,battery_saver:2,modes:2,screenshot:2,quickshare:2,material_you:2,night_light:2,clipboard:2,game_mode:2",
+       "contentColor": "#ffffff"
+      }
+     }
+    }
+   ],
+   "config": {
+    "/": {
+     "formfactor": "2",
+     "immutability": "1",
+     "lastScreen": "0",
+     "wallpaperplugin": "org.kde.image"
+    },
+    "/General": {
+     "UserBackgroundHints": "NoBackground"
+    }
+   },
+   "floating": false,
+   "floatingApplets": false,
+   "height": 2,
+   "hiding": "normal",
+   "lengthMode": "fill",
+   "location": "top",
+   "maximumLength": 0.625,
+   "minimumLength": 0.625,
+   "offset": 0,
+   "opacity": "translucent"
+  }
+ ],
+ "desktopWidgets": [
+  {
+   "plugin": "org.doodlebookos.weather",
+   "config": {},
+   "geometry": [
+    0.8672,
+    0.0694,
+    224,
+    208
+   ]
+  },
+  {
+   "plugin": "org.doodlebookos.note",
+   "config": {},
+   "geometry": [
+    0.0312,
+    0.5139,
+    432,
+    176
+   ]
+  },
+  {
+   "plugin": "org.doodlebookos.storage",
+   "config": {},
+   "geometry": [
+    0.0312,
+    0.6806,
+    432,
+    192
+   ]
+  },
+  {
+   "plugin": "org.doodlebookos.photo",
+   "config": {},
+   "geometry": [
+    0.25,
+    0.5139,
+    224,
+    384
+   ]
+  }
+ ],
+ "shortcuts": {
+  "org.doodlebookos.dock": "Meta",
+  "org.doodlebookos.statuscluster": "Alt+Shift+S"
+ }
+}

@@ -1,0 +1,10 @@
+[Unit]
+Description=DoodlebookOS: Material You icons follow installed applications
+
+[Path]
+PathChanged=%h/.local/share/applications
+PathChanged=%h/.local/share/flatpak/exports/share/applications
+PathChanged=/var/lib/flatpak/exports/share/applications
+
+[Install]
+WantedBy=default.target

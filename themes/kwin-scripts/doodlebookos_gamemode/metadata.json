@@ -1,0 +1,17 @@
+{
+    "KPackageStructure": "KWin/Script",
+    "KPlugin": {
+        "Authors": [ { "Name": "DoodlebookOS" } ],
+        "Category": "Windows",
+        "Description": "Turns DoodlebookOS game mode on while a game window is open (fullscreen or Steam/Proton), and adds the Meta+Shift+G toggle",
+        "Description[fr]": "Active le mode jeu DoodlebookOS tant qu'une fenêtre de jeu est ouverte (plein écran ou Steam/Proton) et ajoute le raccourci Meta+Maj+G",
+        "EnabledByDefault": false,
+        "Icon": "input-gaming",
+        "Id": "doodlebookos_gamemode",
+        "License": "GPL",
+        "Name": "DoodlebookOS game mode",
+        "Name[fr]": "Mode jeu DoodlebookOS"
+    },
+    "X-Plasma-API": "declarativescript",
+    "X-Plasma-MainScript": "ui/gamemode.qml"
+}

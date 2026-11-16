@@ -6,6 +6,8 @@
 import QtQuick
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
+import QtQuick.Effects
+import org.kde.plasma.plasmoid
 import org.kde.taskmanager as TaskManager
 
 Item {
@@ -29,7 +31,8 @@ Item {
     readonly property real separatorWidth: Math.max(1 / dpr, snap(dockHeight * 0.05))
     readonly property real separatorHeight: snap(dockHeight * 0.37)
     readonly property real separatorBottomMargin: snap(dockHeight * 0.33)
-    readonly property real indicatorHeight: Math.max(1 / dpr, snap(dockHeight * 0.03))
+    // M3: running = dot, focused = stretched pill (accent)
+    readonly property real indicatorHeight: Math.max(2 / dpr, snap(dockHeight * 0.055))
     readonly property real indicatorBottomMargin: snap(dockHeight * 0.05)
 
     readonly property bool isWindow: model ? Boolean(model.IsWindow) : false
@@ -46,8 +49,8 @@ Item {
     readonly property int childCount: model ? (model.ChildCount || 0) : 0
 
     readonly property bool isDarkTheme: Kirigami.Theme.textColor.r > 0.5 || Kirigami.Theme.textColor.g > 0.5 || Kirigami.Theme.textColor.b > 0.5
-    readonly property real baseInactiveWidth: snap(dockHeight * 0.13)
-    readonly property real baseActiveWidth: snap(dockHeight * 0.22)
+    readonly property real baseInactiveWidth: indicatorHeight
+    readonly property real baseActiveWidth: snap(dockHeight * 0.30)
 
     readonly property bool isDemandingAttention: {
         if (!model) return false;
@@ -263,9 +266,14 @@ Item {
                         Kirigami.Icon {
                             id: appIcon
                             anchors.fill: parent
-                            source: model ? (model.decoration || model.icon || model.AppId || "application-x-executable") : "application-x-executable"
+                            source: { var r = appIndex.revision; if (appIndex.iconsBlank) return ""; var t = model ? appIndex.themedIconFor(String(model.AppId || "")) : ""; return t.length ? t : (model ? (model.decoration || model.icon || model.AppId || "application-x-executable") : "application-x-executable"); }
                             roundToIconSize: false
                             scale: mouseArea.pressed ? 0.94 : 1.0
+
+                            // Android 13+ "themed icons": tint the icon with the Material You accent.
+                            // A static layer: rendered once, re-rendered only if the icon/colour changes.
+                            layer.enabled: Plasmoid.configuration.themedIcons === true
+                            layer.effect: MultiEffect { colorization: 1.0; colorizationColor: Kirigami.Theme.highlightColor }
 
                             Behavior on scale {
                                 NumberAnimation { duration: 100; easing.type: Easing.OutQuad }
@@ -321,19 +329,45 @@ Item {
 
                         color: {
                             if (taskItem.isActive) {
-                                return taskItem.isDarkTheme ? Qt.rgba(1, 1, 1, 0.95) : (Kirigami.Theme.highlightColor || "#1F1F24");
+                                return Kirigami.Theme.highlightColor;
                             }
-                            return taskItem.isDarkTheme ? Qt.rgba(1, 1, 1, 0.42) : Qt.rgba(0, 0, 0, 0.35);
+                            return taskItem.isDarkTheme ? Qt.rgba(1, 1, 1, 0.45) : Qt.rgba(0, 0, 0, 0.38);
                         }
 
+                        // spring: the dot stretches into a pill with a small overshoot
                         Behavior on width {
                             enabled: !minimizeBounceAnimation.running
-                            NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+                            NumberAnimation { duration: 340; easing.type: Easing.OutBack; easing.overshoot: 2.2 }
                         }
                         Behavior on color {
                             ColorAnimation { duration: 150 }
                         }
                     }
+                }
+            }
+
+            // Pull an open app up out of the dock → a system drag carrying its window ids; dropped on a
+            // desktop chip of the top bar (DoodlebookOS Workspaces) its windows move to that desktop.
+            Item {
+                id: winDrag
+                width: 1; height: 1
+                visible: false
+                property bool starting: false
+                Drag.dragType: Drag.Automatic
+                Drag.supportedActions: Qt.MoveAction
+                Drag.proposedAction: Qt.MoveAction
+                Drag.hotSpot: Qt.point(24, 24)
+                Drag.mimeData: ({ "application/x-doodlebookos-window":
+                    (taskItem.model && taskItem.model.WinIdList) ? Array.from(taskItem.model.WinIdList).map(String).join("\n") : "" })
+                function begin() {
+                    if (starting || Drag.active) return;
+                    starting = true;
+                    appIcon.grabToImage(function (r) {
+                        winDrag.starting = false;
+                        if (!mouseArea.pressed) return;
+                        winDrag.Drag.imageSource = r.url;
+                        winDrag.Drag.active = true;
+                    }, Qt.size(48, 48));
                 }
             }
 
@@ -351,6 +385,10 @@ Item {
                 property bool wasDragged: false
 
                 onPositionChanged: (mouse) => {
+                    if (pressed && taskItem.isWindow && (mouse.buttons & Qt.LeftButton) && mouse.y < -Math.max(20, height * 0.35)) {
+                        winDrag.begin();
+                        return;
+                    }
                     if (mouseArea.drag.active) {
                         if (!mouseArea.wasDragged) {
                             mouseArea.wasDragged = true;
@@ -427,6 +465,7 @@ Item {
                             if (taskItem.dockRoot && taskItem.dockRoot.requestHideWindowPreviewImmediately) {
                                 taskItem.dockRoot.requestHideWindowPreviewImmediately();
                             }
+                            launchBounce.restart();
                             taskItem.tasksModel.requestActivate(idx);
                         } else if (taskItem.isWindow) {
                             var isGroup = model ? Boolean(model.IsGroupParent) : false;
@@ -501,6 +540,14 @@ Item {
                 }
             }
         }
+    }
+
+    // launch feedback: two springy hops (ends early when the window replaces the launcher)
+    SequentialAnimation {
+        id: launchBounce
+        loops: 2
+        NumberAnimation { target: taskItem; property: "iconYOffset"; to: -taskItem.dockHeight * 0.16; duration: 200; easing.type: Easing.OutQuad }
+        NumberAnimation { target: taskItem; property: "iconYOffset"; to: 0; duration: 340; easing.type: Easing.OutBounce }
     }
 
     TaskContextMenu {

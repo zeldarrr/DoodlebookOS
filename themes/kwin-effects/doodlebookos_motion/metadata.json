@@ -1,0 +1,22 @@
+{
+    "KPackageStructure": "KWin/Effect",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "DoodlebookOS"
+            }
+        ],
+        "Category": "Window Open/Close Animation",
+        "Description": "Material 3 expressive motion: windows rise and grow in with an emphasized-decelerate curve and leave with an emphasized-accelerate curve",
+        "Description[fr]": "Mouvement Material 3 : les fenêtres montent et grandissent à l'ouverture (décélération accentuée) et s'effacent en accélérant à la fermeture",
+        "EnabledByDefault": false,
+        "Icon": "preferences-system-windows-effect-scale",
+        "Id": "doodlebookos_motion",
+        "License": "GPL",
+        "Name": "DoodlebookOS Motion",
+        "Name[fr]": "Mouvement DoodlebookOS"
+    },
+    "X-KDE-Ordering": 60,
+    "X-KWin-Exclusive-Category": "toplevel-open-close-animation",
+    "X-Plasma-API": "javascript"
+}

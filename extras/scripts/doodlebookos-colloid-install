@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Install the Colloid icon theme (vinceliuice, GPL-3.0) from a source checkout without running its
+shell installer, plus the folder templates used by doodlebookos-materialyou to tint folders with
+the Material You colour.
+
+  doodlebookos-colloid-install /path/to/Colloid-icon-theme   -> ~/.local/share/icons/Colloid-{Light,Dark}
+  doodlebookos-colloid-install --remove                       -> remove both themes and the templates
+"""
+import os
+import shutil
+import subprocess
+import sys
+
+HOME = os.path.expanduser("~")
+ICONS = os.path.join(HOME, ".local", "share", "icons")
+TEMPLATES = os.path.join(HOME, ".local", "share", "doodlebookos", "icon-template")
+CTX = ["actions", "apps", "categories", "devices", "emblems", "mimetypes", "places", "status"]
+
+
+def copy(src, dst):
+    """Like `cp -r`: symlinks copied as links, existing files overwritten."""
+    if os.path.isdir(src) and not os.path.islink(src):
+        os.makedirs(dst, exist_ok=True)
+        for f in os.listdir(src):
+            copy(os.path.join(src, f), os.path.join(dst, f))
+    else:
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        if os.path.lexists(dst):
+            os.remove(dst)
+        shutil.copy2(src, dst, follow_symlinks=False)
+
+
+def copy_glob_svg(src_dir, dst_dir):
+    os.makedirs(dst_dir, exist_ok=True)
+    for f in os.listdir(src_dir):
+        if f.endswith(".svg"):
+            copy(os.path.join(src_dir, f), os.path.join(dst_dir, f))
+
+
+def recolor(dirs, old, new):
+    for d in dirs:
+        if not os.path.isdir(d):
+            continue
+        for f in os.listdir(d):
+            p = os.path.join(d, f)
+            if f.endswith(".svg") and os.path.isfile(p) and not os.path.islink(p):
+                with open(p, encoding="utf-8", errors="surrogateescape") as h:
+                    s = h.read()
+                if old in s:
+                    with open(p, "w", encoding="utf-8", errors="surrogateescape") as h:
+                        h.write(s.replace(old, new))
+
+
+def scale_links(theme_dir):
+    for c in CTX:
+        for suf in ("@2x", "@3x"):
+            link = os.path.join(theme_dir, c + suf)
+            if not os.path.lexists(link):
+                os.symlink(c, link)
+
+
+def index(src, theme_dir, name):
+    with open(os.path.join(src, "src", "index.theme"), encoding="utf-8") as f:
+        s = f.read().replace("Colloid", name)
+    with open(os.path.join(theme_dir, "index.theme"), "w", encoding="utf-8") as f:
+        f.write(s)
+
+
+def install(src):
+    light = os.path.join(ICONS, "Colloid-Light")
+    dark = os.path.join(ICONS, "Colloid-Dark")
+    for d in (light, dark):
+        if os.path.isdir(d):
+            shutil.rmtree(d)
+
+    # Light: full copy + links
+    os.makedirs(light)
+    index(src, light, "Colloid-Light")
+    for c in CTX:
+        copy(os.path.join(src, "src", c), os.path.join(light, c))
+    for c in os.listdir(os.path.join(src, "links")):
+        copy(os.path.join(src, "links", c), os.path.join(light, c))
+    scale_links(light)
+
+    # Dark: monochrome sizes recoloured, scalable colour icons shared with Light through symlinks
+    os.makedirs(dark)
+    index(src, dark, "Colloid-Dark")
+    parts = {"actions": None, "apps": ["22", "symbolic"], "categories": ["22", "symbolic"], "emblems": ["symbolic"],
+             "mimetypes": ["symbolic"], "devices": ["16", "22", "24", "32", "symbolic"],
+             "places": ["16", "22", "24", "scalable", "symbolic"], "status": ["16", "22", "24", "32", "symbolic"]}
+    for c, subs in parts.items():
+        if subs is None:
+            copy(os.path.join(src, "src", c), os.path.join(dark, c))
+        else:
+            for s in subs:
+                copy(os.path.join(src, "src", c, s), os.path.join(dark, c, s))
+    copy_glob_svg(os.path.join(src, "dark"), os.path.join(dark, "places", "scalable"))
+    mono = [os.path.join(dark, c, s) for c in ("actions", "devices", "places", "status") for s in ("16", "22", "24")]
+    mono += [os.path.join(dark, c, "32") for c in ("actions", "devices", "status")]
+    mono += [os.path.join(dark, "apps", "22"), os.path.join(dark, "categories", "22")]
+    mono += [os.path.join(dark, c, "symbolic") for c in CTX]
+    recolor(mono, "#363636", "#dedede")
+    for c, subs in parts.items():
+        for s in (subs or ["16", "22", "24", "32", "symbolic"]):
+            ls = os.path.join(src, "links", c, s)
+            if os.path.isdir(ls):
+                copy(ls, os.path.join(dark, c, s))
+    for rel in ("apps/scalable", "devices/scalable", "categories/32", "emblems/16", "emblems/22", "mimetypes/scalable"):
+        link = os.path.join(dark, rel)
+        if not os.path.lexists(link):
+            os.symlink(os.path.join("..", "..", "Colloid-Light", rel), link)
+    scale_links(dark)
+
+    # Templates for Material You folders (#60c0f0 placeholder kept)
+    if os.path.isdir(TEMPLATES):
+        shutil.rmtree(TEMPLATES)
+    for mode, extra in (("light", None), ("dark", "dark")):
+        t = os.path.join(TEMPLATES, mode)
+        copy(os.path.join(src, "src", "places", "scalable"), os.path.join(t, "places", "scalable"))
+        if extra:
+            copy_glob_svg(os.path.join(src, extra), os.path.join(t, "places", "scalable"))
+        copy_glob_svg(os.path.join(src, "notint"), os.path.join(t, "places", "scalable"))
+        copy(os.path.join(src, "links", "places", "scalable"), os.path.join(t, "places", "scalable"))
+        apps = os.path.join(src, "src", "apps", "scalable")
+        for f in os.listdir(apps):
+            p = os.path.join(apps, f)
+            if f.endswith(".svg") and os.path.isfile(p) and not os.path.islink(p):
+                with open(p, encoding="utf-8", errors="surrogateescape") as h:
+                    if "#60c0f0" in h.read():
+                        copy(p, os.path.join(t, "apps", "scalable", f))
+        # aliases (org.kde.dolphin -> system-file-manager -> file-manager) must follow the tinted icons
+        tinted = set(os.listdir(os.path.join(t, "apps", "scalable")))
+        links = os.path.join(src, "links", "apps", "scalable")
+        for f in os.listdir(links) if os.path.isdir(links) else []:
+            p, seen = os.path.join(links, f), 0
+            target = f
+            while os.path.islink(os.path.join(links, target)) and seen < 8:
+                target, seen = os.path.basename(os.readlink(os.path.join(links, target))), seen + 1
+            if target in tinted and os.path.islink(p):
+                copy(p, os.path.join(t, "apps", "scalable", f))
+
+    for d in (light, dark):
+        subprocess.run(["gtk-update-icon-cache", "-f", "-q", d], capture_output=True)
+    print("Colloid-Light, Colloid-Dark installés dans", ICONS)
+
+
+def remove():
+    for d in (os.path.join(ICONS, "Colloid-Light"), os.path.join(ICONS, "Colloid-Dark"), TEMPLATES):
+        if os.path.isdir(d):
+            shutil.rmtree(d)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "--remove":
+        remove()
+    elif len(sys.argv) > 1 and os.path.isdir(os.path.join(sys.argv[1], "src", "places")):
+        install(os.path.abspath(sys.argv[1]))
+    else:
+        print(__doc__)
+        sys.exit(1)

@@ -8,6 +8,7 @@ import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 import "i18n.js" as I18n
 
+// Phone notification card — follows the Plasma colour scheme (light & dark).
 Rectangle {
     id: root
 
@@ -15,13 +16,32 @@ Rectangle {
 
     property var notifModel: null
     property bool isReplying: false
+    property real enter: 1.0
+
+    readonly property color fg: Kirigami.Theme.textColor
+    function tint(a) { return Qt.rgba(fg.r, fg.g, fg.b, a); }
 
     width: parent ? parent.width : 0
     implicitHeight: mainCol.implicitHeight + 24
-    radius: 16
-    color: Qt.rgba(1, 1, 1, 0.06)
-    border.color: Qt.rgba(1, 1, 1, 0.08)
-    border.width: 1
+    radius: 20
+    color: tint(0.06)
+    opacity: enter
+    transform: Translate { y: (1 - root.enter) * 14 }
+
+    function dismiss() {
+        if (!notifModel) return;
+        if (notifModel.dbusInterface && typeof notifModel.dbusInterface.dismiss === "function")
+            notifModel.dbusInterface.dismiss();
+    }
+
+    function send() {
+        var msg = replyInput.text.trim();
+        if (!msg || !notifModel) return;
+        if (notifModel.dbusInterface && typeof notifModel.dbusInterface.sendReply === "function")
+            notifModel.dbusInterface.sendReply(msg);
+        replyInput.text = "";
+        isReplying = false;
+    }
 
     ColumnLayout {
         id: mainCol
@@ -29,9 +49,9 @@ Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.margins: 12
-        spacing: 6
+        anchors.leftMargin: 14
+        spacing: 4
 
-        // 1. Header (Icon + App Name + Dismiss button)
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
@@ -47,27 +67,25 @@ Rectangle {
                 text: (root.notifModel && root.notifModel.appName) ? root.notifModel.appName : ""
                 font.family: "Google Sans Flex"
                 font.pixelSize: 11
-                font.weight: Font.Normal
-                color: Qt.rgba(1, 1, 1, 0.60)
+                color: root.tint(0.65)
                 elide: Text.ElideRight
             }
 
-            // Dismiss Button (✕)
-            Item {
-                Layout.preferredWidth: 20
-                Layout.preferredHeight: 20
+            Rectangle {
+                Layout.preferredWidth: 24
+                Layout.preferredHeight: 24
+                radius: 12
+                visible: Boolean(root.notifModel && root.notifModel.dismissable)
+                color: closeMa.containsMouse ? root.tint(0.12) : "transparent"
+                Behavior on color { ColorAnimation { duration: Kirigami.Units.shortDuration } }
 
-                Rectangle {
-                    anchors.fill: parent
-                    radius: 10
-                    color: closeMa.containsMouse ? Qt.rgba(1, 1, 1, 0.15) : "transparent"
-                }
-
-                Text {
+                Kirigami.Icon {
                     anchors.centerIn: parent
-                    text: "✕"
-                    font.pixelSize: 11
-                    color: Qt.rgba(1, 1, 1, 0.70)
+                    width: 14
+                    height: 14
+                    source: "window-close-symbolic"
+                    color: root.tint(0.75)
+                    isMask: true
                 }
 
                 MouseArea {
@@ -75,20 +93,11 @@ Rectangle {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        if (root.notifModel) {
-                            if (root.notifModel.dbusInterface && typeof root.notifModel.dbusInterface.dismiss === "function") {
-                                root.notifModel.dbusInterface.dismiss();
-                            } else if (typeof root.notifModel.dismiss === "function") {
-                                root.notifModel.dismiss();
-                            }
-                        }
-                    }
+                    onClicked: root.dismiss()
                 }
             }
         }
 
-        // 2. Title / Sender
         Text {
             Layout.fillWidth: true
             text: (root.notifModel && root.notifModel.title) ? root.notifModel.title : ""
@@ -96,66 +105,62 @@ Rectangle {
             font.family: "Google Sans Flex"
             font.pixelSize: 13
             font.weight: Font.DemiBold
-            color: "#FFFFFF"
+            color: root.fg
             elide: Text.ElideRight
         }
 
-        // 3. Message Body
         Text {
             Layout.fillWidth: true
             text: (root.notifModel && root.notifModel.notitext) ? root.notifModel.notitext : ""
             visible: text.length > 0
             font.family: "Google Sans Flex"
             font.pixelSize: 12
-            color: Qt.rgba(1, 1, 1, 0.85)
+            color: root.tint(0.85)
             wrapMode: Text.Wrap
             maximumLineCount: 3
             elide: Text.ElideRight
         }
 
-        // 4. Quick Reply Button / Input
+        // Quick reply (M3 tonal button → inline text field)
         Item {
             Layout.fillWidth: true
-            Layout.preferredHeight: root.isReplying ? 38 : 28
+            Layout.topMargin: 4
+            Layout.preferredHeight: root.isReplying ? 36 : 28
             visible: Boolean(root.notifModel && root.notifModel.repliable)
+            Behavior on Layout.preferredHeight { NumberAnimation { duration: Kirigami.Units.shortDuration; easing.type: Easing.OutCubic } }
 
-            RowLayout {
-                anchors.fill: parent
+            Rectangle {
                 visible: !root.isReplying
-                spacing: 8
+                height: 28
+                width: replyLabel.implicitWidth + 28
+                radius: 14
+                color: replyBtnMa.containsMouse
+                       ? Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.30)
+                       : Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.18)
+                Behavior on color { ColorAnimation { duration: Kirigami.Units.shortDuration } }
 
-                Rectangle {
-                    Layout.preferredHeight: 26
-                    Layout.preferredWidth: replyLabel.implicitWidth + 24
-                    radius: 13
-                    color: replyBtnMa.containsMouse ? Qt.rgba(1, 1, 1, 0.16) : Qt.rgba(1, 1, 1, 0.10)
-                    border.color: Qt.rgba(1, 1, 1, 0.12)
-                    border.width: 1
+                Text {
+                    id: replyLabel
+                    anchors.centerIn: parent
+                    text: root.i18n("Reply")
+                    font.family: "Google Sans Flex"
+                    font.pixelSize: 12
+                    font.weight: Font.Medium
+                    color: root.fg
+                }
 
-                    Text {
-                        id: replyLabel
-                        anchors.centerIn: parent
-                        text: root.i18n("Reply")
-                        font.family: "Google Sans Flex"
-                        font.pixelSize: 11
-                        font.weight: Font.Medium
-                        color: "#FFFFFF"
-                    }
-
-                    MouseArea {
-                        id: replyBtnMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            root.isReplying = true;
-                            replyInput.forceActiveFocus();
-                        }
+                MouseArea {
+                    id: replyBtnMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        root.isReplying = true;
+                        replyInput.forceActiveFocus();
                     }
                 }
             }
 
-            // Inline reply input field
             RowLayout {
                 anchors.fill: parent
                 visible: root.isReplying
@@ -163,58 +168,57 @@ Rectangle {
 
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 32
-                    radius: 12
-                    color: Qt.rgba(0, 0, 0, 0.30)
-                    border.color: Qt.rgba(1, 1, 1, 0.20)
+                    Layout.preferredHeight: 36
+                    radius: 18
+                    color: root.tint(0.08)
+                    border.color: replyInput.activeFocus ? Kirigami.Theme.highlightColor : root.tint(0.18)
                     border.width: 1
 
                     TextInput {
                         id: replyInput
                         anchors.fill: parent
-                        anchors.leftMargin: 10
-                        anchors.rightMargin: 10
+                        anchors.leftMargin: 14
+                        anchors.rightMargin: 14
                         verticalAlignment: TextInput.AlignVCenter
                         font.family: "Google Sans Flex"
                         font.pixelSize: 12
-                        color: "#FFFFFF"
-                        onAccepted: sendBtn.send()
+                        color: root.fg
+                        selectionColor: Kirigami.Theme.highlightColor
+                        selectedTextColor: Kirigami.Theme.highlightedTextColor
+                        clip: true
+                        onAccepted: root.send()
+                        Keys.onEscapePressed: { text = ""; root.isReplying = false; }
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            visible: replyInput.text.length === 0
+                            text: root.i18n("Reply…")
+                            font: replyInput.font
+                            color: root.tint(0.45)
+                        }
                     }
                 }
 
                 Rectangle {
-                    id: sendBtn
-                    Layout.preferredWidth: 32
-                    Layout.preferredHeight: 32
-                    radius: 12
-                    color: sendMa.containsMouse ? Kirigami.Theme.highlightColor : Qt.rgba(1, 1, 1, 0.15)
+                    Layout.preferredWidth: 36
+                    Layout.preferredHeight: 36
+                    radius: 18
+                    color: Kirigami.Theme.highlightColor
+                    opacity: replyInput.text.trim().length > 0 ? 1.0 : 0.5
 
-                    function send() {
-                        var msg = replyInput.text.trim();
-                        if (msg && root.notifModel) {
-                            if (root.notifModel.dbusInterface && typeof root.notifModel.dbusInterface.sendReply === "function") {
-                                root.notifModel.dbusInterface.sendReply(msg);
-                            } else if (typeof root.notifModel.reply === "function") {
-                                root.notifModel.reply(msg);
-                            }
-                            replyInput.text = "";
-                            root.isReplying = false;
-                        }
-                    }
-
-                    Text {
+                    Kirigami.Icon {
                         anchors.centerIn: parent
-                        text: "➔"
-                        font.pixelSize: 13
-                        color: "#FFFFFF"
+                        width: 18
+                        height: 18
+                        source: Qt.resolvedUrl("icons/send_to.svg")
+                        isMask: true
+                        color: Kirigami.Theme.highlightedTextColor
                     }
 
                     MouseArea {
-                        id: sendMa
                         anchors.fill: parent
-                        hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: sendBtn.send()
+                        onClicked: root.send()
                     }
                 }
             }

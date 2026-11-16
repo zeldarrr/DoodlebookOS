@@ -31,8 +31,9 @@ Item {
     readonly property real capsuleTopMargin: snap(effectiveBase * 0.12)
     readonly property real iconSize: snap(effectiveBase * 0.37)
 
-    implicitWidth: launcherBtn.isVertical ? launcherBtn.buttonHeight : launcherBtn.capsuleWidth
-    implicitHeight: launcherBtn.isVertical ? launcherBtn.capsuleWidth : launcherBtn.buttonHeight
+    readonly property bool shaped: appIndex.shapeName !== "circle" && appIndex.shapePath.length > 0
+    implicitWidth: launcherBtn.isVertical ? launcherBtn.buttonHeight : (launcherBtn.shaped ? launcherBtn.buttonHeight * 0.92 : launcherBtn.capsuleWidth)
+    implicitHeight: launcherBtn.isVertical ? (launcherBtn.shaped ? launcherBtn.buttonHeight * 0.92 : launcherBtn.capsuleWidth) : launcherBtn.buttonHeight
     width: launcherBtn.implicitWidth
     height: launcherBtn.implicitHeight
     Layout.preferredWidth: launcherBtn.implicitWidth
@@ -43,19 +44,21 @@ Item {
 
     Rectangle {
         id: capsuleBg
-        y: launcherBtn.capsuleTopMargin
+        y: launcherBtn.shaped ? (launcherBtn.height - height) / 2 : launcherBtn.capsuleTopMargin
         anchors.horizontalCenter: parent.horizontalCenter
-        width: launcherBtn.isVertical ? launcherBtn.capsuleHeight : launcherBtn.capsuleWidth
-        height: launcherBtn.isVertical ? launcherBtn.capsuleWidth : launcherBtn.capsuleHeight
+        width: launcherBtn.shaped ? launcherBtn.capsuleHeight * 1.08 : (launcherBtn.isVertical ? launcherBtn.capsuleHeight : launcherBtn.capsuleWidth)
+        height: launcherBtn.shaped ? launcherBtn.capsuleHeight * 1.08 : (launcherBtn.isVertical ? launcherBtn.capsuleWidth : launcherBtn.capsuleHeight)
         radius: (launcherBtn.isVertical ? launcherBtn.capsuleWidth : launcherBtn.capsuleHeight) / 2
 
         Kirigami.Theme.colorSet: Kirigami.Theme.Header
         Kirigami.Theme.inherit: false
-        readonly property color baseColor: Kirigami.Theme.backgroundColor
+        // same tonal colours as the Material You app icons when they are generated
+        readonly property color baseColor: appIndex.hasIconColors ? appIndex.iconBg : Kirigami.Theme.backgroundColor
+        readonly property color baseIconColor: appIndex.hasIconColors ? appIndex.iconFg : Kirigami.Theme.textColor
         readonly property color activeColor: Kirigami.Theme.highlightColor
         readonly property color activeIconColor: Kirigami.Theme.highlightedTextColor
 
-        color: {
+        property color fillColor: {
             if (launcherBtn.active) {
                 return mouseArea.pressed ? Qt.darker(activeColor, 1.1) : activeColor;
             }
@@ -68,16 +71,28 @@ Item {
             return baseColor;
         }
 
+        color: launcherBtn.shaped ? "transparent" : fillColor
         border.color: {
             if (launcherBtn.active) {
                 return activeColor;
             }
             return launcherBtn.isDarkTheme ? Qt.rgba(1, 1, 1, 0.06) : Qt.rgba(0, 0, 0, 0.04);
         }
-        border.width: 1
+        border.width: launcherBtn.shaped ? 0 : 1
 
-        Behavior on color {
+        Behavior on fillColor {
             ColorAnimation { duration: 150; easing.type: Easing.OutCubic }
+        }
+
+        ShapeBackground {
+            anchors.fill: parent
+            visible: launcherBtn.shaped
+            pathData: appIndex.shapePath
+            turn: appIndex.shapeTurn
+            color: capsuleBg.fillColor
+            hovered: mouseArea.containsMouse
+            scale: mouseArea.pressed ? 0.9 : 1
+            Behavior on scale { SpringAnimation { spring: 4; damping: 0.3; epsilon: 0.005 } }
         }
 
         Kirigami.Icon {
@@ -87,7 +102,7 @@ Item {
             height: launcherBtn.iconSize
             source: launcherBtn.customIcon && launcherBtn.customIcon.length > 0 ? launcherBtn.customIcon : Qt.resolvedUrl("icons/launcher_d.svg")
             isMask: true
-            color: launcherBtn.active ? capsuleBg.activeIconColor : Kirigami.Theme.textColor
+            color: launcherBtn.active ? capsuleBg.activeIconColor : capsuleBg.baseIconColor
             roundToIconSize: false
 
             Behavior on scale {

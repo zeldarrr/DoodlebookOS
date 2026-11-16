@@ -1,0 +1,9 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+ * DoodlebookOS — Material 3 shapes on top of Breeze GTK (colours already come from the KDE scheme). */
+button.text-button:not(.flat):not(.titlebutton) { border-radius: 9999px; }
+.linked > button.text-button:not(:only-child) { border-radius: 0; }
+.linked > button.text-button:first-child:not(:only-child) { border-radius: 9999px 0 0 9999px; }
+.linked > button.text-button:last-child:not(:only-child) { border-radius: 0 9999px 9999px 0; }
+entry, spinbutton:not(.vertical) { border-radius: 12px; }
+popover, popover.background { border-radius: 16px; }
+scale trough, progressbar trough, progressbar progress { border-radius: 9999px; }

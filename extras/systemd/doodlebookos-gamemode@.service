@@ -1,0 +1,6 @@
+[Unit]
+Description=DoodlebookOS game mode (%i)
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/doodlebookos-gamemode %i

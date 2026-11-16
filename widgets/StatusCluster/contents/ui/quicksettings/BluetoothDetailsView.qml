@@ -11,6 +11,11 @@ Item {
     id: bluetoothViewRoot
 
     function i18n(k, a1, a2) { return I18n.t(k, a1, a2); }
+    // BlueZ gives app-style names ("audio-headset"); the -symbolic variant is a clean mono glyph that follows the text colour
+    function symbolicIcon(name) {
+        if (!name) return "preferences-system-bluetooth-symbolic";
+        return /-symbolic$/.test(name) ? name : name + "-symbolic";
+    }
 
     property var fullRep: null
 
@@ -88,17 +93,40 @@ Item {
     readonly property bool shouldShowSeeAll: !isExpanded && totalDevicesCount > 4
     readonly property int maxVisibleOther: connectedList.length > 0 ? 2 : 3
 
+    function startScan() {
+        if (fullRep && fullRep.isBtOn && BluezQt.Manager && BluezQt.Manager.usableAdapter) {
+            try {
+                BluezQt.Manager.usableAdapter.startDiscovery();
+            } catch (e) {
+                // ignore if already discovering
+            }
+        }
+    }
+
+    // PERF/battery: discovery used to be started and never stopped, leaving the radio
+    // scanning in the background for the whole session.
+    function stopScan() {
+        if (BluezQt.Manager && BluezQt.Manager.usableAdapter && BluezQt.Manager.usableAdapter.discovering) {
+            try {
+                BluezQt.Manager.usableAdapter.stopDiscovery();
+            } catch (e) {
+                // ignore
+            }
+        }
+    }
+
+    Component.onCompleted: {
+        if (visible) startScan();
+    }
+
+    Component.onDestruction: stopScan()
+
     onVisibleChanged: {
         if (visible) {
-            if (fullRep && fullRep.isBtOn && BluezQt.Manager && BluezQt.Manager.usableAdapter) {
-                try {
-                    BluezQt.Manager.usableAdapter.startDiscovery();
-                } catch (e) {
-                    // ignore if already discovering
-                }
-            }
+            startScan();
         } else {
             isExpanded = false;
+            stopScan();
         }
     }
 
@@ -468,7 +496,8 @@ Item {
                                 anchors.centerIn: parent
                                 width: 22
                                 height: 22
-                                source: (activeDevTile.activeDev && activeDevTile.activeDev.icon) ? activeDevTile.activeDev.icon : "preferences-system-bluetooth"
+                                source: bluetoothViewRoot.symbolicIcon(activeDevTile.activeDev ? activeDevTile.activeDev.icon : "")
+                                isMask: true   // some themes hard-code the glyph colour: force the tile's on-colour
                                 color: activeDevTile.onPrimaryColor
                             }
                         }
@@ -631,7 +660,8 @@ Item {
                                     anchors.centerIn: parent
                                     width: 22
                                     height: 22
-                                    source: (modelData && modelData.icon) ? modelData.icon : "preferences-system-bluetooth"
+                                    source: bluetoothViewRoot.symbolicIcon(modelData ? modelData.icon : "")
+                                    isMask: true   // some themes hard-code the glyph colour: force the tile's on-colour
                                     color: Kirigami.Theme.textColor
                                 }
                             }

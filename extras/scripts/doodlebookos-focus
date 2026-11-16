@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# DoodlebookOS Focus mode (Do not disturb is handled by the StatusCluster widget):
+#   greyscale screen (KWin effect doodlebookos_focus) + dock panel set to auto-hide.
+#   doodlebookos-focus on | off | status
+set -u
+STATE="${XDG_CONFIG_HOME:-$HOME/.config}/doodlebookos/focus.state"
+DOCK="org.doodlebookos.dock"
+
+ps_eval() { qdbus-qt6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "$1" 2>/dev/null; }
+effect() { qdbus-qt6 org.kde.KWin /Effects "org.kde.kwin.Effects.$1" doodlebookos_focus >/dev/null 2>&1; }
+
+case "${1:-status}" in
+  on)
+    mkdir -p "$(dirname "$STATE")"
+    if [[ ! -s "$STATE" ]]; then
+      ps_eval "for (const p of panels()) { if (p.widgets('$DOCK').length) print(p.hiding); }" | head -1 > "$STATE"
+    fi
+    ps_eval "for (const p of panels()) { if (p.widgets('$DOCK').length) p.hiding = 'autohide'; }" >/dev/null
+    effect loadEffect
+    ;;
+  off)
+    effect unloadEffect
+    prev="$(cat "$STATE" 2>/dev/null)"; prev="${prev:-none}"
+    [[ "$prev" =~ ^[a-z]+$ ]] || prev=none
+    ps_eval "for (const p of panels()) { if (p.widgets('$DOCK').length) p.hiding = '$prev'; }" >/dev/null
+    rm -f "$STATE"
+    ;;
+  status)
+    [[ -s "$STATE" ]] && echo on || echo off
+    ;;
+  *) echo "usage: doodlebookos-focus on|off|status" >&2; exit 1 ;;
+esac

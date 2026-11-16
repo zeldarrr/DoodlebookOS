@@ -19,24 +19,16 @@ Rectangle {
 
     property alias textField: textField
 
+    Timer { id: runnerDebounce; interval: 110; onTriggered: runnerModel.query = textField.text }
+    Timer { id: enterDelay; interval: 160; onTriggered: textField.triggerSelectedResult(false) }
+
     readonly property string predictedName: {
         var q = textField.text ? textField.text.trim() : "";
         if (q.length === 0) return "";
 
-        // 1. Try RunnerList topResultName
-        if (typeof stack !== "undefined" && stack && stack.currentItem) {
-            if (typeof stack.currentItem.topResultName === "string" && stack.currentItem.topResultName.length > 0) {
-                return stack.currentItem.topResultName;
-            }
-            if (stack.currentItem.viewItem) {
-                var view = stack.currentItem.viewItem;
-                if (view.count > 0 && view.model) {
-                    var targetIdx = (view.currentIndex >= 0 && view.currentIndex < view.count) ? view.currentIndex : 0;
-                    var idx = view.model.index(targetIdx, 0);
-                    var val = view.model.data(idx, Qt.DisplayRole);
-                    if (val) return val.toString();
-                }
-            }
+        // 1. RunnerList's top result
+        if (stack.currentItem && typeof stack.currentItem.topResultName === "string" && stack.currentItem.topResultName.length > 0) {
+            return stack.currentItem.topResultName;
         }
 
         // 2. Instant fallback from installed apps / favorites
@@ -86,7 +78,7 @@ Rectangle {
             color: main.textColor
             verticalAlignment: TextInput.AlignVCenter
 
-            placeholderText: i18n("Search web and more")
+            placeholderText: i18n("Search apps, files, calculations…")
             placeholderTextColor: Qt.rgba(main.textColor.r, main.textColor.g, main.textColor.b, 0.55)
 
             background: Item {}
@@ -122,73 +114,64 @@ Rectangle {
             }
 
             onTextChanged: {
-                textField.forceActiveFocus(Qt.ShortcutFocusReason)
-                runnerModel.query = text;
+                if (!activeFocus) textField.forceActiveFocus(Qt.ShortcutFocusReason);
+                // apps are matched instantly (AppIndex); KRunner (files, settings, maths…) only once
+                // typing pauses, so every keystroke doesn't restart all runners and reset the list
+                if (text.length === 0) {
+                    runnerDebounce.stop();
+                    runnerModel.query = "";
+                } else {
+                    runnerDebounce.restart();
+                }
             }
 
             function triggerSelectedResult(shiftPressed) {
-                if (stack.currentItem) {
-                    var view = stack.currentItem.viewItem;
-                    if (view && view.count > 0) {
-                        if (typeof stack.currentItem.footerSelected !== "undefined" && stack.currentItem.footerSelected) {
-                            if (typeof stack.currentItem.openWebOrUrl === "function") {
-                                stack.currentItem.openWebOrUrl(textField.text);
-                                return;
-                            }
-                        }
-                        var targetIdx = (view.currentIndex >= 0 && view.currentIndex < view.count) ? view.currentIndex : 0;
-                        if (view.currentItem) {
-                            if (shiftPressed && typeof view.currentItem.runFirstAction === "function") {
-                                view.currentItem.runFirstAction();
-                                return;
-                            } else if (typeof view.currentItem.runPrimary === "function") {
-                                view.currentItem.runPrimary();
-                                return;
-                            } else if (typeof view.currentItem.trigger === "function") {
-                                view.currentItem.trigger();
-                                return;
-                            }
-                        }
-                        if (view.model && typeof view.model.trigger === "function") {
-                            view.model.trigger(targetIdx, "", null);
-                            if (typeof root !== "undefined" && root && typeof root.closeAnimated === "function") {
-                                root.closeAnimated();
-                            }
-                        }
-                    } else if (typeof stack.currentItem.openWebOrUrl === "function") {
-                        stack.currentItem.openWebOrUrl(textField.text);
-                    }
+                var cur = stack.currentItem;
+                if (!cur) return;
+                if (typeof cur.activateSelection === "function") { cur.activateSelection(shiftPressed); return; }
+                // apps page: launch the first visible app
+                var view = cur.viewItem;
+                if (view && view.count > 0 && view.model && typeof view.model.trigger === "function") {
+                    view.model.trigger(Math.max(0, view.currentIndex), "", null);
+                    root.closeAfterLaunch();
                 }
             }
 
             onAccepted: {
-                triggerSelectedResult(false);
+                if (runnerDebounce.running) {
+                    // Enter right after typing: query KRunner now and act once its first results are in
+                    runnerDebounce.stop();
+                    runnerModel.query = text;
+                    enterDelay.restart();
+                } else {
+                    triggerSelectedResult(false);
+                }
             }
 
             Keys.onPressed: event => {
+                var cur = stack.currentItem;
+                var inResults = cur && typeof cur.moveSel === "function";
                 if (event.key === Qt.Key_Escape) {
                     event.accepted = true;
-                    if (searching) {
-                        clear();
-                    } else {
-                        root.closeAnimated();
-                    }
-                } else if ((event.key === Qt.Key_Tab || event.key === Qt.Key_Right) && searchBarRoot.ghostSuffix.length > 0) {
-                    if (cursorPosition === text.length && searchBarRoot.predictedName.length > 0) {
-                        text = searchBarRoot.predictedName;
-                        cursorPosition = text.length;
-                        event.accepted = true;
-                    }
-                } else if (event.key === Qt.Key_Down) {
-                    if (stack.currentItem && stack.currentItem.viewItem) {
-                        stack.currentItem.viewItem.forceActiveFocus(Qt.TabFocusReason);
-                        event.accepted = true;
-                    }
+                    if (root.handleEscape()) return;
+                    if (main.searching) clear(); else root.closeAnimated();
+                } else if ((event.key === Qt.Key_Tab || event.key === Qt.Key_Right) && !(event.modifiers & Qt.ShiftModifier)
+                           && searchBarRoot.ghostSuffix.length > 0 && cursorPosition === text.length && searchBarRoot.predictedName.length > 0) {
+                    // accept the inline completion
+                    text = searchBarRoot.predictedName;
+                    cursorPosition = text.length;
+                    event.accepted = true;
+                } else if (event.key === Qt.Key_Down || event.key === Qt.Key_Up) {
+                    event.accepted = true;
+                    if (inResults) cur.moveSel(event.key === Qt.Key_Down ? 1 : -1);
+                    else if (event.key === Qt.Key_Down) main.focusZone(1);
+                } else if (event.key === Qt.Key_PageDown || event.key === Qt.Key_PageUp) {
+                    if (inResults) { cur.moveSel(event.key === Qt.Key_PageDown ? 5 : -5); event.accepted = true; }
                 } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
                     event.accepted = true;
-                    var isShift = Boolean(event.modifiers & Qt.ShiftModifier);
-                    triggerSelectedResult(isShift);
+                    triggerSelectedResult(Boolean(event.modifiers & Qt.ShiftModifier));
                 }
+                // Tab without a completion bubbles up to MainView (focus zones)
             }
         }
     }

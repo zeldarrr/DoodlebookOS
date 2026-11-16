@@ -8,6 +8,7 @@ import QtQuick
 import QtQuick.Layouts
 
 import org.kde.plasma.core as PlasmaCore
+import org.kde.kirigami as Kirigami
 import org.kde.kquickcontrolsaddons as KQuickAddons
 import plasma.applet.org.kde.plasma.notifications as NotificationsApplet
 
@@ -141,7 +142,67 @@ NotificationsApplet.NotificationWindow {
         }
 
         Item {
+            id: content
             anchors.fill: parent
+
+            function finish() {
+                if (notificationPopup.dismissTimeout) {
+                    notificationPopup.modelInterface.dismissClicked();
+                } else {
+                    notificationPopup.expired();
+                }
+            }
+            function leave() {
+                if (exitAnim.running) {
+                    return;
+                }
+                if (Kirigami.Units.longDuration <= 0) {   // animations disabled
+                    finish();
+                    return;
+                }
+                // fly toward the nearest screen edge
+                exitAnim.dir = (notificationPopup.x + notificationPopup.width / 2 >= Screen.virtualX + Screen.width / 2) ? 1 : -1;
+                exitAnim.start();
+            }
+            function resetExit() {
+                exitAnim.stop();
+                notificationItem.opacity = 1;
+                notificationItem.scale = 1;
+                exitSlide.x = 0;
+            }
+
+            // M3 Expressive exit: short lift, then shrink + slide out + fade on the emphasized-accelerate curve
+            SequentialAnimation {
+                id: exitAnim
+                property real dir: 1
+                NumberAnimation {
+                    target: notificationItem; property: "scale"; to: 1.03
+                    duration: Kirigami.Units.shortDuration
+                    easing.type: Easing.BezierSpline
+                    easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1, 1]
+                }
+                ParallelAnimation {
+                    NumberAnimation {
+                        target: notificationItem; property: "scale"; to: 0.88
+                        duration: Kirigami.Units.longDuration
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: [0.3, 0.0, 0.8, 0.15, 1, 1]
+                    }
+                    NumberAnimation {
+                        target: exitSlide; property: "x"; to: exitAnim.dir * notificationPopup.snap(36)
+                        duration: Kirigami.Units.longDuration
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: [0.3, 0.0, 0.8, 0.15, 1, 1]
+                    }
+                    NumberAnimation {
+                        target: notificationItem; property: "opacity"; to: 0
+                        duration: Kirigami.Units.longDuration
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: [0.3, 0.0, 0.8, 0.15, 1, 1]
+                    }
+                }
+                ScriptAction { script: content.finish() }
+            }
 
             LayoutMirroring.enabled: Application.layoutDirection === Qt.RightToLeft
             LayoutMirroring.childrenInherit: true
@@ -168,18 +229,13 @@ NotificationsApplet.NotificationWindow {
                     }
                     return true;
                 }
-                onTriggered: {
-                    if (notificationPopup.dismissTimeout) {
-                        notificationPopup.modelInterface.dismissClicked();
-                    } else {
-                        notificationPopup.expired();
-                    }
-                }
+                onTriggered: content.leave()
             }
 
             DelegatePopup {
                 id: notificationItem
                 anchors.fill: parent
+                transform: Translate { id: exitSlide }
 
                 Layout.preferredHeight: implicitHeight
                 Layout.preferredWidth: notificationPopup.snap(309.6)
@@ -190,8 +246,10 @@ NotificationsApplet.NotificationWindow {
 
                     // When notification is updated, restart hide timer
                     onTimeChanged: {
+                        content.resetExit();
                         if (timer.running) {
                             timer.restart();
+                            notificationItem.restartCountdown();
                         }
                     }
                 }

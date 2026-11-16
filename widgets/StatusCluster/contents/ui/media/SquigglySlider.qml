@@ -35,21 +35,33 @@ Item {
     readonly property real progressFraction: isLive ? Math.max(0, Math.min(1.0, (effectivePosition - from) / (to - from))) : 0.0
     readonly property real progressX: Math.round(progressFraction * width)
 
+    // PERF: Item.visible stays true while the popup *window* is hidden, so the
+    // infinite wave animation used to repaint this CPU Canvas ~60x/s in the
+    // background whenever music was playing. Only animate/paint while shown.
+    readonly property bool windowShown: root.Window.window !== null && root.Window.window.visible
+
     NumberAnimation on phase {
         from: 0
         to: Math.PI * 2
         duration: 3200
         loops: Animation.Infinite
-        running: root.visible && root.isPlaying && !root.userSeeking
+        running: root.windowShown && root.visible && root.isPlaying && !root.userSeeking
     }
 
-    onProgressXChanged: canvas.requestPaint()
-    onPhaseChanged: canvas.requestPaint()
-    onWaveAmplitudeChanged: canvas.requestPaint()
-    onWidthChanged: canvas.requestPaint()
-    onHeightChanged: canvas.requestPaint()
-    onPlayedColorChanged: canvas.requestPaint()
-    onUnplayedColorChanged: canvas.requestPaint()
+    function repaint() {
+        if (root.windowShown) {
+            canvas.requestPaint();
+        }
+    }
+
+    onWindowShownChanged: repaint()
+    onProgressXChanged: repaint()
+    onPhaseChanged: repaint()
+    onWaveAmplitudeChanged: repaint()
+    onWidthChanged: repaint()
+    onHeightChanged: repaint()
+    onPlayedColorChanged: repaint()
+    onUnplayedColorChanged: repaint()
 
     Canvas {
         id: canvas

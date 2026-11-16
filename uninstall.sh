@@ -15,10 +15,18 @@ echo -e "${C_CYAN}${C_BOLD}==> Uninstalling DoodlebookOS...${C_RESET}"
 
 # 1. Stop Daemons & Revert Environment
 if command -v systemctl &>/dev/null; then
+    systemctl --user disable --now doodlebookos-topbar.path 2>/dev/null || true
     systemctl --user stop doodlebookos-topbar.service 2>/dev/null || true
     systemctl --user disable doodlebookos-topbar.service 2>/dev/null || true
+    [ -x "$HOME/.local/bin/doodlebookos-gamemode" ] && "$HOME/.local/bin/doodlebookos-gamemode" reset 2>/dev/null || true
+    [ -x "$HOME/.local/bin/doodlebookos-desktop-shortcuts" ] && "$HOME/.local/bin/doodlebookos-desktop-shortcuts" off 2>/dev/null || true
 fi
-rm -f "$HOME/.config/systemd/user/doodlebookos-topbar.service"
+rm -f "$HOME/.config/systemd/user/doodlebookos-topbar.service" \
+      "$HOME/.config/systemd/user/doodlebookos-topbar.path" \
+      "$HOME/.config/systemd/user/doodlebookos-gamemode@.service"
+rm -f "$HOME"/.config/systemd/user/app-*-.scope.d/50-doodlebookos-voice.conf
+rm -f "$HOME/.local/bin/doodlebookos-gamemode" "$HOME/.local/bin/doodlebookos-gamemode-dnd" \
+      "$HOME/.local/bin/doodlebookos-desktop-shortcuts"
 rm -f "$HOME/.config/systemd/user/plasma-krunner.service"
 rm -f "$HOME/.local/bin/doodlebookos-topbar-color" \
       "$HOME/.local/bin/dostheme" \
@@ -70,7 +78,10 @@ for w in \
     org.doodlebookos.upnext org.doodlebookos.glance DoodlebookOS-Glance \
     org.doodlebookos.appgroup org.doodlebookos.folder DoodlebookOS-Folder \
     org.kde.desktopcontainment DoodlebookOS-Desktop org.kde.plasma.folder \
-    org.doodlebookos.panelspacer DoodlebookOS-PanelSpacer; do
+    org.doodlebookos.panelspacer DoodlebookOS-PanelSpacer \
+    org.doodlebookos.m3clock org.doodlebookos.sysmon org.doodlebookos.mediacard \
+    org.doodlebookos.m3calendar org.doodlebookos.note org.doodlebookos.games org.doodlebookos.storage \
+    org.doodlebookos.photo; do
     rm -rf "$HOME/.local/share/plasma/plasmoids/$w"
 done
 

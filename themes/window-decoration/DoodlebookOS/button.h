@@ -56,7 +56,7 @@ public:
             return;
         }
         m_opacity = value;
-        update();
+        repaintPill();
     }
 
     qreal opacity() const
@@ -90,6 +90,10 @@ private:
     //* draw button icon
     void drawIcon(QPainter *) const;
 
+    //* the hover pill is wider than the button: repaint the extra margin too
+    void repaintPill();
+    qreal pillStretch() const;
+
     //*@name colors
     //@{
     QColor foregroundColor() const;
@@ -98,6 +102,9 @@ private:
 
     //* active state change animation
     QVariantAnimation *m_animation;
+    //* press morph (pill -> squircle)
+    QVariantAnimation *m_pressAnimation;
+    qreal m_press = 0;
 
     //* padding (for rendering)
     QMargins m_padding;

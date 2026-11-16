@@ -52,10 +52,10 @@ Item {
     // Design Tokens / Normalized UI Metrics (Total height = 100%)
     QtObject {
         id: metrics
-        readonly property real iconRatio: 0.70               // 70% of dock height (icon)
+        readonly property real iconRatio: 0.70 * Math.max(0.6, Math.min(1.25, (Plasmoid.configuration.dockIconScale || 100) / 100))  // 70% of dock height (icon) × setting
         readonly property real iconTopRatio: 0.12            // 12% top padding
         readonly property real bottomZoneRatio: 0.18         // 18% bottom indicator zone (sum = 100%)
-        readonly property real slotSpacingRatio: 0.46        // space between task items
+        readonly property real slotSpacingRatio: 0.46 * Math.max(0, (Plasmoid.configuration.dockSpacing === undefined ? 100 : Plasmoid.configuration.dockSpacing) / 100)  // space between task items × setting
         readonly property real launcherSpacingRatio: 16.0 / 52.0 // 16 dp space after launcher button (at 52 dp dock)
         readonly property real leftButtonSpacingRatio: 0.38  // space after phonehub button
         readonly property real separatorGapRatio: 0.48       // gap around separator
@@ -432,6 +432,7 @@ Item {
         // 1. App Launcher Button (Left-most element)
         LauncherButton {
             id: launcherBtn
+            visible: Plasmoid.configuration.showLauncherButton !== false
             buttonHeight: mainDockRoot.effectiveHeight
             isVertical: mainDockRoot.isVertical
             customIcon: (typeof Plasmoid !== "undefined" && Plasmoid.configuration && Plasmoid.configuration.launcherIcon) ? Plasmoid.configuration.launcherIcon : ""
@@ -457,6 +458,7 @@ Item {
         // 1b. Phone Hub Button
         PhoneHubButton {
             id: phoneHubBtn
+            visible: Plasmoid.configuration.showPhoneHub !== false
             buttonHeight: mainDockRoot.effectiveHeight
             isVertical: mainDockRoot.isVertical
             active: mainDockRoot.phoneHubPopup ? mainDockRoot.phoneHubPopup.visible : false
@@ -482,7 +484,7 @@ Item {
         // (Appears on the left ONLY when there are NO unpinned tasks; disappears when unpinned tasks are present)
         Rectangle {
             id: leftShelfDivider
-            visible: !mainDockRoot.hasUnpinnedTasks
+            visible: !mainDockRoot.hasUnpinnedTasks && Plasmoid.configuration.showSeparator !== false
             Layout.preferredWidth: visible ? mainDockRoot.separatorWidth : 0
             Layout.preferredHeight: mainDockRoot.separatorHeight
             Layout.alignment: Qt.AlignBottom

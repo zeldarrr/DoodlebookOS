@@ -1,0 +1,17 @@
+{
+    "KPackageStructure": "KWin/Effect",
+    "KPlugin": {
+        "Authors": [ { "Name": "DoodlebookOS" } ],
+        "Category": "Appearance",
+        "Description": "Focus mode: fades every window to greyscale (native saturation, no offscreen rendering)",
+        "Description[fr]": "Mode Focus : passe toutes les fenêtres en niveaux de gris (saturation native, sans rendu hors écran)",
+        "EnabledByDefault": false,
+        "Icon": "preferences-desktop-color",
+        "Id": "doodlebookos_focus",
+        "License": "GPL",
+        "Name": "DoodlebookOS Focus",
+        "Name[fr]": "Focus DoodlebookOS"
+    },
+    "X-KDE-Ordering": 90,
+    "X-Plasma-API": "javascript"
+}

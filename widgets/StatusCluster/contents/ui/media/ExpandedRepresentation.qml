@@ -73,10 +73,18 @@ Item {
         Qt.callLater(expandedRoot.removeNativePlasmaFrame);
     }
 
+    // Material 3 entrance: container grows from the panel edge (emphasized decelerate)
+    property real revealT: 1.0
+    NumberAnimation { id: revealAnim; target: expandedRoot; property: "revealT"; from: 0; to: 1; duration: 420; easing.type: Easing.OutQuart }
+    function playReveal() {
+        if (expandedRoot.Window.window && expandedRoot.Window.window.visible) revealAnim.restart();
+    }
+
     Window.onWindowChanged: {
         expandedRoot.removeNativePlasmaFrame();
         if (Window.window) {
             Window.window.visibleChanged.connect(expandedRoot.removeNativePlasmaFrame);
+            Window.window.visibleChanged.connect(expandedRoot.playReveal);
         }
     }
 
@@ -91,6 +99,9 @@ Item {
     Item {
         id: card
         anchors.fill: parent
+        transformOrigin: Item.Bottom
+        scale: 0.9 + 0.1 * expandedRoot.revealT
+        opacity: Math.min(1, expandedRoot.revealT * 1.8)
         anchors.topMargin: (Window.window && typeof Window.window["topPadding"] === "number") ? -Window.window["topPadding"] : 0
         anchors.bottomMargin: (Window.window && typeof Window.window["bottomPadding"] === "number") ? -Window.window["bottomPadding"] : 0
         anchors.leftMargin: (Window.window && typeof Window.window["leftPadding"] === "number") ? -Window.window["leftPadding"] : 0

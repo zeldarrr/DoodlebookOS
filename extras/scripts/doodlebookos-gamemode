@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# DoodlebookOS game mode — gives the CPU to the game, everything is restored on "off".
+#
+#   doodlebookos-gamemode on | off | toggle | status
+#   doodlebookos-gamemode auto-on | auto-off      (sent by the KWin script doodlebookos_gamemode)
+#
+# on:
+#   * power profile "performance" (amd-pstate EPP → performance), previous profile restored after
+#   * Baloo file indexing suspended
+#   * background.slice + Bazaar's background service get the lowest CPU / IO weight: they only
+#     run when the game leaves a core idle (Bazzite's foreground booster already boosts the game)
+#   * notifications silenced (D-Bus inhibition held by a tiny process, released on off)
+# A manual "on" stays until a manual "off". A manual "off" while a game runs holds until that
+# game is closed (the next auto-off clears it). Runs serialised (flock), idempotent.
+set -u
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/doodlebookos/gamemode"
+mkdir -p "$STATE_DIR"
+exec 9>"$STATE_DIR/lock"
+flock 9
+
+QDBUS="$(command -v qdbus-qt6 || command -v qdbus6 || command -v qdbus)"
+PP_PATH=/org/kde/Solid/PowerManagement/Actions/PowerProfile
+PP_IFACE=org.kde.Solid.PowerManagement.Actions.PowerProfile
+LOW_UNITS=(background.slice app-bazaar@autostart.service)
+FR=0; [[ "${LANG:-}" == fr* ]] && FR=1
+MARK="${XDG_RUNTIME_DIR:-/run/user/$UID}/doodlebookos-gamemode"   # tmpfs: gone after logout/reboot
+
+active()  { [[ -s "$STATE_DIR/active" ]]; }
+source_() { cat "$STATE_DIR/active" 2>/dev/null; }
+
+osd() {   # icon text
+  "$QDBUS" org.kde.plasmashell /org/kde/osdService org.kde.osdService.showText "$1" "$2" >/dev/null 2>&1 &
+}
+widgets_flag() {   # live state for the Quick Settings tile (no polling on the widget side)
+  "$QDBUS" org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "
+    for (const p of panels()) for (const w of p.widgets('org.doodlebookos.statuscluster')) {
+      w.currentConfigGroup = ['General']; w.writeConfig('gameMode', $1);
+    }" >/dev/null 2>&1
+}
+
+power_get() {
+  busctl --user call org.kde.Solid.PowerManagement "$PP_PATH" "$PP_IFACE" currentProfile 2>/dev/null \
+    | sed -n 's/^s "\(.*\)"$/\1/p'
+}
+power_set() {
+  [[ "$1" =~ ^[a-z-]+$ ]] || return 0
+  busctl --user call org.kde.Solid.PowerManagement "$PP_PATH" "$PP_IFACE" setProfile s "$1" >/dev/null 2>&1
+}
+
+enable() {   # $1 = manual | auto
+  if active; then
+    [[ "$1" == manual ]] && echo manual > "$STATE_DIR/active"
+    return 0
+  fi
+  local prev; prev="$(power_get)"
+  echo "${prev:-balanced}" > "$STATE_DIR/power"
+  power_set performance
+
+  if command -v balooctl6 >/dev/null && pgrep -u "$UID" -x baloo_file >/dev/null; then
+    balooctl6 suspend >/dev/null 2>&1 && touch "$STATE_DIR/baloo"
+  fi
+
+  for u in "${LOW_UNITS[@]}"; do
+    systemctl --user set-property --runtime "$u" CPUWeight=1 IOWeight=1 >/dev/null 2>&1
+  done
+
+  systemctl --user stop doodlebookos-gamemode-dnd.service >/dev/null 2>&1
+  systemd-run --user --quiet --collect --unit=doodlebookos-gamemode-dnd \
+    -p Description="DoodlebookOS game mode: notifications silenced" \
+    /usr/bin/python3 -I "$HOME/.local/bin/doodlebookos-gamemode-dnd" >/dev/null 2>&1
+
+  echo "$1" > "$STATE_DIR/active"
+  : > "$MARK"
+  rm -f "$STATE_DIR/held-off"
+  widgets_flag true
+  if (( FR )); then osd input-gaming "Mode jeu activé"; else osd input-gaming "Game mode on"; fi
+}
+
+disable() {
+  active || { rm -f "$STATE_DIR/power" "$STATE_DIR/baloo"; return 0; }
+  systemctl --user stop doodlebookos-gamemode-dnd.service >/dev/null 2>&1
+  for u in "${LOW_UNITS[@]}"; do
+    systemctl --user set-property --runtime "$u" CPUWeight= IOWeight= >/dev/null 2>&1
+  done
+  if [[ -e "$STATE_DIR/baloo" ]]; then balooctl6 resume >/dev/null 2>&1; rm -f "$STATE_DIR/baloo"; fi
+  power_set "$(cat "$STATE_DIR/power" 2>/dev/null || echo balanced)"
+  rm -f "$STATE_DIR/power" "$STATE_DIR/active" "$MARK"
+  widgets_flag false
+  if (( FR )); then osd input-gaming "Mode jeu désactivé"; else osd input-gaming "Game mode off"; fi
+}
+
+case "${1:-status}" in
+  on)       enable manual ;;
+  off)      if active; then [[ "$(source_)" == auto ]] && touch "$STATE_DIR/held-off"; disable; fi ;;
+  toggle)   if active; then [[ "$(source_)" == auto ]] && touch "$STATE_DIR/held-off"; disable; else enable manual; fi ;;
+  auto-on)  [[ -e "$STATE_DIR/held-off" ]] || enable auto ;;
+  auto-off) rm -f "$STATE_DIR/held-off"; [[ "$(source_)" == auto ]] && disable ;;
+  reset)    rm -f "$STATE_DIR/held-off"; active && disable; : ;;
+  session)  # sent by the KWin script at login: drop state left over from a previous session
+            if active && [[ ! -e "$MARK" ]]; then disable; fi
+            rm -f "$STATE_DIR/held-off" ;;
+  status)   if active; then echo "on ($(source_))"; else echo off; fi ;;
+  *) echo "usage: doodlebookos-gamemode on|off|toggle|status" >&2; exit 1 ;;
+esac
+exit 0

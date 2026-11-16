@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0 http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
+  <kcfgfile name=""/>
+  <group name="Appearance">
+    <entry name="contentColor" type="String">
+      <label>Adaptive content colour (written by doodlebookos-topbar-color)</label>
+      <default></default>
+    </entry>
+  </group>
+  <group name="General">
+    <entry name="showIcons" type="Bool">
+      <label>Show the icons of the apps open on each desktop</label>
+      <default>true</default>
+    </entry>
+    <entry name="maxIcons" type="Int">
+      <label>Maximum number of app icons per desktop</label>
+      <default>3</default>
+    </entry>
+  </group>
+</kcfg>

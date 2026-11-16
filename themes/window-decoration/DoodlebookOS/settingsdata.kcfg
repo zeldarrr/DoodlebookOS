@@ -26,6 +26,19 @@
       <default>ShadowLarge</default>
     </entry>
 
+    <!-- DoodlebookOS: shadow opacity and size multipliers (%), so it can be tuned without rebuilding -->
+    <entry name="ShadowOpacity" type = "Int">
+       <default>100</default>
+       <min>25</min>
+       <max>400</max>
+    </entry>
+
+    <entry name="ShadowSpread" type = "Int">
+       <default>100</default>
+       <min>50</min>
+       <max>300</max>
+    </entry>
+
     <entry name="ShadowColor" type = "Color">
        <default>0, 0, 0</default>
     </entry>
@@ -41,6 +54,12 @@
 
     <entry name="RoundedCorners" type = "Bool">
       <default>true</default>
+    </entry>
+
+    <entry name="CornerRadius" type = "Int">
+      <default>20</default>
+      <min>0</min>
+      <max>40</max>
     </entry>
   </group>
 

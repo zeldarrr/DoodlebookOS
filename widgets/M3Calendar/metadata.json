@@ -1,0 +1,14 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [ { "Name": "DoodlebookOS" } ],
+        "Category": "Date and Time",
+        "Description": "Calendrier du mois Material You",
+        "Icon": "view-calendar",
+        "Id": "org.doodlebookos.m3calendar",
+        "License": "GPL-3.0-or-later",
+        "Name": "DoodlebookOS Calendrier",
+        "Version": "1.0.0"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

@@ -39,11 +39,11 @@ struct Metrics {
 
     // frames
     static constexpr int Frame_FrameWidth = 2;
-    static constexpr int Frame_FrameRadius = 8;
-    static constexpr int LineEdit_FrameRadius = 8;
-    static constexpr int Menu_FrameRadius = 12;
-    static constexpr int ToolTip_FrameRadius = 8;
-    static constexpr int Card_FrameRadius = 12;
+    static constexpr int Frame_FrameRadius = 12;
+    static constexpr int LineEdit_FrameRadius = 12;
+    static constexpr int Menu_FrameRadius = 16;
+    static constexpr int ToolTip_FrameRadius = 12;
+    static constexpr int Card_FrameRadius = 16;
 
     // layout
     static constexpr int Layout_TopLevelMarginWidth = 10;

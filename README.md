@@ -20,6 +20,36 @@
   <a href="#roadmap-to-beta-v10">Roadmap</a>
 </p>
 
+> [!NOTE]
+> **Fork « Material You »** de [PanOptikuum/DoodlebookOS](https://github.com/PanOptikuum/DoodlebookOS) :
+> couleurs tirées du fond d'écran, thème d'icônes généré avec formes Material 3 Expressive,
+> nouveaux widgets, dock/lanceur refaits, installeur en un seul fichier.
+> Détail : [CHANGES-FORK.md](CHANGES-FORK.md).
+
+## Installation en un fichier (ce fork)
+
+1. Télécharger **`DoodlebookOS-Installer.run`** dans la page **Releases**.
+2. Double-cliquer dessus (Dolphin : « Exécuter »), ou dans un terminal :
+   `bash DoodlebookOS-Installer.run`
+3. Se déconnecter puis se reconnecter.
+
+- **Sans mot de passe administrateur** : tout s'installe dans le dossier personnel.
+- Le bureau actuel est **sauvegardé** avant ; retour arrière : `theme-switch use avant-doodlebookos-<date>`
+  (le nom exact est affiché à la fin). Désinstaller : `~/.local/share/doodlebookos/uninstall.sh`.
+- Il faut **KDE Plasma 6**, `python3` et `xz`. Les couleurs Material You utilisent Pillow
+  (paquet `python3-pillow` / `python3-pil`, proposé si absent).
+- La décoration des fenêtres et le style des applis sont précompilés pour Plasma 6.8 (x86_64).
+  Sur une autre version, l'installeur les compile si `cmake`, `ninja`, `g++` et les paquets de
+  développement KDE sont présents (voir `install.sh`), sinon il garde Breeze pour ces deux parties.
+- Options : `--yes` (sans questions), `--no-gui` (texte), `--keep-wallpaper`.
+
+**Fabriquer l'installeur** (sur le PC dont on veut copier l'apparence) :
+`python3 setup/capture-profile.py` exporte la disposition et les réglages dans `setup/profile/`
+(ville météo, photo, téléphone, fond d'écran perso et positions de fichiers sont retirés), puis
+`setup/make-installer.sh [--capture] [--desktop]` crée `dist/DoodlebookOS-Installer.run`.
+
+---
+
 **DoodlebookOS** is a comprehensive Material 3 Expressive desktop environment suite crafted natively for **KDE Plasma 6 on Wayland**. It recreates the clean, unified Android PC / GooglebookOS-inspired desktop experience featuring custom QML plasmoids, native C++ application styles and window decorations, real-time wallpaper contrast adaptation, dedicated icon personalizers, and a guided graphical setup wizard.
 
 <p align="center">

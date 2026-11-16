@@ -9,6 +9,8 @@
 
 #include "animations.h"
 #include "blurhelper.h"
+#include "contentcorners.h"
+#include <QPainterPath>
 #include "frameshadow.h"
 #include "mdiwindowshadow.h"
 #include "metrics.h"
@@ -35,6 +37,7 @@
 #include <QFormLayout>
 #include <QGraphicsItem>
 #include <QGraphicsProxyWidget>
+#include <QGraphicsScene>
 #include <QGraphicsView>
 #include <QGroupBox>
 #include <QItemDelegate>
@@ -261,6 +264,7 @@ Style::Style()
     , _blurHelper(std::make_unique<BlurHelper>(_helper))
     , _windowManager(std::make_unique<WindowManager>())
     , _frameShadowFactory(std::make_unique<FrameShadowFactory>())
+    , _contentCorners(std::make_unique<ContentCorners>())
     , _mdiWindowShadowFactory(std::make_unique<MdiWindowShadowFactory>())
     , _splitterFactory(std::make_unique<SplitterFactory>())
     , _toolsAreaManager(std::make_unique<ToolsAreaManager>())
@@ -315,12 +319,49 @@ Style::~Style()
 {
 }
 
+namespace
+{
+void applyTonalSelectionScenePalette(QWidget *widget)
+{
+    // Dolphin only uses normal text colours on selected items for "breeze"; its item view is a
+    // QGraphicsView viewport of KItemListContainer and reads the scene palette on PaletteChange.
+    if (!widget->inherits("KItemListContainer")) {
+        return;
+    }
+    auto graphicsView = qobject_cast<QGraphicsView *>(static_cast<QAbstractScrollArea *>(widget)->viewport());
+    if (!graphicsView || !graphicsView->scene()) {
+        return;
+    }
+    const QPalette app = QApplication::palette(graphicsView);
+    QPalette pal = graphicsView->palette();
+    for (const auto group : {QPalette::Active, QPalette::Inactive}) {
+        pal.setColor(group, QPalette::HighlightedText, app.color(group, QPalette::Text));
+    }
+    graphicsView->scene()->setPalette(pal);
+}
+
+// Scroll bar of Dolphin's file view (KItemListContainer), drawn invisible on request of the user.
+const QAbstractScrollArea *dolphinViewOfScrollBar(const QWidget *widget)
+{
+    for (const QWidget *w = widget; w; w = w->parentWidget()) {
+        if (w->inherits("KItemListContainer")) {
+            return static_cast<const QAbstractScrollArea *>(w);
+        }
+        if (w->isWindow() || qobject_cast<const QAbstractScrollArea *>(w)) {
+            break;
+        }
+    }
+    return nullptr;
+}
+}
+
 //______________________________________________________________
 void Style::polish(QWidget *widget)
 {
     if (!widget) {
         return;
     }
+    applyTonalSelectionScenePalette(widget);
 
     // register widget to animations
     _animations->registerWidget(widget);
@@ -348,6 +389,7 @@ void Style::polish(QWidget *widget)
 
     // scrollarea polishing is somewhat complex. It is moved to a dedicated method
     polishScrollArea(qobject_cast<QAbstractScrollArea *>(widget));
+    _contentCorners->registerWidget(widget);
 
 
 
@@ -615,6 +657,7 @@ void Style::unpolish(QWidget *widget)
     // register widget to animations
     _animations->unregisterWidget(widget);
     _frameShadowFactory->unregisterWidget(widget);
+    _contentCorners->unregisterWidget(widget);
     _mdiWindowShadowFactory->unregisterWidget(widget);
     _shadowHelper->unregisterWidget(widget);
     _windowManager->unregisterWidget(widget);
@@ -852,6 +895,11 @@ int Style::pixelMetric(PixelMetric metric, const QStyleOption *option, const QWi
 
     // scrollbars
     case PM_ScrollBarExtent:
+        // Dolphin's file view: invisible 1 px scroll bar. Not 0: QAbstractScrollArea hides a bar whose
+        // size hint is empty, and Dolphin then sends the mouse wheel to the horizontal scroller.
+        if (dolphinViewOfScrollBar(widget)) {
+            return 1;
+        }
         return Metrics::ScrollBar_Extend;
     case PM_ScrollBarSliderMin:
         return Metrics::ScrollBar_MinSliderHeight;
@@ -1460,6 +1508,9 @@ void Style::drawControl(ControlElement element, const QStyleOption *option, QPai
 #endif
     {
         switch (element) {
+        case CE_ItemViewItem:
+            fcn = &Style::drawItemViewItemControl;
+            break;
         case CE_PushButtonBevel:
             fcn = &Style::drawPanelButtonCommandPrimitive;
             break;
@@ -1717,6 +1768,10 @@ bool Style::eventFilter(QObject *object, QEvent *event)
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     else if (object == qApp && event->type() == QEvent::ApplicationPaletteChange) {
         configurationChanged();
+        const auto widgets = QApplication::allWidgets();
+        for (QWidget *w : widgets) {
+            applyTonalSelectionScenePalette(w);
+        }
     }
 #endif
 
@@ -1852,6 +1907,14 @@ bool Style::eventFilterScrollArea(QWidget *widget, QEvent *event)
             background = viewport->palette().color(role);
         }
         painter.setBrush(background);
+
+        // keep the fill inside a rounded frame (its square corners used to stick out of the curve)
+        if (ContentCorners::hasRoundedFrame(scrollArea)) {
+            const qreal radius = Metrics::Frame_FrameRadius - 1;
+            QPainterPath inner;
+            inner.addRoundedRect(QRectF(scrollArea->frameRect()).adjusted(1, 1, -1, -1), radius, radius);
+            painter.setClipPath(inner, Qt::IntersectClip);
+        }
 
         // render
         for (auto *child : std::as_const(children)) {
@@ -2114,7 +2177,7 @@ void Style::loadGlobalAnimationSettings()
         return;
     }
 
-    const int animationsDuration = cg.readEntry("AnimationDurationFactor", StyleConfigData::animationsDuration() / 100.0f) * 100;
+    const int animationsDuration = cg.readEntry("AnimationDurationFactor", StyleConfigData::animationsDuration() / 200.0f) * 200;
     if (animationsDuration > 0) {
         StyleConfigData::setAnimationsDuration(animationsDuration);
         StyleConfigData::setAnimationsEnabled(true);
@@ -4087,6 +4150,16 @@ bool Style::drawFrameLineEditPrimitive(const QStyleOption *option, QPainter *pai
         }
     }
 
+    // frameless editor embedded in a combo box / spin box: the parent draws an outlined frame
+    // without fill, so painting Base here showed a darker rectangle inside it
+    if (widget && widget->parentWidget()
+        && (qobject_cast<const QComboBox *>(widget->parentWidget()) || qobject_cast<const QAbstractSpinBox *>(widget->parentWidget()))) {
+        const auto frameOption = qstyleoption_cast<const QStyleOptionFrame *>(option);
+        if (frameOption && frameOption->lineWidth == 0) {
+            return true;
+        }
+    }
+
     // make sure there is enough room to render frame
     if (rect.height() < 2 * Metrics::LineEdit_FrameWidth + option->fontMetrics.height()) {
         const auto &background = palette.color(QPalette::Base);
@@ -4895,19 +4968,15 @@ bool Style::drawPanelItemViewItemPrimitive(const QStyleOption *option, QPainter 
         color = palette.color(colorGroup, QPalette::Highlight);
     }
 
-    // change color to implement mouse over
-    if (mouseOver && !hasCustomBackground) {
-        if (!selected) {
-            color.setAlphaF(Metrics::Blend_Value);
-        } else {
-            color = color.lighter(Metrics::Focus_LightenColorValue);
-        }
-    }
-
-    // Focus decoration
+    // Material 3 tonal selection: translucent accent layer, so icons and normal text stay readable
     QColor focusColor = color;
     if (!hasCustomBackground) {
-        focusColor.setAlphaF(selected ? 1.0 : 0.8);
+        const bool darkBase = palette.color(colorGroup, QPalette::Base).lightnessF() < 0.5;
+        const qreal selAlpha = darkBase ? 0.30 : 0.20;
+        color.setAlphaF(selected ? selAlpha + (mouseOver ? 0.08 : 0.0) : 0.12);
+        focusColor.setAlphaF(selected ? 0.55 : 0.0);
+    } else if (mouseOver) {
+        color = color.lighter(Metrics::Focus_LightenColorValue);
     }
 
     // render
@@ -4920,6 +4989,21 @@ bool Style::drawPanelItemViewItemPrimitive(const QStyleOption *option, QPainter 
         _helper->renderViewItemPosition(painter, viewItemPosition, viewItemOption->direction, rect, color, focusColor);
     }
 
+    return true;
+}
+
+//___________________________________________________________________________________
+bool Style::drawItemViewItemControl(const QStyleOption *option, QPainter *painter, const QWidget *widget) const
+{
+    const auto viewItemOption = qstyleoption_cast<const QStyleOptionViewItem *>(option);
+    if (!viewItemOption || !(viewItemOption->state & State_Selected)) {
+        return false;
+    }
+    drawPrimitive(PE_PanelItemViewItem, option, painter, widget);
+    QStyleOptionViewItem copy(*viewItemOption);
+    copy.state &= ~(State_Selected | State_MouseOver);
+    copy.backgroundBrush = Qt::NoBrush;
+    ParentStyleClass::drawControl(CE_ItemViewItem, &copy, painter, widget);
     return true;
 }
 
@@ -8119,6 +8203,13 @@ bool Style::drawScrollBarComplexControl(const QStyleOptionComplex *option, QPain
 {
     if (!option) {
         qCWarning(DOODLEBOOKOS) << "Style::drawScrollBarComplexControl: Style can't draw scrollbar without options";
+        return true;
+    }
+
+    // Dolphin's file view: paint the 1 px bar with the view's own background, i.e. invisible
+    if (const auto view = dolphinViewOfScrollBar(widget)) {
+        const QWidget *viewport = view->viewport();
+        painter->fillRect(option->rect, viewport ? viewport->palette().color(viewport->backgroundRole()) : option->palette.color(QPalette::Base));
         return true;
     }
 

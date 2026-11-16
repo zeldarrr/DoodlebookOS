@@ -71,8 +71,28 @@ PlasmaExtras.Representation {
         return Math.min(maxPopupHeight, Math.max(baseHeight, ch + extraVertical));
     }
 
+    // The window height must not follow calculatedHeight live: ListView.contentHeight is only an
+    // estimate that changes whenever the viewport (= the window) changes size, so the two kept
+    // resizing each other and the popup flickered on every expand / collapse. Now:
+    //   - closed: follows the content;  - open: grows only, after the layout has settled
+    //   (one resize per change), never shrinks until it is closed (or the list is emptied).
+    property real popupHeight: baseHeight
+    readonly property bool popupShown: Boolean(fullRepresentationRoot.Window.window && fullRepresentationRoot.Window.window.visible)
+    function settleHeight() {
+        var h = Math.round(calculatedHeight * dpr) / dpr;
+        if (!popupShown || !hasNotifications) popupHeight = h;
+        else if (h > popupHeight + 1) popupHeight = h;
+    }
+    Timer { id: heightSettle; interval: 120; onTriggered: fullRepresentationRoot.settleHeight() }
+    onCalculatedHeightChanged: {
+        if (!popupShown || !hasNotifications) settleHeight();
+        else heightSettle.restart();
+    }
+    onPopupShownChanged: if (!popupShown) settleHeight()
+    Component.onCompleted: settleHeight()
+
     Layout.minimumHeight: baseHeight
-    Layout.preferredHeight: calculatedHeight
+    Layout.preferredHeight: popupHeight
     Layout.maximumHeight: maxPopupHeight
 
     implicitWidth: Layout.preferredWidth
@@ -86,6 +106,14 @@ PlasmaExtras.Representation {
     footer: null
 
     property int timeTick: 0
+
+    // Material 3 staggered entrance (linear driver + emphasized-decelerate per item)
+    property real revealT: 1.0
+    NumberAnimation { id: revealAnim; target: fullRepresentationRoot; property: "revealT"; from: 0; to: 1; duration: 520; easing.type: Easing.Linear }
+    function enterAt(delay) {
+        var p = Math.max(0, Math.min(1, (revealT - delay) / 0.45));
+        return 1 - Math.pow(1 - p, 4);
+    }
 
     Timer {
         id: relativeTimeTimer
@@ -107,6 +135,7 @@ PlasmaExtras.Representation {
         function onVisibleChanged() {
             var win = fullRepresentationRoot.Window ? fullRepresentationRoot.Window.window : null;
             if (win && win.visible) {
+                revealAnim.restart();
                 fullRepresentationRoot.timeTick += 1;
                 if (historyList) {
                     historyList.positionViewAtBeginning();
@@ -175,6 +204,9 @@ PlasmaExtras.Representation {
             model: fullRepresentationRoot.historyModel
             spacing: 0
             clip: true
+            // cards up to the popup's max height exist even beyond the viewport, so contentHeight is
+            // exact (not an estimate) for every list the popup can show without scrolling
+            cacheBuffer: Math.ceil(fullRepresentationRoot.maxPopupHeight)
             boundsBehavior: Flickable.StopAtBounds
             currentIndex: -1
 
@@ -182,6 +214,9 @@ PlasmaExtras.Representation {
                 id: delegateRoot
                 width: historyList.width
                 implicitHeight: delegateCol.implicitHeight
+                readonly property real m3Enter: fullRepresentationRoot.enterAt(Math.min(delegateRoot.index, 7) * 0.06)
+                opacity: m3Enter
+                transform: Translate { y: (1 - delegateRoot.m3Enter) * 18 }
 
                 required property int index
                 required property var model
@@ -217,10 +252,16 @@ PlasmaExtras.Representation {
                     return prevUrgency !== NotificationManager.Notifications.LowUrgency;
                 }
 
+                // GroupApplicationsFlat: a header row per app (isGroup), then its notifications
+                readonly property bool isGroupRow: Boolean(delegateRoot.model.isGroup)
+                readonly property int groupCount: delegateRoot.model.groupChildrenCount || 0
+                readonly property bool groupExpanded: Boolean(delegateRoot.model.isGroupExpanded)
+
                 readonly property string currentApp: delegateRoot.applicationName || ""
                 readonly property bool prevSameApp: {
                     if (delegateRoot.index <= 0 || !fullRepresentationRoot.historyModel) return false;
                     var pIdx = fullRepresentationRoot.historyModel.index(delegateRoot.index - 1, 0);
+                    if (fullRepresentationRoot.historyModel.data(pIdx, NotificationManager.Notifications.IsGroupRole)) return false;
                     var pApp = fullRepresentationRoot.historyModel.data(pIdx, NotificationManager.Notifications.ApplicationNameRole) || "";
                     var pUrg = fullRepresentationRoot.historyModel.data(pIdx, NotificationManager.Notifications.UrgencyRole);
                     var isPrevSilent = (pUrg === NotificationManager.Notifications.LowUrgency);
@@ -265,10 +306,100 @@ PlasmaExtras.Representation {
                         }
                     }
 
+                    // App group header (M3): tinted icon, name, count, morphing expand button
+                    Item {
+                        id: groupHeader
+                        visible: delegateRoot.isGroupRow
+                        width: parent.width
+                        height: visible ? fullRepresentationRoot.snap(40) : 0
+
+                        Rectangle {
+                            id: ghIcon
+                            anchors.left: parent.left
+                            anchors.leftMargin: fullRepresentationRoot.snap(4)
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: fullRepresentationRoot.snap(28); height: width; radius: width / 2
+                            color: Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.22)
+                            Kirigami.Icon {
+                                anchors.centerIn: parent
+                                width: fullRepresentationRoot.snap(16); height: width
+                                source: delegateRoot.applicationIconName || "preferences-system-notifications"
+                            }
+                        }
+                        Text {
+                            anchors.left: ghIcon.right
+                            anchors.leftMargin: fullRepresentationRoot.snap(10)
+                            anchors.right: ghChevron.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: delegateRoot.applicationName + "  ·  " + delegateRoot.groupCount
+                            elide: Text.ElideRight
+                            font.pixelSize: 13
+                            font.weight: Font.DemiBold
+                            color: Kirigami.Theme.textColor
+                        }
+                        Rectangle {
+                            id: ghChevron
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: fullRepresentationRoot.snap(44); height: fullRepresentationRoot.snap(28)
+                            radius: ghMouse.pressed ? fullRepresentationRoot.snap(8) : height / 2
+                            color: delegateRoot.groupExpanded ? Kirigami.Theme.highlightColor
+                                 : Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, ghMouse.containsMouse ? 0.16 : 0.10)
+                            Behavior on radius { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                            Behavior on color { ColorAnimation { duration: 180 } }
+                            Kirigami.Icon {
+                                anchors.centerIn: parent
+                                width: fullRepresentationRoot.snap(18); height: width
+                                source: Qt.resolvedUrl("icons/chevron_down.svg")
+                                isMask: true
+                                color: delegateRoot.groupExpanded ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
+                                rotation: delegateRoot.groupExpanded ? 180 : 0
+                                Behavior on rotation { NumberAnimation { duration: 320; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
+                            }
+                        }
+                        MouseArea {
+                            id: ghMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: fullRepresentationRoot.historyModel.setData(fullRepresentationRoot.historyModel.index(delegateRoot.index, 0),
+                                                                                   !delegateRoot.groupExpanded, NotificationManager.Notifications.IsGroupExpandedRole)
+                        }
+                    }
+
                     // Card Rectangle
                     Rectangle {
                         id: cardRect
+                        visible: !delegateRoot.isGroupRow
                         width: parent.width
+                        // swipe sideways to dismiss (M3): follows the finger, fades, springs back if released early
+                        transform: Translate { id: swipeTr; x: 0 }
+                        opacity: 1 - Math.min(0.7, Math.abs(swipeTr.x) / Math.max(1, width))
+                        DragHandler {
+                            id: swipeDrag
+                            target: null
+                            yAxis.enabled: false
+                            xAxis.enabled: true
+                            property real startX: 0
+                            onActiveChanged: {
+                                if (active) { springBack.stop(); return; }
+                                if (Math.abs(swipeTr.x) > cardRect.width * 0.35
+                                        && fullRepresentationRoot.historyModel.data(fullRepresentationRoot.historyModel.index(delegateRoot.index, 0), NotificationManager.Notifications.ClosableRole)) {
+                                    flingOut.to = swipeTr.x > 0 ? cardRect.width * 1.1 : -cardRect.width * 1.1;
+                                    flingOut.restart();
+                                } else {
+                                    springBack.restart();
+                                }
+                            }
+                            onTranslationChanged: swipeTr.x = translation.x
+                        }
+                        NumberAnimation { id: springBack; target: swipeTr; property: "x"; to: 0; duration: 320; easing.type: Easing.OutBack; easing.overshoot: 1.4 }
+                        SequentialAnimation {
+                            id: flingOut
+                            property alias to: flingAnim.to
+                            NumberAnimation { id: flingAnim; target: swipeTr; property: "x"; duration: 180; easing.type: Easing.InCubic }
+                            ScriptAction { script: fullRepresentationRoot.historyModel.close(fullRepresentationRoot.historyModel.index(delegateRoot.index, 0)) }
+                        }
                         height: cardInnerCol.implicitHeight + fullRepresentationRoot.snap(24)
                         implicitHeight: height
                         radius: 1
@@ -314,7 +445,8 @@ PlasmaExtras.Representation {
                                     Layout.preferredHeight: fullRepresentationRoot.snap(36)
                                     Layout.alignment: Qt.AlignTop
                                     radius: width / 2
-                                    color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.12)
+                                    // Material You: app icon in an accent-tinted circle
+                                    color: Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.22)
 
                                     Kirigami.Icon {
                                         anchors.centerIn: parent
@@ -654,6 +786,7 @@ PlasmaExtras.Representation {
         // 3. Bottom Action Bar
         RowLayout {
             id: bottomBar
+            opacity: fullRepresentationRoot.enterAt(0.2)
             anchors {
                 left: parent.left
                 right: parent.right

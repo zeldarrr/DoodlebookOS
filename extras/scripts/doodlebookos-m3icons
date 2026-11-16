@@ -1,0 +1,892 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""DoodlebookOS Material You icon theme — generated, not filtered.
+
+Like Android 13+ "themed icons": every installed application gets a monochrome glyph (brand logo
+from Simple Icons, else a Material Symbol, else its initial) on a tonal circle; folders and file
+types are drawn as Material 3 shapes. All colours come from the wallpaper palette given by
+doodlebookos-materialyou, which calls this on every wallpaper change.
+
+  doodlebookos-m3icons build OUT --name NAME --inherits BASE --palette JSON
+  doodlebookos-m3icons signature      # changes when the set of application icons changes
+  doodlebookos-m3icons apps           # which glyph each application gets
+
+Glyphs: ~/.local/share/doodlebookos/m3icons (Material Symbols Apache-2.0, Simple Icons CC0, letters
+from Google Sans Flex). Per-app overrides: ~/.config/doodlebookos/m3icons.map, lines "icon-or-desktop-id = ms:name | si:slug | letter:X".
+"""
+import hashlib
+import json
+import math
+import os
+import re
+import shutil
+import subprocess
+import sys
+import unicodedata
+
+HOME = os.path.expanduser("~")
+DATA = os.path.join(HOME, ".local", "share", "doodlebookos", "m3icons")
+ICONS = os.path.join(HOME, ".local", "share", "icons")
+USER_MAP = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.join(HOME, ".config")), "doodlebookos", "m3icons.map")
+VERSION = "5"
+APP_DIRS = ["/usr/share/applications", "/usr/local/share/applications",
+            os.path.join(HOME, ".local", "share", "applications"),
+            "/var/lib/flatpak/exports/share/applications",
+            os.path.join(HOME, ".local", "share", "flatpak", "exports", "share", "applications")]
+
+# icon name or desktop id -> glyph. Brand logos (si:) for brands, Material Symbols (ms:) otherwise.
+APP_MAP = {
+    "waydroid.com.google.android.contacts": "ms:contacts", "waydroid.com.google.android.apps.messaging": "ms:chat",
+    "waydroid.com.android.vending": "si:googleplay", "bazzite-documentation": "ms:menu_book", "bbrew": "ms:sports_bar",
+    "discourse": "si:discourse",
+    "systemsettings": "ms:settings", "kdesystemsettings": "ms:settings", "preferences-system": "ms:settings",
+    "org.kde.dolphin": "ms:folder", "org.kde.konsole": "ms:terminal", "utilities-terminal": "ms:terminal",
+    "org.kde.kate": "ms:edit_note", "kate": "ms:edit_note", "org.kde.kwrite": "ms:edit", "kwrite": "ms:edit",
+    "org.kde.spectacle": "ms:screenshot_region", "spectacle": "ms:screenshot_region",
+    "org.kde.ark": "ms:folder_zip", "ark": "ms:folder_zip", "org.kde.filelight": "ms:donut_large", "filelight": "ms:donut_large",
+    "org.kde.kfind": "ms:search", "kfind": "ms:search", "org.kde.khelpcenter": "ms:help", "help-browser": "ms:help",
+    "org.kde.kinfocenter": "ms:info", "hwinfo": "ms:info", "org.kde.kjournaldbrowser": "ms:receipt_long",
+    "org.kde.kmenuedit": "ms:menu_open", "kmenuedit": "ms:menu_open", "org.kde.krdc": "ms:screen_share", "krdc": "ms:screen_share",
+    "org.kde.krfb": "ms:cast", "krfb": "ms:cast", "org.kde.kwalletmanager": "ms:wallet", "kwalletmanager": "ms:wallet",
+    "org.kde.plasma-systemmonitor": "ms:monitoring", "utilities-system-monitor": "ms:monitoring",
+    "org.kde.plasma.emojier": "ms:mood", "preferences-desktop-emoticons": "ms:mood",
+    "org.kde.kdeconnect.app": "ms:mobile_cast", "kdeconnect": "ms:mobile_cast",
+    "org.kde.kdebugsettings": "ms:bug_report", "debug-run": "ms:bug_report",
+    "org.kde.gwenview": "ms:image", "org.kde.haruna": "ms:play_circle", "org.kde.kcalc": "ms:calculate",
+    "org.kde.okular": "ms:menu_book", "org.kde.kdenlive": "si:kdenlive", "org.kde.krita": "si:krita",
+    "org.kde.discover": "ms:shopping_bag", "plasmadiscover": "ms:shopping_bag", "org.kde.elisa": "ms:music_note",
+    "org.gnome.DiskUtility": "ms:hard_drive", "org.gnome.baobab": "ms:pie_chart",
+    "io.github.shundhammer.qdirstat": "ms:data_usage", "org.gnome.Firmware": "ms:memory",
+    "btrfs-assistant": "ms:database", "firewall-config": "ms:shield", "input-remapper": "ms:keyboard",
+    "waydroid": "si:android", "io.github.kolunmi.Bazaar": "ms:storefront",
+    "io.github.rfrench3.bazzite-updater": "ms:system_update_alt", "io.github.ublue_os.yafti_gtk": "ms:rocket_launch",
+    "nvidia-settings": "si:nvidia", "media-flash": "ms:sd_card", "webapp-manager": "ms:web",
+    "steam": "si:steam", "com.github.tchx84.Flatseal": "ms:admin_panel_settings",
+    "io.github.flattool.Warehouse": "ms:warehouse", "it.mijorus.gearlever": "ms:settings_applications",
+    "io.github.dvlv.boxbuddyrs": "ms:package_2", "io.github.DenysMb.Kontainer": "ms:inventory_2",
+    "com.github.Matoking.protontricks": "ms:construction", "com.vysp3r.ProtonPlus": "ms:extension",
+    "com.moonlight_stream.Moonlight": "ms:cast_connected", "org.prismlauncher.PrismLauncher": "ms:deployed_code",
+    "org.virt_manager.virt-manager": "ms:computer", "org.openrgb.OpenRGB": "ms:palette",
+    "org.upscayl.Upscayl": "ms:hd", "nl.hjdskes.gcolor3": "ms:colorize", "io.github.maniacx.BudsLink": "ms:earbuds",
+    "org.fkoehler.KTailctl": "si:tailscale", "dev.vencord.Vesktop": "si:discord", "discord": "si:discord",
+    "app.zen_browser.zen": "si:zenbrowser", "org.mozilla.firefox": "si:firefoxbrowser", "firefox": "si:firefoxbrowser",
+    "net.imput.helium": "si:heliumbrowser", "org.vinegarhq.Sober": "si:roblox",
+    "org.DolphinEmu.dolphin-emu": "si:dolphin", "com.heroicgameslauncher.hgl": "si:heroicgameslauncher",
+    "net.lutris.Lutris": "si:lutris", "com.protonvpn.www": "si:protonvpn", "com.tutanota.Tutanota": "si:tuta",
+    "io.ente.photos": "si:ente", "codium": "si:vscodium", "vscodium": "si:vscodium",
+    "org.videolan.VLC": "si:vlcmediaplayer", "org.jellyfin.JellyfinDesktop": "si:jellyfin",
+    "org.onlyoffice.desktopeditors": "si:onlyoffice", "org.qbittorrent.qBittorrent": "si:qbittorrent",
+    "org.signal.Signal": "si:signal", "md.obsidian.Obsidian": "si:obsidian", "org.inkscape.Inkscape": "si:inkscape",
+    "com.bitwarden.desktop": "si:bitwarden", "blackmagicraw-player": "si:blackmagicdesign",
+    "blackmagicraw-speedtest": "ms:speed", "preferences-desktop-color": "ms:contrast",
+    "preferences-desktop-user": "ms:person", "preferences-desktop-icons": "ms:interests",
+    "preferences-desktop-font": "ms:font_download", "applications-system": "ms:build",
+    "steam_icon_730": "si:counterstrike", "org.gimp.GIMP": "si:gimp", "com.spotify.Client": "si:spotify",
+    "org.telegram.desktop": "si:telegram", "com.obsproject.Studio": "si:obsstudio", "org.blender.Blender": "si:blender",
+    "org.libreoffice.LibreOffice": "si:libreoffice", "org.mozilla.Thunderbird": "si:thunderbird",
+    "com.brave.Browser": "si:brave", "com.google.Chrome": "si:googlechrome", "org.chromium.Chromium": "si:googlechrome",
+}
+# id fragments that must never be matched against brand names
+GENERIC_TOKENS = {"org", "com", "io", "net", "app", "dev", "github", "gitlab", "desktop", "gtk", "kde", "gnome",
+                  "www", "client", "launcher", "ai", "info", "it", "nl", "md", "flextop", "default"}
+
+# places: Tela-circle canonical name -> glyph (None = plain folder); "circle:" = round icon instead of a folder
+PLACES = {
+    "folder": None, "folder-open": None, "user-home": "ms:home", "user-desktop": "ms:desktop_windows",
+    "folder-documents": "ms:description", "folder-download": "ms:download", "folder-music": "ms:music_note",
+    "folder-pictures": "ms:image", "folder-video": "ms:movie", "folder-templates": "ms:file_copy",
+    "folder-publicshare": "ms:share", "folder-games": "ms:sports_esports", "folder-github": "si:github",
+    "folder-git": "si:git", "folder-gdrive": "si:googledrive", "folder-cloud": "ms:cloud", "folder-recent": "ms:schedule",
+    "folder-important": "ms:star", "folder-locked": "ms:lock", "folder-decrypted": "ms:lock_open", "folder-mail": "ms:mail",
+    "folder-camera": "ms:photo_camera", "folder-print": "ms:print", "folder-script": "ms:code", "folder-build": "ms:build",
+    "folder-gradle": "si:gradle", "folder-unity": "si:unity", "folder-system": "ms:settings",
+    "folder-root": "ms:admin_panel_settings", "folder-tar": "ms:folder_zip", "folder-stack": "ms:stacks",
+    "folder-saved-search": "ms:search", "folder-bookmark": "ms:bookmark", "folder-activities": "ms:category",
+    "folder-move": "ms:drive_file_move",
+    "network": "circle:ms:lan", "network-server": "circle:ms:dns", "user-identity": "circle:ms:person",
+    "bookmark-missing": "circle:ms:bookmark", "cut": "circle:ms:content_cut", "fileopen": "circle:ms:folder_open",
+    "user-trash": "circle:ms:delete", "user-trash-full": "circle:ms:delete", "folder-steam": "si:steam",
+}
+EXTRA_PLACE_ALIASES = {"folder-videos": "folder-video", "folder-downloads": "folder-download",
+                       "folder-image": "folder-pictures", "folder-images": "folder-pictures",
+                       "inode-directory": "folder", "folder-home": "user-home", "user-trash-empty": "user-trash"}
+
+# file types: ordered (patterns, glyph, family)
+MIME_RULES = [
+    (("cd-image", "-iso", "disk-image", "diskimage", "x-raw-disk", "x-dmg", "x-cue", "x-img", "vhd", "qemu-disk"), "album", "secondary"),
+    (("pdf",), "picture_as_pdf", "primary"),
+    (("epub", "ebook", "mobipocket", "fictionbook", "x-cbr", "x-cbz", "x-cb7", "comicbook", "djvu"), "menu_book", "primary"),
+    (("spreadsheet", "excel", "sheet", "-csv", "calc", "gnumeric", "ods", "xlsx"), "table_chart", "primary"),
+    (("presentation", "powerpoint", "impress", "slide", "keynote", "odp", "pptx"), "slideshow", "primary"),
+    (("wordprocessing", "msword", "opendocument.text", "-writer", "-rtf", "abiword", "mswrite", "-odt", "docx", "x-tex", "latex"), "article", "primary"),
+    (("font", "-ttf", "-otf", "woff", "x-pcf", "x-bdf"), "font_download", "secondary"),
+    (("torrent",), "download", "secondary"),
+    (("x-rpm", "x-deb", "debian", "flatpak", "appimage", "x-snap", "android.package", "x-apk", "x-msi", "msix", "java-archive", "x-jar", "x-redhat-package", "x-pkg"), "package_2", "secondary"),
+    (("zip", "x-tar", "-tar", "rar", "7z", "compressed", "x-xz", "bzip", "gzip", "lzma", "zstd", "cpio", "archive", "x-ace", "x-arj", "x-lha", "x-lzip", "x-lz4", "x-cab", "x-ar", "x-lzop", "x-compress"), "folder_zip", "secondary"),
+    (("executable", "sharedlib", "x-object", "ms-dos", "msdownload", "x-elf", "x-core", "dosexec", "x-exe", "x-mach"), "terminal", "secondary"),
+    (("x-desktop", "desktop-entry"), "apps", "secondary"),
+    (("x509", "pkcs", "certificate", "pgp", "gpg", "-key", "x-ssh", "keyring", "x-pem"), "key", "secondary"),
+    (("sql", "sqlite", "database", "x-db", "dbf"), "database", "secondary"),
+    (("html", "xhtml", "x-php", "x-asp", "x-jsp"), "html", "secondary"),
+    (("json", "xml", "yaml", "toml", "x-ini", "config", "x-desktop-config", "x-plist", "x-cmake", "x-qml"), "data_object", "secondary"),
+    (("x-python", "x-csrc", "x-chdr", "x-c++", "x-c-", "x-java", "x-rust", "x-go", "script", "shellscript", "x-sh", "x-perl", "x-ruby",
+      "javascript", "ecmascript", "typescript", "x-lua", "makefile", "x-kotlin", "x-csharp", "x-swift", "x-scala", "x-haskell", "x-patch",
+      "x-diff", "x-source", "x-vala", "x-dart", "x-r", "x-matlab", "x-fortran", "x-pascal", "x-asm", "x-css", "x-scss", "x-sass", "x-less",
+      "x-objc", "x-zig", "x-nim", "x-julia", "x-erlang", "x-elixir", "x-clojure", "x-lisp", "x-scheme", "x-ocaml", "x-d-", "x-vhdl",
+      "x-verilog", "x-gettext", "x-meson", "x-ninja", "x-dockerfile", "x-git", "x-tcl", "x-awk", "x-batch", "x-powershell"), "code", "secondary"),
+    (("subtitle", "subrip", "x-ass", "x-ssa", "-srt", "webvtt"), "subtitles", "tertiary"),
+    (("mpegurl", "x-scpls", "playlist", "x-xspf", "x-m3u"), "queue_music", "tertiary"),
+    (("model-", "-3d", "blender", "x-stl", "gltf", "wavefront", "x-obj", "collada", "x-fbx"), "view_in_ar", "tertiary"),
+    (("video", "-mp4", "matroska", "x-flv", "quicktime", "x-msvideo", "x-ogm", "-webm", "x-mkv"), "movie", "tertiary"),
+    (("audio", "x-mp3", "midi", "x-flac", "x-wav", "x-vorbis", "x-opus", "x-aac"), "music_note", "tertiary"),
+    (("image", "-svg", "x-xcf", "krita", "photoshop", "x-gimp", "x-kra", "x-ora", "-ico", "x-xbitmap", "x-xpixmap"), "image", "tertiary"),
+    (("calendar", "-ics", "x-vcalendar"), "calendar_month", "primary"),
+    (("vcard", "x-vcard", "contact"), "contact_page", "primary"),
+    (("message", "rfc822", "mbox", "email", "x-mail"), "mail", "primary"),
+    (("inode-symlink", "symlink"), "link", "secondary"),
+    (("blockdevice", "chardevice", "inode-fifo", "inode-socket"), "storage", "secondary"),
+    (("text", "plain", "markdown", "x-log", "readme", "x-authors", "x-copying", "x-install", "x-changelog", "x-credits", "x-nfo"), "description", "primary"),
+]
+MIME_DEFAULT = ("draft", "primary")
+
+
+# ───────────────────────── glyphs ─────────────────────────
+_glyph_cache = {}
+_letters = None
+_si_titles = None
+VB = re.compile(r'viewBox="([-\d.\s]+)"')
+PATH_D = re.compile(r'<path[^>]*\sd="([^"]+)"')
+
+
+def _read_svg(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            s = f.read()
+    except OSError:
+        return None
+    vb = VB.search(s)
+    ds = PATH_D.findall(s)
+    if not vb or not ds:
+        return None
+    x, y, w, h = (float(v) for v in vb.group(1).split())
+    return {"d": " ".join(ds), "box": (x, y, w, h)}
+
+
+def glyph(spec):
+    """'ms:name' | 'si:slug' | 'letter:X' -> {'d', 'box', 'kind'} or None."""
+    if spec in _glyph_cache:
+        return _glyph_cache[spec]
+    kind, _, name = spec.partition(":")
+    g = None
+    if kind == "ms":
+        g = _read_svg(os.path.join(DATA, "ms", name + "-fill.svg")) or _read_svg(os.path.join(DATA, "ms", name + ".svg"))
+    elif kind == "si":
+        g = _read_svg(os.path.join(DATA, "si", name + ".svg"))
+    elif kind == "letter":
+        global _letters
+        if _letters is None:
+            try:
+                with open(os.path.join(DATA, "letters.json"), encoding="utf-8") as f:
+                    _letters = json.load(f)
+            except OSError:
+                _letters = {}
+        L = _letters.get(name)
+        if L:
+            g = {"d": L["d"], "box": (L["x"], L["y"], L["w"], L["h"])}
+    if g:
+        g["kind"] = kind
+    _glyph_cache[spec] = g
+    return g
+
+
+def placed(g, cx, cy, size, color):
+    """<path> of glyph g centred on (cx, cy): Material Symbols / Simple Icons boxes are fitted whole
+    (their own padding is part of the design), letters by their outline."""
+    x, y, w, h = g["box"]
+    s = size / max(w, h)
+    tx, ty = cx - (x + w / 2) * s, cy - (y + h / 2) * s
+    return f'<path fill="{color}" transform="matrix({s:.5f} 0 0 {s:.5f} {tx:.3f} {ty:.3f})" d="{g["d"]}"/>'
+
+
+def svg(body):
+    return f'<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">{body}</svg>\n'
+
+
+# glyph size inside a 64 px icon, per source (Material Symbols carry ~10 % padding, logos none)
+APP_SIZE = {"ms": 38, "si": 30, "letter": 27}
+
+
+# ───────────────────────── Material 3 Expressive shapes ─────────────────────────
+# Rounded polygons / stars like androidx.graphics.shapes (MaterialShapes): vertices on a unit circle,
+# every corner cut by a circular arc. path() fits the result in a box, so the same outline serves the
+# 64 px icons and the QML buttons (0..100 box).
+def _poly(n, radius=1.0, start=-90.0):
+    return [(radius * math.cos(math.radians(start + 360.0 * i / n)), radius * math.sin(math.radians(start + 360.0 * i / n)))
+            for i in range(n)]
+
+
+def _star(n, inner, start=-90.0):
+    pts = []
+    for i in range(2 * n):
+        r = 1.0 if i % 2 == 0 else inner
+        a = math.radians(start + 180.0 * i / n)
+        pts.append((r * math.cos(a), r * math.sin(a)))
+    return pts
+
+
+SHAPES = {
+    # name: (vertices, per-vertex rounding (one value or list), glyph scale, label)
+    "circle":     (None, None, 1.00, "Cercle"),
+    "square":     (_poly(4, math.sqrt(2), -45), 0.5, 1.00, "Carré"),
+    "arch":       (_poly(4, math.sqrt(2), -135), [1.0, 1.0, 0.36, 0.36], 1.00, "Arche"),
+    "pentagon":   (_poly(5), 0.32, 0.96, "Pentagone"),
+    "gem":        (_poly(6, 1.0, -90), 0.3, 0.98, "Gemme"),
+    "cookie4":    (_star(4, 0.56, -45), [0.62, 0.7] * 4, 0.92, "Cookie 4"),
+    "cookie6":    (_star(6, 0.78), [0.34, 0.5] * 6, 0.95, "Cookie 6"),
+    "cookie7":    (_star(7, 0.8), [0.3, 0.45] * 7, 0.96, "Cookie 7"),
+    "cookie9":    (_star(9, 0.84), [0.22, 0.35] * 9, 0.97, "Cookie 9"),
+    "cookie12":   (_star(12, 0.87), [0.15, 0.25] * 12, 0.98, "Cookie 12"),
+    "sunny":      (_star(8, 0.8), [0.1, 0.1] * 8, 0.94, "Soleil"),
+    "verysunny":  (_star(8, 0.68), [0.08, 0.1] * 8, 0.88, "Grand soleil"),
+    "clover4":    (_star(4, 0.36), [1.0, 0.12] * 4, 0.84, "Trèfle 4"),
+    "clover8":    (_star(8, 0.74), [1.0, 0.1] * 8, 0.9, "Trèfle 8"),
+    "flower":     (_star(8, 0.6), [1.0, 0.06] * 8, 0.86, "Fleur"),
+    "softburst":  (_star(10, 0.76), [0.12, 0.05] * 10, 0.9, "Éclat"),
+}
+
+
+def _geom(p, v, n):
+    u1 = (p[0] - v[0], p[1] - v[1]); l1 = math.hypot(*u1); u1 = (u1[0] / l1, u1[1] / l1)
+    u2 = (n[0] - v[0], n[1] - v[1]); l2 = math.hypot(*u2); u2 = (u2[0] / l2, u2[1] / l2)
+    half = math.acos(max(-1.0, min(1.0, u1[0] * u2[0] + u1[1] * u2[1]))) / 2
+    cross = (v[0] - p[0]) * (n[1] - v[1]) - (v[1] - p[1]) * (n[0] - v[0])
+    return u1, u2, half, 1 if cross > 0 else 0
+
+
+def _outline(name):
+    verts, rnd, _g, _l = SHAPES[name]
+    m = len(verts)
+    if not isinstance(rnd, list):
+        rnd = [rnd] * m
+    geo = [_geom(verts[i - 1], verts[i], verts[(i + 1) % m]) for i in range(m)]
+    want = [rnd[i] / math.tan(geo[i][2]) if geo[i][2] > 1e-6 else 0.0 for i in range(m)]
+    # share every edge between its two corners in proportion to what they ask for (like androidx shapes)
+    cut = list(want)
+    for i in range(m):
+        j = (i + 1) % m
+        edge = math.dist(verts[i], verts[j])
+        if want[i] + want[j] > edge:
+            k = edge / (want[i] + want[j])
+            cut[i] = min(cut[i], want[i] * k)
+            cut[j] = min(cut[j], want[j] * k)
+    corners, xs, ys = [], [], []
+    for i in range(m):
+        (u1, u2, half, sweep), v, d = geo[i], verts[i], cut[i]
+        rr = d * math.tan(half)
+        a = (v[0] + u1[0] * d, v[1] + u1[1] * d)
+        b = (v[0] + u2[0] * d, v[1] + u2[1] * d)
+        bis = (u1[0] + u2[0], u1[1] + u2[1]); lb = math.hypot(*bis) or 1
+        c = (v[0] + bis[0] / lb * rr / math.sin(half), v[1] + bis[1] / lb * rr / math.sin(half))
+        corners.append((a, b, rr, sweep))
+        a0 = math.atan2(a[1] - c[1], a[0] - c[0]); a1 = math.atan2(b[1] - c[1], b[0] - c[0])
+        da = (a1 - a0) % (2 * math.pi) if sweep else -((a0 - a1) % (2 * math.pi))
+        for k in range(9):
+            t = a0 + da * k / 8
+            xs.append(c[0] + rr * math.cos(t)); ys.append(c[1] + rr * math.sin(t))
+    return corners, (min(xs), min(ys), max(xs), max(ys))
+
+
+def path(name, x0, y0, size):
+    """SVG path data of shape `name` fitted (aspect kept, centred) in the square box (x0, y0, size)."""
+    if name not in SHAPES or SHAPES[name][0] is None:
+        r = size / 2
+        cx, cy = x0 + r, y0 + r
+        return f"M{cx - r:.3f} {cy:.3f}A{r:.3f} {r:.3f} 0 1 1 {cx + r:.3f} {cy:.3f}A{r:.3f} {r:.3f} 0 1 1 {cx - r:.3f} {cy:.3f}Z"
+    corners, (bx0, by0, bx1, by1) = _outline(name)
+    s = size / max(bx1 - bx0, by1 - by0)
+    ox = x0 + (size - (bx1 - bx0) * s) / 2 - bx0 * s
+    oy = y0 + (size - (by1 - by0) * s) / 2 - by0 * s
+    f = lambda p: f"{p[0] * s + ox:.3f} {p[1] * s + oy:.3f}"
+    out = []
+    for i, (a, b, rr, sweep) in enumerate(corners):
+        out.append(("M" if i == 0 else "L") + f(a))
+        if rr > 1e-6:
+            out.append(f"A{rr * s:.3f} {rr * s:.3f} 0 0 {sweep} {f(b)}")
+        else:
+            out.append("L" + f(b))
+    return "".join(out) + "Z"
+
+
+def glyph_scale(name):
+    return SHAPES.get(name, SHAPES["circle"])[2]
+
+# one rotational step of each shape (degrees): buttons turn by it on hover and look the same at rest
+SHAPE_TURN = {"square": 90, "pentagon": 72, "gem": 60, "cookie4": 90, "cookie6": 60, "cookie7": 360 / 7,
+              "cookie9": 40, "cookie12": 30, "sunny": 45, "verysunny": 45, "clover4": 90, "clover8": 45,
+              "flower": 45, "softburst": 36}
+ICON_SHAPE = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.join(HOME, ".config")), "doodlebookos", "icon-shape")
+SHAPE_JSON = os.path.join(os.path.dirname(ICON_SHAPE), "shape.json")
+
+
+def current_shape():
+    try:
+        with open(ICON_SHAPE) as f:
+            name = f.read().strip()
+    except OSError:
+        name = ""
+    return name if name in SHAPES else "circle"
+
+
+def write_shape_json(name):
+    """For the QML buttons (dock…): current shape + every outline in a 0..100 box."""
+    data = {"name": name, "path": path(name, 0, 0, 100), "turn": SHAPE_TURN.get(name, 0),
+            "shapes": [{"name": n, "label": SHAPES[n][3], "path": path(n, 0, 0, 100), "turn": SHAPE_TURN.get(n, 0)}
+                       for n in SHAPES]}
+    tmp = SHAPE_JSON + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False)
+    os.replace(tmp, SHAPE_JSON)
+
+
+def app_icon(g, pal, shape="circle"):
+    size = APP_SIZE[g["kind"]] * glyph_scale(shape)
+    return svg(f'<path fill="{pal["app_bg"]}" d="{path(shape, 2, 2, 60)}"/>' + placed(g, 32, 32, size, pal["app_fg"]))
+
+
+FOLDER_BACK = "M7 15.5A5.5 5.5 0 0 1 12.5 10h12.2a5.5 5.5 0 0 1 3.9 1.6L32 15h19.5A5.5 5.5 0 0 1 57 20.5V48a5.5 5.5 0 0 1-5.5 5.5h-39A5.5 5.5 0 0 1 7 48z"
+
+
+def folder_icon(g, pal, opened=False):
+    front_y = 26 if opened else 21
+    body = (f'<path fill="{pal["folder_back"]}" d="{FOLDER_BACK}"/>'
+            f'<rect x="5" y="{front_y}" width="54" height="{55 - front_y}" rx="6" fill="{pal["folder_front"]}"/>')
+    if g:
+        body += placed(g, 32, (front_y + 55) / 2 + 0.5, {"ms": 24, "si": 18, "letter": 16}[g["kind"]], pal["folder_glyph"])
+    return svg(body)
+
+
+def small_place_icon(g, pal):
+    """16-24 px: the glyph alone, like Material navigation icons."""
+    return svg(placed(g, 32, 32, {"ms": 64, "si": 50, "letter": 44}[g["kind"]], pal["small"]))
+
+
+PAGE = "M18 4h21l15 15v35a6 6 0 0 1-6 6H18a6 6 0 0 1-6-6V10a6 6 0 0 1 6-6z"
+FOLD = "M39 4l15 15H45a6 6 0 0 1-6-6z"
+
+
+def file_icon(g, colors):
+    page, fold, ink = colors
+    return svg(f'<path fill="{page}" d="{PAGE}"/><path fill="{fold}" d="{FOLD}"/>' + placed(g, 33, 38, 26, ink))
+
+
+# ───────────────────────── applications ─────────────────────────
+def desktop_entries():
+    seen, out = set(), []
+    for d in APP_DIRS:
+        try:
+            names = sorted(os.listdir(d))
+        except OSError:
+            continue
+        for fn in names:
+            if not fn.endswith(".desktop"):
+                continue
+            did = fn[:-8]
+            if did in seen:
+                continue
+            seen.add(did)
+            info, sec = {}, False
+            try:
+                with open(os.path.join(d, fn), encoding="utf-8", errors="replace") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith("["):
+                            if sec:
+                                break
+                            sec = line == "[Desktop Entry]"
+                            continue
+                        if sec and "=" in line:
+                            k, v = line.split("=", 1)
+                            if k in ("Name", "Icon", "NoDisplay", "Hidden", "Type") and k not in info:
+                                info[k] = v.strip()
+            except OSError:
+                continue
+            icon = info.get("Icon", "")
+            if icon.startswith("/"):
+                icon = None        # a picture file: drawn under the desktop id only (the dock asks for it)
+            if (icon == "" or info.get("Type", "Application") != "Application"
+                    or info.get("NoDisplay", "").lower() == "true" or info.get("Hidden", "").lower() == "true"):
+                continue
+            if icon and icon.endswith((".png", ".svg", ".xpm")):
+                icon = icon.rsplit(".", 1)[0]
+            out.append((did, info.get("Name", did), icon))
+    return out
+
+
+def norm(s):
+    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode().lower()
+    return re.sub(r"[^a-z0-9]", "", s)
+
+
+def si_index():
+    global _si_titles
+    if _si_titles is None:
+        _si_titles = {}
+        try:
+            with open(os.path.join(DATA, "si", "simple-icons.json"), encoding="utf-8") as f:
+                data = json.load(f)
+            for e in (data["icons"] if isinstance(data, dict) else data):
+                _si_titles.setdefault(norm(e["title"]), e["slug"])
+        except (OSError, ValueError, KeyError):
+            pass
+    return _si_titles
+
+
+def user_map():
+    m = {}
+    try:
+        with open(USER_MAP, encoding="utf-8") as f:
+            for line in f:
+                if "=" in line and not line.lstrip().startswith("#"):
+                    k, v = line.split("=", 1)
+                    m[k.strip()] = v.strip()
+    except OSError:
+        pass
+    return m
+
+
+def initial(name):
+    for ch in unicodedata.normalize("NFKD", name).upper():
+        if ch.isascii() and ch.isalnum():
+            return "letter:" + ch
+    return "ms:apps"
+
+
+def app_glyph_spec(did, name, icon, umap):
+    for key in (did, icon):
+        if key in umap:
+            return umap[key]
+    for key in (did, icon):
+        if key in APP_MAP:
+            return APP_MAP[key]
+    titles = si_index()
+    cands = [norm(name)]
+    if not did.startswith("org.kde."):          # KDE app names clash with brands (Dolphin, …)
+        parts = [p for p in re.split(r"[._-]", did) if p.lower() not in GENERIC_TOKENS]
+        cands += [norm(p) for p in reversed(parts) if len(p) > 3]
+    for c in cands:
+        if c in titles:
+            return "si:" + titles[c]
+    return initial(name)
+
+
+def resolve_apps():
+    """icon name -> (glyph spec, desktop id, name). Desktop ids are added as names too: Wayland
+    windows and task managers often ask the theme for the app id directly (systemsettings, …)."""
+    umap = user_map()
+    icons, ids = {}, {}
+    for did, name, icon in desktop_entries():
+        if icon is None:
+            spec = app_glyph_spec(did, name, "", umap)
+            ids.setdefault(did, (spec if glyph(spec) else initial(name), did, name))
+            continue
+        if icon not in icons:
+            spec = app_glyph_spec(did, name, icon, umap)
+            if not glyph(spec):
+                spec = initial(name)
+            icons[icon] = (spec, did, name)
+        ids.setdefault(did, icons[icon])
+    for did, v in ids.items():
+        icons.setdefault(did, v)
+    return icons
+
+
+def signature():
+    apps = resolve_apps()
+    h = hashlib.sha1((VERSION + current_shape()).encode())
+    for icon in sorted(apps):
+        h.update(f"{icon}={apps[icon][0]};".encode())
+    return h.hexdigest()[:16]
+
+
+# ───────────────────────── theme ─────────────────────────
+INDEX = """[Icon Theme]
+Name={name}
+Comment=Material You, généré depuis le fond d'écran
+Inherits={inherits},breeze,hicolor
+Example=folder
+DesktopDefault=48
+DesktopSizes=16,22,32,48,64,96,128,256
+PanelDefault=48
+SmallDefault=16
+ToolbarDefault=22
+DialogDefault=32
+Directories=apps/scalable,places/scalable,places/small,mimetypes/scalable
+
+[apps/scalable]
+Size=64
+Context=Applications
+MinSize=8
+MaxSize=512
+Type=Scalable
+
+[places/scalable]
+Size=64
+Context=Places
+MinSize=25
+MaxSize=512
+Type=Scalable
+
+[places/small]
+Size=16
+Context=Places
+MinSize=8
+MaxSize=24
+Type=Scalable
+
+[mimetypes/scalable]
+Size=64
+Context=MimeTypes
+MinSize=8
+MaxSize=512
+Type=Scalable
+"""
+
+
+def link_chains(d):
+    """name -> final target name, for the symlinks of a base theme directory."""
+    out = {}
+    try:
+        names = os.listdir(d)
+    except OSError:
+        return out, []
+    for f in names:
+        p, target, n = os.path.join(d, f), f, 0
+        while os.path.islink(os.path.join(d, target)) and n < 10:
+            target, n = os.path.basename(os.readlink(os.path.join(d, target))), n + 1
+        if target != f:
+            out[f[:-4] if f.endswith(".svg") else f] = target[:-4] if target.endswith(".svg") else target
+    return out, names
+
+
+def write(path, text):
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(text)
+
+
+def link(name, target, d):
+    p = os.path.join(d, name + ".svg")
+    if not os.path.lexists(p):
+        os.symlink(target + ".svg", p)
+
+
+# ───────────────────────── fallback mirror ─────────────────────────
+# KIconLoader strips a missing name ("audio-headset" -> "audio" -> "audio-x-generic") inside EACH theme
+# before it looks at the inherited ones. A partial theme like this one therefore catches names it never
+# meant to draw (Bluetooth headset -> music file, network-wireless -> "network" app…). For every such name
+# the base themes know, link their exact files into "inherit/…" dirs so the lookup ends where it would
+# without this theme. Pure symlinks, the plan is cached until a base theme or our name set changes.
+MEDIA_TYPES = {"text", "application", "image", "audio", "inode", "video", "message", "model", "multipart",
+               "x-content", "x-epoc"}
+ICON_EXT = (".svg", ".png", ".svgz", ".xpm")
+CLASS_CONTEXT = {"apps": "Applications", "places": "Places", "mimetypes": "MimeTypes"}
+FALLBACK_CACHE = os.path.join(HOME, ".cache", "doodlebookos", "m3icons-fallback.json")
+
+
+def strip_lookup(name, has):
+    """The name KIconLoaderPrivate::findMatchingIcon settles on inside one theme (or None)."""
+    generic, symbolic, cur = name.endswith("-x-generic"), name.endswith("-symbolic"), name
+    while cur:
+        if has(cur):
+            return cur
+        if generic:
+            return None
+        if symbolic:
+            cur = cur.replace("-symbolic", "")
+            if has(cur):
+                return cur
+        i = cur.rfind("-")
+        if i > 1:
+            cur = cur[:i]
+            if cur.endswith("-x"):
+                cur = cur[:-2]
+            if symbolic:
+                cur += "-symbolic"
+        elif cur in MEDIA_TYPES:
+            cur, generic = cur + "-x-generic", True
+        else:
+            return None
+    return None
+
+
+def theme_dir(tname):
+    for base in [ICONS, os.path.join(HOME, ".icons")] + [os.path.join(d, "icons") for d in
+                 os.environ.get("XDG_DATA_DIRS", "/usr/local/share:/usr/share").split(":") if d]:
+        if os.path.isfile(os.path.join(base, tname, "index.theme")):
+            return os.path.join(base, tname)
+    return None
+
+
+def read_index(path):
+    sections, cur = {}, None
+    with open(path, encoding="utf-8", errors="replace") as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith("[") and line.endswith("]"):
+                cur = sections.setdefault(line[1:-1], {})
+            elif cur is not None and "=" in line and not line.startswith("#"):
+                k, v = line.split("=", 1)
+                cur[k.strip()] = v.strip()
+    return sections
+
+
+def theme_chain(inherits):
+    """Depth-first like KIconLoader, hicolor last."""
+    order, seen = [], set()
+
+    def add(t):
+        if t in seen or t == "hicolor":
+            return
+        seen.add(t)
+        d = theme_dir(t)
+        if not d:
+            return
+        order.append((t, d))
+        for sub in read_index(os.path.join(d, "index.theme")).get("Icon Theme", {}).get("Inherits", "").split(","):
+            if sub.strip():
+                add(sub.strip())
+    for t in [inherits, "breeze"]:
+        add(t)
+    d = theme_dir("hicolor")
+    if d:
+        order.append(("hicolor", d))
+    return order
+
+
+def scan_theme(d):
+    """{icon name: [(dir, file name)]} and {dir: section} for the dirs the index declares."""
+    idx = read_index(os.path.join(d, "index.theme"))
+    head = idx.get("Icon Theme", {})
+    dirs = [x.strip() for k in ("Directories", "ScaledDirectories") for x in head.get(k, "").split(",") if x.strip()]
+    names, sections = {}, {}
+    for sub in dict.fromkeys(dirs):
+        try:
+            files = os.listdir(os.path.join(d, sub))
+        except OSError:
+            continue
+        sections[sub] = idx.get(sub, {})
+        for f in files:
+            if f.endswith(ICON_EXT):
+                names.setdefault(f.rsplit(".", 1)[0], []).append((sub, f))
+    return names, sections
+
+
+def fallback_plan(ours, inherits):
+    """[(theme index, dir, section, name, extension, real file)] to link, see the block comment above."""
+    chain = theme_chain(inherits)
+    stamp = hashlib.sha1((VERSION + json.dumps(sorted(ours.items()))).encode())
+    for t, d in chain:                            # a dir's mtime moves when an icon is added or removed
+        head = read_index(os.path.join(d, "index.theme")).get("Icon Theme", {})
+        for sub in [""] + [x for k in ("Directories", "ScaledDirectories") for x in head.get(k, "").split(",") if x]:
+            try:
+                stamp.update(f"{d}/{sub}:{os.stat(os.path.join(d, sub)).st_mtime_ns};".encode())
+            except OSError:
+                pass
+    stamp = stamp.hexdigest()
+    try:
+        with open(FALLBACK_CACHE) as f:
+            cached = json.load(f)
+        if cached.get("stamp") == stamp and cached.get("v") == 2:
+            return cached["plan"]
+    except (OSError, ValueError):
+        pass
+
+    scans = [scan_theme(d) for _t, d in chain]
+    every = set().union(*(s[0] for s in scans)) - set(ours)
+
+    def chain_target(n):
+        for k, (names, _secs) in enumerate(scans):
+            m = strip_lookup(n, names.__contains__)
+            if m:
+                return k, m
+        return None
+
+    mirrored = {}
+
+    def wrong(n, hit):
+        if hit in mirrored:
+            return True
+        if n.endswith("-symbolic"):
+            return True                           # keep symbolic names monochrome
+        tgt = chain_target(n)
+        if not tgt:
+            return False
+        k, m = tgt
+        ctx = {scans[k][1].get(sub, {}).get("Context") for sub, _f in scans[k][0][m]}
+        if ours[hit] == "apps" and "-" in hit:     # "preferences-system" is a category, not a brand
+            return True
+        return CLASS_CONTEXT[ours[hit]] not in ctx  # e.g. an app glyph standing in for a device
+
+    todo = every
+    while todo:
+        added = set()
+        for n in todo:
+            hit = strip_lookup(n, lambda x: x in ours or x in mirrored)
+            if hit and wrong(n, hit):
+                tgt = chain_target(n)
+                if tgt:
+                    mirrored[n] = tgt
+                    added.add(n)
+        todo = (every - set(mirrored)) if added else set()
+    plan = []
+    for n, (k, m) in sorted(mirrored.items()):
+        tdir = chain[k][1]
+        for sub, f in scans[k][0][m]:
+            plan.append([k, sub, scans[k][1][sub], n, f.rsplit(".", 1)[1], os.path.realpath(os.path.join(tdir, sub, f))])
+    os.makedirs(os.path.dirname(FALLBACK_CACHE), exist_ok=True)
+    with open(FALLBACK_CACHE + ".tmp", "w") as f:
+        json.dump({"v": 2, "stamp": stamp, "plan": plan}, f)
+    os.replace(FALLBACK_CACHE + ".tmp", FALLBACK_CACHE)
+    return plan
+
+
+def mirror_fallbacks(tmp, inherits):
+    ours = {}
+    for cls, sub in (("apps", "apps/scalable"), ("places", "places/scalable"), ("places", "places/small"),
+                     ("mimetypes", "mimetypes/scalable")):
+        for f in os.listdir(os.path.join(tmp, sub)):
+            ours.setdefault(f.rsplit(".", 1)[0], cls)
+    plan = fallback_plan(ours, inherits)
+    sections, made = {}, set()
+    for k, sub, sec, n, ext, real in plan:
+        key = f"inherit/{k}/{sub}"
+        dst = os.path.join(tmp, key)
+        if key not in sections:
+            os.makedirs(dst, exist_ok=True)
+            sections[key] = sec
+        p = os.path.join(dst, n + "." + ext)
+        if p not in made:
+            made.add(p)
+            os.symlink(real, p)
+    if not sections:
+        return 0
+    idx = os.path.join(tmp, "index.theme")
+    with open(idx, encoding="utf-8") as f:
+        text = f.read()
+    plain = [k for k, s in sections.items() if s.get("Scale", "1") == "1"]
+    scaled = [k for k, s in sections.items() if s.get("Scale", "1") != "1"]
+    text = text.replace("Directories=apps/scalable,places/scalable,places/small,mimetypes/scalable",
+                        "Directories=apps/scalable,places/scalable,places/small,mimetypes/scalable," + ",".join(plain), 1)
+    if scaled:
+        text = text.replace("\nDirectories=", "\nScaledDirectories=" + ",".join(scaled) + "\nDirectories=", 1)
+    text += "".join(f"\n[{k}]\n" + "".join(f"{a}={b}\n" for a, b in s.items()) for k, s in sections.items())
+    write(idx, text)
+    return len({row[3] for row in plan})
+
+
+def build(out, name, inherits, pal):
+    tmp = out + ".tmp"
+    if os.path.lexists(tmp):
+        shutil.rmtree(tmp)
+    apps_d, places_d, small_d, mime_d = (os.path.join(tmp, p) for p in ("apps/scalable", "places/scalable", "places/small", "mimetypes/scalable"))
+    for d in (apps_d, places_d, small_d, mime_d):
+        os.makedirs(d)
+    write(os.path.join(tmp, "index.theme"), INDEX.format(name=name, inherits=inherits))
+    shape = current_shape()
+
+    # applications: one file per glyph, the icon names link to it
+    made = {}
+    for icon, (spec, _did, _name) in resolve_apps().items():
+        if spec not in made:
+            made[spec] = "app-" + re.sub(r"[^a-zA-Z0-9_-]", "_", spec.replace(":", "-"))
+            write(os.path.join(apps_d, made[spec] + ".svg"), app_icon(glyph(spec), pal, shape))
+        if icon != made[spec]:
+            link(icon, made[spec], apps_d)
+
+    # places: canonical names, then every alias of the base theme that ends on one of them
+    base_places = os.path.join(ICONS, inherits, "scalable", "places")
+    for pname, spec in PLACES.items():
+        if spec and spec.startswith("circle:"):
+            g = glyph(spec[7:])
+            write(os.path.join(places_d, pname + ".svg"), app_icon(g, pal, shape))
+            write(os.path.join(small_d, pname + ".svg"), small_place_icon(g, pal))
+            continue
+        g = glyph(spec) if spec else None
+        write(os.path.join(places_d, pname + ".svg"), folder_icon(g, pal, opened=pname == "folder-open"))
+        write(os.path.join(small_d, pname + ".svg"), small_place_icon(g or glyph("ms:folder_open" if pname == "folder-open" else "ms:folder"), pal))
+    chains, _ = link_chains(base_places)
+    aliases = dict(EXTRA_PLACE_ALIASES)
+    for alias, target in chains.items():
+        t = target[8:] if target.startswith("default-") else target
+        if t in PLACES and alias not in PLACES:
+            aliases.setdefault(alias, t)
+    for alias, t in aliases.items():
+        if alias not in PLACES and t in PLACES:
+            link(alias, t, places_d)
+            link(alias, t, small_d)
+
+    # file types: every name the base theme knows, grouped by (glyph, family)
+    base_mime = os.path.join(ICONS, inherits, "scalable", "mimetypes")
+    try:
+        mime_names = sorted({f[:-4] for f in os.listdir(base_mime) if f.endswith(".svg")})
+    except OSError:
+        mime_names = []
+    for extra in ("unknown", "text-x-generic", "application-x-executable", "image-x-generic", "video-x-generic",
+                  "audio-x-generic", "package-x-generic", "text-x-script", "font-x-generic", "x-office-document",
+                  "x-office-spreadsheet", "x-office-presentation", "application-pdf"):
+        if extra not in mime_names:
+            mime_names.append(extra)
+    made = {}
+    for m in mime_names:
+        low = m.lower()
+        gl, fam = MIME_DEFAULT
+        for pats, g_name, family in MIME_RULES:
+            if any(p in low for p in pats):
+                gl, fam = g_name, family
+                break
+        key = f"file-{gl}-{fam}"
+        if key not in made:
+            g = glyph("ms:" + gl) or glyph("ms:" + MIME_DEFAULT[0])
+            write(os.path.join(mime_d, key + ".svg"), file_icon(g, pal["file"][fam]))
+            made[key] = True
+        if m != key:
+            link(m, key, mime_d)
+
+    mirror_fallbacks(tmp, inherits)
+    subprocess.run(["gtk-update-icon-cache", "-f", "-q", tmp], capture_output=True, timeout=60)
+    # swap in place: the theme directory is never half-written
+    if os.path.lexists(out):
+        old = out + ".old"
+        if os.path.lexists(old):
+            shutil.rmtree(old)
+        os.rename(out, old)
+        os.rename(tmp, out)
+        shutil.rmtree(old)
+    else:
+        os.rename(tmp, out)
+    write_shape_json(shape)
+
+
+def main(argv):
+    cmd = argv[1] if len(argv) > 1 else ""
+    if cmd == "build" and len(argv) > 2:
+        args = argv[3:]
+        opt = {args[i]: args[i + 1] for i in range(0, len(args) - 1, 2)}
+        build(argv[2], opt["--name"], opt["--inherits"], json.loads(opt["--palette"]))
+    elif cmd == "shapes":
+        for n, v in SHAPES.items():
+            print(f"{n:11} {v[3]}")
+    elif cmd == "shape-json":
+        write_shape_json(current_shape())
+    elif cmd == "signature":
+        print(signature())
+    elif cmd == "apps":
+        for icon, (spec, did, name) in sorted(resolve_apps().items(), key=lambda kv: kv[1][2].lower()):
+            print(f"{name[:34]:34} {icon[:44]:44} {spec}")
+    else:
+        print(__doc__)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

@@ -1,0 +1,21 @@
+{
+    "KPackageStructure": "KWin/Script",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "DoodlebookOS"
+            }
+        ],
+        "Category": "Windows",
+        "Description": "Android desktop-mode window options in the window menu (title-bar ▾ and Alt+F3): fullscreen, split screen, floating, picture-in-picture",
+        "Description[fr]": "Options de fenêtre façon mode bureau Android dans le menu de fenêtre (▾ du titre et Alt+F3) : plein écran, écran partagé, flottant, image dans l'image",
+        "EnabledByDefault": false,
+        "Icon": "preferences-system-windows",
+        "Id": "doodlebookos_windowing",
+        "License": "GPL",
+        "Name": "DoodlebookOS desktop mode",
+        "Name[fr]": "Mode bureau DoodlebookOS"
+    },
+    "X-Plasma-API": "javascript",
+    "X-Plasma-MainScript": "code/main.js"
+}

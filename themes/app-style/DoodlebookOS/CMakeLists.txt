@@ -72,6 +72,7 @@ set(doodlebookos_PART_SRCS
     debug/widgetexplorer.cpp
     addeventfilter.cpp
     blurhelper.cpp
+    contentcorners.cpp
     frameshadow.cpp
     helper.cpp
     mdiwindowshadow.cpp

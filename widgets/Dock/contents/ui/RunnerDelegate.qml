@@ -17,8 +17,18 @@ Item {
 
     required property var model
     required property int index
+    property var listRoot: null            // RunnerList: owns the flat selection
 
-    readonly property bool isCurrent: ListView.isCurrentItem
+    readonly property bool isCurrent: listRoot ? listRoot.sel === listRoot.rowsStart + index : ListView.isCurrentItem
+    function select() { if (listRoot) listRoot.sel = listRoot.rowsStart + index; }
+    function hoverSelect() { if (listRoot) listRoot.hoverSelect(listRoot.rowsStart + index); }
+    function closeLauncher() {
+        if (typeof root !== "undefined" && root && typeof root.closeAnimated === "function") root.closeAnimated();
+    }
+    readonly property string groupFold: {
+        var g = (delegateRoot.model && delegateRoot.model.group) ? delegateRoot.model.group.toString() : "";
+        return g.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    }
     readonly property var actionsList: (typeof delegateRoot.model !== "undefined" && delegateRoot.model && delegateRoot.model.actionList) ? delegateRoot.model.actionList : []
 
     function resolveActionIcon(act) {
@@ -67,8 +77,8 @@ Item {
 
     readonly property bool isShellCommand: {
         if (!delegateRoot.model) return false;
-        var grp = (delegateRoot.model.group || "").toString().toLowerCase();
-        if (grp === "wiersz poleceń" || grp === "command line" || grp === "command") return true;
+        var grp = delegateRoot.groupFold;
+        if (grp === "wiersz polecen" || grp === "command line" || grp === "command" || grp === "ligne de commande" || grp === "commande") return true;
         if (delegateRoot.actionsList && delegateRoot.actionsList.length > 0) {
             for (var i = 0; i < delegateRoot.actionsList.length; i++) {
                 var act = delegateRoot.actionsList[i];
@@ -82,8 +92,7 @@ Item {
 
     readonly property bool isCalculator: {
         if (!delegateRoot.model) return false;
-        var grp = (delegateRoot.model.group || "").toString().toLowerCase();
-        return (grp === "kalkulator" || grp === "calculator");
+        return /^(calcul|kalkul|convers|convert|unit)/.test(delegateRoot.groupFold);
     }
 
     readonly property var filteredActionsList: {
@@ -130,12 +139,11 @@ Item {
         // 2. Calculator -> Trigger copy to clipboard and show OSD notification
         if (delegateRoot.isCalculator) {
             var res = (delegateRoot.model && delegateRoot.model.display) ? delegateRoot.model.display.toString() : "";
-            ListView.view.model.trigger(delegateRoot.index, "", null);
-            if (typeof searchListRoot !== "undefined" && searchListRoot && typeof searchListRoot.showOsdNotification === "function") {
-                searchListRoot.showOsdNotification("edit-copy", delegateRoot.i18n("Copied to clipboard: ") + res);
-            }
-            if (typeof root !== "undefined" && root && typeof root.closeAnimated === "function") {
-                root.closeAnimated();
+            if (delegateRoot.listRoot) {
+                delegateRoot.listRoot.copyText(res);     // stays open, shows a snackbar
+            } else {
+                ListView.view.model.trigger(delegateRoot.index, "", null);
+                delegateRoot.closeLauncher();
             }
             return;
         }
@@ -177,13 +185,14 @@ Item {
         anchors.rightMargin: 6
         anchors.topMargin: 2
         anchors.bottomMargin: 2
-        radius: 8
+        radius: rowTap.pressed ? 10 : 16
+        Behavior on radius { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
         color: {
             if (delegateRoot.isCurrent) {
                 return Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.22);
             }
             if (rowHoverHandler.hovered) {
-                return Qt.rgba(1, 1, 1, 0.08);
+                return Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08);
             }
             return "transparent";
         }
@@ -199,18 +208,13 @@ Item {
     HoverHandler {
         id: rowHoverHandler
         cursorShape: Qt.PointingHandCursor
-        onHoveredChanged: {
-            if (hovered && ListView.view) {
-                ListView.view.currentIndex = delegateRoot.index;
-            }
-        }
+        onHoveredChanged: if (hovered) delegateRoot.hoverSelect()
     }
 
     TapHandler {
+        id: rowTap
         onTapped: {
-            if (ListView.view) {
-                ListView.view.currentIndex = delegateRoot.index;
-            }
+            delegateRoot.select();
             delegateRoot.runPrimary();
         }
     }
@@ -302,7 +306,7 @@ Item {
 
                     background: Rectangle {
                         radius: 6
-                        color: actBtn.hovered ? Qt.rgba(1, 1, 1, 0.15) : "transparent"
+                        color: actBtn.hovered ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.15) : "transparent"
                     }
 
                     QQC2.ToolTip {
@@ -397,7 +401,7 @@ Item {
             Layout.alignment: Qt.AlignVCenter
             visible: !actionsRow.visible && badgeLabel.text.length > 0
             radius: 4
-            color: Qt.rgba(1, 1, 1, 0.08)
+            color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08)
             implicitWidth: badgeLabel.implicitWidth + 12
             implicitHeight: badgeLabel.implicitHeight + 6
 

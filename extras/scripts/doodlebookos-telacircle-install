@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Install the Tela-circle icon theme (vinceliuice, GPL-3.0) from a source checkout without running
+its shell installer (same steps as `install.sh standard`), plus the folder templates used by
+doodlebookos-materialyou to tint folders with the Material You colour.
+
+  doodlebookos-telacircle-install /path/to/Tela-circle-icon-theme  -> ~/.local/share/icons/Tela-circle{,-dark}
+  doodlebookos-telacircle-install --remove                          -> remove both themes and the templates
+
+Switch packs with: doodlebookos-icons tela-circle | colloid
+"""
+import os
+import re
+import shutil
+import subprocess
+import sys
+
+HOME = os.path.expanduser("~")
+ICONS = os.path.join(HOME, ".local", "share", "icons")
+TEMPLATES = os.path.join(HOME, ".local", "share", "doodlebookos", "icon-template-tela-circle")
+STD, DARK = "Tela-circle", "Tela-circle-dark"
+PLACEHOLDER = "#60c0f0"   # replaced by the wallpaper colour in doodlebookos-materialyou
+
+
+def copy(src, dst):
+    """Like `cp -r`: symlinks copied as links, existing files overwritten."""
+    if os.path.isdir(src) and not os.path.islink(src):
+        os.makedirs(dst, exist_ok=True)
+        for f in os.listdir(src):
+            copy(os.path.join(src, f), os.path.join(dst, f))
+    else:
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        if os.path.lexists(dst):
+            os.remove(dst)
+        shutil.copy2(src, dst, follow_symlinks=False)
+
+
+def read(p):
+    with open(p, encoding="utf-8", errors="surrogateescape") as h:
+        return h.read()
+
+
+def write(p, s):
+    with open(p, "w", encoding="utf-8", errors="surrogateescape") as h:
+        h.write(s)
+
+
+def recolor(dirs, old, new):
+    for d in dirs:
+        if not os.path.isdir(d):
+            continue
+        for f in os.listdir(d):
+            p = os.path.join(d, f)
+            if f.endswith(".svg") and os.path.isfile(p) and not os.path.islink(p):
+                s = read(p)
+                if old in s:
+                    write(p, s.replace(old, new))
+
+
+def index(src, theme_dir, name):
+    write(os.path.join(theme_dir, "index.theme"),
+          read(os.path.join(src, "src", "index.theme")).replace("%NAME%", name.replace("-", " ")))
+
+
+def scale_links(theme_dir):
+    for d in ("16", "22", "24", "32", "scalable"):
+        link = os.path.join(theme_dir, d + "@2x")
+        if not os.path.lexists(link):
+            os.symlink(d, link)
+
+
+def install_standard(src):
+    t = os.path.join(ICONS, STD)
+    os.makedirs(t)
+    index(src, t, STD)
+    for d in ("16", "22", "24", "32", "symbolic"):
+        copy(os.path.join(src, "src", d), os.path.join(t, d))
+    for d in ("apps", "devices", "mimetypes"):
+        copy(os.path.join(src, "src", "scalable", d), os.path.join(t, "scalable", d))
+    copy(os.path.join(src, "src", "scalable", "places-normal"), os.path.join(t, "scalable", "places"))
+    copy(os.path.join(src, "src", "scalable", "apps-colorscheme"), os.path.join(t, "scalable", "apps"))
+    for d in ("16", "22", "24", "32", "scalable", "symbolic"):
+        copy(os.path.join(src, "links", d), os.path.join(t, d))
+    scale_links(t)
+
+
+def install_dark(src):
+    t = os.path.join(ICONS, DARK)
+    os.makedirs(t)
+    index(src, t, DARK)
+    for s in ("16", "22", "24"):
+        for c in ("actions", "devices", "places"):
+            copy(os.path.join(src, "src", s, c), os.path.join(t, s, c))
+    copy(os.path.join(src, "src", "symbolic"), os.path.join(t, "symbolic"))
+    recolor([os.path.join(t, s, "actions") for s in ("16", "22", "24")], "#565656", "#aaaaaa")
+    recolor([os.path.join(t, s, c) for s in ("16", "22", "24") for c in ("places", "devices")], "#727272", "#aaaaaa")
+    recolor([os.path.join(t, "symbolic", c) for c in os.listdir(os.path.join(t, "symbolic"))], "#565656", "#aaaaaa")
+    for s in ("16", "22", "24"):
+        for c in ("actions", "devices", "places"):
+            copy(os.path.join(src, "links", s, c), os.path.join(t, s, c))
+    copy(os.path.join(src, "links", "symbolic"), os.path.join(t, "symbolic"))
+    os.symlink(os.path.join("..", STD, "scalable"), os.path.join(t, "scalable"))
+    os.symlink(os.path.join("..", STD, "32"), os.path.join(t, "32"))
+    for rel in ("16/apps", "16/panel", "16/status", "22/categories", "22/emblems", "22/panel",
+                "24/animations", "24/panel"):
+        os.symlink(os.path.join("..", "..", STD, rel), os.path.join(t, rel))
+    scale_links(t)
+
+
+def tint_svg(s, dark):
+    """Same edits as install.sh for a colour variant, with the placeholder colour."""
+    out = []
+    for line in s.splitlines(keepends=True):
+        if "ColorScheme-Highlight" in line:
+            line = line.replace("currentColor", PLACEHOLDER)
+        if "ColorScheme-Background" in line:
+            line = line.replace("currentColor", "#ffffff")
+        out.append(line)
+    s = "".join(out).replace("#5294e2", PLACEHOLDER).replace("#5294E2", PLACEHOLDER)
+    return s.replace("#727272", "#aaaaaa") if dark else s
+
+
+def add_tinted(src_dir, links_dir, dst, dark, pick):
+    """Copy the tintable icons of one directory (+ the aliases that end on them) into a template."""
+    os.makedirs(dst, exist_ok=True)
+    kept = set()
+    for f in os.listdir(src_dir):
+        p = os.path.join(src_dir, f)
+        if not f.endswith(".svg") or os.path.islink(p) or not os.path.isfile(p):
+            continue
+        s = read(p)
+        if pick(f, s):
+            write(os.path.join(dst, f), tint_svg(s, dark))
+            kept.add(f)
+    for f in os.listdir(links_dir) if os.path.isdir(links_dir) else []:
+        p = os.path.join(links_dir, f)
+        target, seen = f, 0
+        while os.path.islink(os.path.join(links_dir, target)) and seen < 8:
+            target, seen = os.path.basename(os.readlink(os.path.join(links_dir, target))), seen + 1
+        if os.path.islink(p) and target in kept:
+            copy(p, os.path.join(dst, f))
+
+
+def templates(src):
+    if os.path.isdir(TEMPLATES):
+        shutil.rmtree(TEMPLATES)
+    tintable = lambda f, s: "#5294e2" in s.lower() or "ColorScheme-Highlight" in s
+    for mode in ("light", "dark"):
+        t = os.path.join(TEMPLATES, mode)
+        dark = mode == "dark"
+        add_tinted(os.path.join(src, "src", "scalable", "places-normal"), os.path.join(src, "links", "scalable", "places"),
+                   os.path.join(t, "places", "scalable"), dark, tintable)
+        add_tinted(os.path.join(src, "src", "16", "places"), os.path.join(src, "links", "16", "places"),
+                   os.path.join(t, "places", "16"), dark, lambda f, s: f.startswith("folder") and "#5294e2" in s.lower())
+        add_tinted(os.path.join(src, "src", "scalable", "apps"), os.path.join(src, "links", "scalable", "apps"),
+                   os.path.join(t, "apps", "scalable"), dark, lambda f, s: "#5294e2" in s.lower())
+
+
+def install(src):
+    for name in (DARK, STD):
+        d = os.path.join(ICONS, name)
+        if os.path.lexists(d):
+            shutil.rmtree(d)
+    install_standard(src)
+    install_dark(src)
+    templates(src)
+    for name in (STD, DARK):
+        subprocess.run(["gtk-update-icon-cache", "-f", "-q", os.path.join(ICONS, name)], capture_output=True)
+    print(f"{STD}, {DARK} installés dans {ICONS}")
+
+
+def remove():
+    for d in (os.path.join(ICONS, DARK), os.path.join(ICONS, STD), TEMPLATES):
+        if os.path.isdir(d):
+            shutil.rmtree(d)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "--remove":
+        remove()
+    elif len(sys.argv) > 1 and os.path.isdir(os.path.join(sys.argv[1], "src", "scalable", "places-normal")):
+        install(os.path.abspath(sys.argv[1]))
+    else:
+        print(__doc__)
+        sys.exit(1)

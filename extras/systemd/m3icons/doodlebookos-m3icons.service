@@ -1,0 +1,10 @@
+[Unit]
+Description=DoodlebookOS: regenerate Material You icons for new applications
+
+[Service]
+Type=oneshot
+# let an installer finish writing its files; events meanwhile are folded into this run
+ExecStartPre=/usr/bin/sleep 3
+ExecStart=%h/.local/bin/doodlebookos-materialyou refresh-icons
+Nice=10
+IOSchedulingClass=idle

@@ -41,6 +41,7 @@ namespace DoodlebookOS
 {
 class Animations;
 class FrameShadowFactory;
+class ContentCorners;
 class Helper;
 class MdiWindowShadowFactory;
 class Mnemonics;
@@ -310,6 +311,7 @@ private:
     bool drawMenuBarItemControl(const QStyleOption *, QPainter *, const QWidget *) const;
     bool drawMenuItemControl(const QStyleOption *, QPainter *, const QWidget *) const;
     bool drawProgressBarControl(const QStyleOption *, QPainter *, const QWidget *) const;
+    bool drawItemViewItemControl(const QStyleOption *, QPainter *, const QWidget *) const;
     bool drawProgressBarContentsControl(const QStyleOption *, QPainter *, const QWidget *) const;
     bool drawProgressBarGrooveControl(const QStyleOption *, QPainter *, const QWidget *) const;
     bool drawProgressBarLabelControl(const QStyleOption *, QPainter *, const QWidget *) const;
@@ -501,6 +503,7 @@ private:
     std::unique_ptr<BlurHelper> _blurHelper;
     std::unique_ptr<WindowManager> _windowManager;
     std::unique_ptr<FrameShadowFactory> _frameShadowFactory;
+    std::unique_ptr<ContentCorners> _contentCorners;
     std::unique_ptr<MdiWindowShadowFactory> _mdiWindowShadowFactory;
     std::unique_ptr<SplitterFactory> _splitterFactory;
     std::unique_ptr<ToolsAreaManager> _toolsAreaManager;

@@ -1,0 +1,46 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+ * DoodlebookOS — libadwaita/GTK4 surfaces follow the KDE colour scheme (Material You included).
+ * Only references the colours kde-gtk-config writes into colors.css, so it updates by itself
+ * on every scheme change: nothing to regenerate, no runtime cost. */
+:root {
+  --accent-color: @theme_selected_bg_color_breeze;
+  --accent-bg-color: @theme_selected_bg_color_breeze;
+  --accent-fg-color: @theme_selected_fg_color_breeze;
+  --window-bg-color: @theme_bg_color_breeze;
+  --window-fg-color: @theme_fg_color_breeze;
+  --view-bg-color: @theme_base_color_breeze;
+  --view-fg-color: @theme_text_color_breeze;
+  --headerbar-bg-color: @theme_titlebar_background_breeze;
+  --headerbar-fg-color: @theme_fg_color_breeze;
+  --headerbar-backdrop-color: @theme_titlebar_background_breeze;
+  --sidebar-bg-color: @theme_bg_color_breeze;
+  --sidebar-fg-color: @theme_fg_color_breeze;
+  --sidebar-backdrop-color: @theme_bg_color_breeze;
+  --secondary-sidebar-bg-color: @theme_base_color_breeze;
+  --secondary-sidebar-fg-color: @theme_text_color_breeze;
+  --dialog-bg-color: @theme_bg_color_breeze;
+  --dialog-fg-color: @theme_fg_color_breeze;
+  --popover-bg-color: @theme_bg_color_breeze;
+  --popover-fg-color: @theme_fg_color_breeze;
+  --thumbnail-bg-color: @theme_bg_color_breeze;
+  --thumbnail-fg-color: @theme_fg_color_breeze;
+  --card-bg-color: alpha(@theme_fg_color_breeze, 0.06);
+  --card-fg-color: @theme_fg_color_breeze;
+}
+/* older libadwaita / plain GTK4 */
+@define-color accent_color @theme_selected_bg_color_breeze;
+@define-color accent_bg_color @theme_selected_bg_color_breeze;
+@define-color accent_fg_color @theme_selected_fg_color_breeze;
+@define-color window_bg_color @theme_bg_color_breeze;
+@define-color window_fg_color @theme_fg_color_breeze;
+@define-color view_bg_color @theme_base_color_breeze;
+@define-color view_fg_color @theme_text_color_breeze;
+@define-color headerbar_bg_color @theme_titlebar_background_breeze;
+@define-color headerbar_fg_color @theme_fg_color_breeze;
+@define-color popover_bg_color @theme_bg_color_breeze;
+@define-color dialog_bg_color @theme_bg_color_breeze;
+
+/* Material 3 shapes */
+button.pill, button.suggested-action, button.destructive-action { border-radius: 9999px; }
+popover > contents, popover.menu > contents { border-radius: 16px; }
+.card, list.boxed-list { border-radius: 16px; }

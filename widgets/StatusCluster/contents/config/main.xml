@@ -22,5 +22,33 @@
       <label>List of active Quick Settings tiles</label>
       <default>wifi,bluetooth,dark_mode,battery_saver,modes,mic,screenshot,quickshare</default>
     </entry>
+    <entry name="focusMode" type="Bool">
+      <label>Focus mode (Do not disturb, greyscale, hidden dock)</label>
+      <default>false</default>
+    </entry>
+    <entry name="gameMode" type="Bool">
+      <label>Game mode active (written by doodlebookos-gamemode)</label>
+      <default>false</default>
+    </entry>
+    <entry name="tileSound" type="Bool">
+      <label>Play a short click when a Quick Settings tile is tapped</label>
+      <default>true</default>
+    </entry>
+    <entry name="dndSchedule" type="Bool">
+      <label>Turn on Do not disturb every night</label>
+      <default>false</default>
+    </entry>
+    <entry name="dndStartMinutes" type="Int">
+      <label>Scheduled Do not disturb start (minutes after midnight)</label>
+      <default>1380</default>
+    </entry>
+    <entry name="dndEndMinutes" type="Int">
+      <label>Scheduled Do not disturb end (minutes after midnight)</label>
+      <default>420</default>
+    </entry>
+    <entry name="customTiles" type="String">
+      <label>User-defined Quick Settings tiles (JSON: id, name, icon, command)</label>
+      <default></default>
+    </entry>
   </group>
 </kcfg>

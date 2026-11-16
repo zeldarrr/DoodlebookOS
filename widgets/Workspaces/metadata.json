@@ -1,0 +1,14 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Category": "Windows and Tasks",
+        "Description": "Virtual desktops as Material 3 chips: number and open apps, click to switch, click the current one for the Overview",
+        "Icon": "virtual-desktops",
+        "Id": "org.doodlebookos.workspaces",
+        "License": "GPL-3.0-or-later",
+        "Name": "DoodlebookOS Workspaces",
+        "Version": "1.0.0",
+        "Website": "https://github.com/PanOptikuum/DoodlebookOS"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

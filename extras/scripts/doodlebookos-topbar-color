@@ -6,6 +6,10 @@ DoodlebookOS Top Bar Color Adapter
 Analyzes desktop wallpaper brightness under top bar widgets
 (DateTime on left, StatusCluster on right)
 and updates their contentColor configuration accordingly.
+
+Event-driven: doodlebookos-topbar.path runs "--check" when the applets config is written; the
+check compares a small cached key (wallpaper + its mtime + top bar widgets) and exits at once
+when nothing relevant changed. Colours already right are never rewritten (no write loops).
 """
 import sys
 import os
@@ -14,7 +18,6 @@ import shutil
 import subprocess
 from urllib.parse import unquote
 from pathlib import Path
-from PIL import Image
 
 def _resolve_wallpaper_file(raw_path: str) -> str:
     clean = unquote(raw_path.strip().replace("file://", ""))
@@ -59,7 +62,7 @@ def detect_wallpaper() -> str:
                 return str(cand)
     return ""
 
-def get_region_luminance(im: Image.Image, x0_pct: float, x1_pct: float, y0_pct: float, y1_pct: float) -> float:
+def get_region_luminance(im, x0_pct: float, x1_pct: float, y0_pct: float, y1_pct: float) -> float:
     w, h = im.size
     x0 = int(w * x0_pct)
     x1 = max(x0 + 1, int(w * x1_pct))
@@ -75,6 +78,19 @@ def get_region_luminance(im: Image.Image, x0_pct: float, x1_pct: float, y0_pct: 
     avg_b = sum(b[2::3]) / num_px
     return (0.299 * avg_r + 0.587 * avg_g + 0.114 * avg_b) / 255.0
 
+LEFT_PLUGINS = ("org.doodlebookos.datetime", "DoodlebookOS-DateTime", "org.doodlebookos.workspaces")
+RIGHT_PLUGINS = ("org.doodlebookos.statuscluster", "DoodlebookOS-StatusCluster", "org.doodlebookos.devices")
+
+def _current(content: str, cid: str, aid: str, group: str) -> str:
+    hdr = f"[Containments][{cid}][Applets][{aid}][Configuration][{group}]\n"
+    i = content.find(hdr)
+    if i < 0:
+        return ""
+    body = content[i + len(hdr):]
+    j = body.find("\n[")
+    m = re.search(r'^contentColor=(.*)$', body if j < 0 else body[:j], re.MULTILINE)
+    return m.group(1).strip() if m else ""
+
 def update_topbar_colors(wp_path: str = None):
     if wp_path:
         wp_path = _resolve_wallpaper_file(wp_path) or wp_path
@@ -83,8 +99,10 @@ def update_topbar_colors(wp_path: str = None):
     if not wp_path or not os.path.isfile(wp_path):
         return
 
+    from PIL import Image   # imported only when a wallpaper really has to be analysed
     try:
         im = Image.open(wp_path)
+        im.draft("RGB", (max(1, im.size[0] // 8), max(1, im.size[1] // 8)))   # JPEG: decode at 1/8 scale
     except Exception as e:
         print(f"[doodlebookos-topbar-color] Cannot open wallpaper {wp_path}: {e}")
         return
@@ -122,10 +140,15 @@ def update_topbar_colors(wp_path: str = None):
         if not pm:
             continue
         plugin = pm.group(1).strip()
-        if plugin in ("org.doodlebookos.datetime", "DoodlebookOS-DateTime"):
-            clock_targets.append((cid, aid))
-        elif plugin in ("org.doodlebookos.statuscluster", "DoodlebookOS-StatusCluster"):
-            cluster_targets.append((cid, aid))
+        if plugin in LEFT_PLUGINS:
+            if _current(content, cid, aid, "Appearance") != color_left:
+                clock_targets.append((cid, aid))
+        elif plugin in RIGHT_PLUGINS:
+            if _current(content, cid, aid, "General") != color_right:
+                cluster_targets.append((cid, aid))
+
+    if not clock_targets and not cluster_targets:
+        return   # already right: no write, so no new config change event
 
     for cid, aid in clock_targets:
         subprocess.run(["kwriteconfig6", "--file", "plasma-org.kde.plasma.desktop-appletsrc",
@@ -140,6 +163,7 @@ def update_topbar_colors(wp_path: str = None):
                        check=False)
 
     # Also force immediate in-memory refresh of all top bar applets via PlasmaShell evaluateScript
+    js_left, js_right = repr(list(LEFT_PLUGINS)), repr(list(RIGHT_PLUGINS))
     js_script = f"""
     var allPanels = panels();
     for (var i = 0; i < allPanels.length; ++i) {{
@@ -147,10 +171,10 @@ def update_topbar_colors(wp_path: str = None):
         var ws = p.widgets();
         for (var j = 0; j < ws.length; ++j) {{
             var w = ws[j];
-            if (w.type === "org.doodlebookos.datetime" || w.type === "DoodlebookOS-DateTime") {{
+            if ({js_left}.indexOf(w.type) >= 0) {{
                 w.currentConfigGroup = ["Appearance"];
                 w.writeConfig("contentColor", "{color_left}");
-            }} else if (w.type === "org.doodlebookos.statuscluster" || w.type === "DoodlebookOS-StatusCluster") {{
+            }} else if ({js_right}.indexOf(w.type) >= 0) {{
                 w.currentConfigGroup = ["General"];
                 w.writeConfig("contentColor", "{color_right}");
             }}
@@ -168,57 +192,45 @@ def update_topbar_colors(wp_path: str = None):
 
     print(f"[doodlebookos-topbar-color] lum_left={lum_left:.2f} ({color_left}), lum_right={lum_right:.2f} ({color_right})")
 
-def run_daemon():
-    import time
+def check():
+    """Cheap entry point for the .path unit: works only when the wallpaper or the top bar changed."""
     appletsrc_path = Path.home() / ".config" / "plasma-org.kde.plasma.desktop-appletsrc"
-    last_mtime = 0
-    last_wp = ""
-    last_targets_count = 0
-
-    def _count_topbar_applets() -> int:
-        if not appletsrc_path.exists():
-            return 0
-        try:
-            txt = appletsrc_path.read_text(encoding="utf-8", errors="ignore")
-            return len(re.findall(r'plugin=(?:org\.doodlebookos\.datetime|DoodlebookOS-DateTime|org\.doodlebookos\.statuscluster|DoodlebookOS-StatusCluster)\b', txt))
-        except Exception:
-            return 0
-
-    # Initial run
-    update_topbar_colors()
-    last_wp = detect_wallpaper()
-    last_targets_count = _count_topbar_applets()
-    if appletsrc_path.exists():
-        try:
-            last_mtime = appletsrc_path.stat().st_mtime
-        except Exception:
-            pass
-
-    print("[doodlebookos-topbar-color] Daemon started, monitoring wallpaper changes...")
-    while True:
-        try:
-            time.sleep(1.5)
-            if not appletsrc_path.exists():
-                continue
-            cur_mtime = appletsrc_path.stat().st_mtime
-            if cur_mtime != last_mtime:
-                last_mtime = cur_mtime
-                cur_wp = detect_wallpaper()
-                cur_targets_count = _count_topbar_applets()
-                if cur_wp and (cur_wp != last_wp or cur_targets_count != last_targets_count):
-                    last_wp = cur_wp
-                    last_targets_count = cur_targets_count
-                    update_topbar_colors(cur_wp)
-                    if appletsrc_path.exists():
-                        last_mtime = appletsrc_path.stat().st_mtime
-        except KeyboardInterrupt:
-            break
-        except Exception:
-            time.sleep(3.0)
+    cache = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "doodlebookos" / "topbar-color.state"
+    try:
+        txt = appletsrc_path.read_text(encoding="utf-8", errors="ignore")
+    except Exception:
+        return
+    wp = detect_wallpaper()
+    try:
+        wp_mtime = os.stat(wp).st_mtime_ns if wp else 0
+    except OSError:
+        wp_mtime = 0
+    names = "|".join(re.escape(n) for n in LEFT_PLUGINS + RIGHT_PLUGINS)
+    targets = len(re.findall(rf'^plugin=(?:{names})$', txt, re.MULTILINE))
+    key = f"{wp}\t{wp_mtime}\t{targets}"
+    try:
+        old = cache.read_text()
+    except Exception:
+        old = ""
+    if old == key:
+        return
+    update_topbar_colors(wp or None)
+    if wp and old.split("\t", 1)[0] != wp:
+        # Material You: regenerate the colour scheme from the new wallpaper (no-op when disabled)
+        my_exe = Path.home() / ".local" / "bin" / "doodlebookos-materialyou"
+        if my_exe.exists():
+            # waited for: a oneshot unit's leftover processes are stopped when it finishes
+            subprocess.run([str(my_exe), "auto"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                           timeout=180, check=False)
+    try:
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        cache.write_text(key)
+    except Exception:
+        pass
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] in ("--daemon", "-d"):
-        run_daemon()
+    if len(sys.argv) > 1 and sys.argv[1] in ("--check", "--daemon", "-d"):
+        check()
     else:
         wp = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("-") else None
         update_topbar_colors(wp)

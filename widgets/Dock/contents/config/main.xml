@@ -23,7 +23,7 @@
     </entry>
     <entry name="popupWidth" type="Int">
       <label>Width of the launcher dialog popup.</label>
-      <default>680</default>
+      <default>600</default>
     </entry>
     <entry name="numberColumns" type="Int">
       <label>Number of columns in the launcher app grid.</label>
@@ -72,6 +72,63 @@
     <entry name="favoritesPortedToKAstats" type="Bool">
       <label>Whether favorites were migrated.</label>
       <default>false</default>
+    </entry>
+    <entry name="phoneHubTiles" type="String">
+      <label>Phone Hub quick action tiles (comma separated ids)</label>
+      <default>ring,files,send_file,clipboard</default>
+    </entry>
+    <entry name="phoneHubDevice" type="String">
+      <label>KDE Connect device id shown in the Phone Hub (empty = first reachable)</label>
+      <default></default>
+    </entry>
+    <entry name="themedIcons" type="Bool">
+      <label>Tint dock icons with the Material You accent (Android themed icons)</label>
+      <default>false</default>
+    </entry>
+    <entry name="phoneHubPhotos" type="Bool">
+      <label>Show the phone's recent photos in the Phone Hub (mounts the phone over SFTP)</label>
+      <default>false</default>
+    </entry>
+    <entry name="launcherFolders" type="String">
+      <label>Launcher folders (JSON: [{id, name, apps: [storageId]}])</label>
+      <default>[]</default>
+    </entry>
+    <entry name="launcherFullscreen" type="Bool">
+      <label>Full-screen, paged launcher</label>
+      <default>false</default>
+    </entry>
+    <entry name="showLauncherButton" type="Bool">
+      <default>true</default>
+    </entry>
+    <entry name="showPhoneHub" type="Bool">
+      <default>true</default>
+    </entry>
+    <entry name="showSeparator" type="Bool">
+      <default>true</default>
+    </entry>
+    <entry name="dockIconScale" type="Int">
+      <default>100</default>
+    </entry>
+    <entry name="dockSpacing" type="Int">
+      <default>100</default>
+    </entry>
+    <entry name="launcherIconSize" type="Int">
+      <default>44</default>
+    </entry>
+    <entry name="launcherRowHeight" type="Int">
+      <default>90</default>
+    </entry>
+    <entry name="launcherHeight" type="Int">
+      <default>62</default>
+    </entry>
+    <entry name="launcherPadding" type="Int">
+      <default>16</default>
+    </entry>
+    <entry name="showRecentFiles" type="Bool">
+      <default>true</default>
+    </entry>
+    <entry name="showCategories" type="Bool">
+      <default>true</default>
     </entry>
   </group>
 </kcfg>

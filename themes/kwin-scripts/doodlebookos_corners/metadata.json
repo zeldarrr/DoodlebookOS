@@ -1,0 +1,17 @@
+{
+    "KPackageStructure": "KWin/Script",
+    "KPlugin": {
+        "Authors": [ { "Name": "DoodlebookOS" } ],
+        "Category": "Appearance",
+        "Description": "Rounded screen corners like a phone; removed while a window is fullscreen so games keep direct scan-out",
+        "Description[fr]": "Coins d'écran arrondis comme un téléphone ; retirés quand une fenêtre est en plein écran pour garder l'affichage direct des jeux",
+        "EnabledByDefault": false,
+        "Icon": "preferences-desktop-display",
+        "Id": "doodlebookos_corners",
+        "License": "GPL",
+        "Name": "DoodlebookOS screen corners",
+        "Name[fr]": "Coins d'écran DoodlebookOS"
+    },
+    "X-Plasma-API": "declarativescript",
+    "X-Plasma-MainScript": "ui/roundcorners.qml"
+}

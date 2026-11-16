@@ -1,0 +1,12 @@
+[Unit]
+Description=DoodlebookOS Top Bar Color: watch the wallpaper / top bar configuration
+After=plasma-plasmashell.service
+PartOf=graphical-session.target
+Wants=doodlebookos-topbar.service
+
+[Path]
+PathChanged=%h/.config/plasma-org.kde.plasma.desktop-appletsrc
+Unit=doodlebookos-topbar.service
+
+[Install]
+WantedBy=graphical-session.target

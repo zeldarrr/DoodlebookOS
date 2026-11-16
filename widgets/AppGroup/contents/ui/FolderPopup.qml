@@ -71,17 +71,18 @@ QQC2.Popup {
         folderPopup.rootApplet.addingMode = false;
     }
 
+    // Material 3 "emphasized" container motion
     enter: Transition {
         ParallelAnimation {
-            NumberAnimation { property: "opacity"; from: 0.0; to: 1.0; duration: 140; easing.type: Easing.OutQuad }
-            NumberAnimation { property: "scale"; from: 0.85; to: 1.0; duration: 160; easing.type: Easing.OutBack }
+            NumberAnimation { property: "opacity"; from: 0.0; to: 1.0; duration: 180; easing.type: Easing.OutCubic }
+            NumberAnimation { property: "scale"; from: 0.8; to: 1.0; duration: 400; easing.type: Easing.OutQuart }
         }
     }
 
     exit: Transition {
         ParallelAnimation {
-            NumberAnimation { property: "opacity"; from: 1.0; to: 0.0; duration: 110; easing.type: Easing.InQuad }
-            NumberAnimation { property: "scale"; from: 1.0; to: 0.88; duration: 110; easing.type: Easing.InQuad }
+            NumberAnimation { property: "opacity"; from: 1.0; to: 0.0; duration: 150; easing.type: Easing.InCubic }
+            NumberAnimation { property: "scale"; from: 1.0; to: 0.9; duration: 200; easing.type: Easing.InQuart }
         }
     }
 

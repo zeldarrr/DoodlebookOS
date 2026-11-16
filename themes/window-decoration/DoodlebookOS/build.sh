@@ -28,7 +28,10 @@ echo "[i] Installing DoodlebookOS Window Decoration..."
 for libdir in lib64 lib; do
     mkdir -p "$HOME/.local/${libdir}/plugins/org.kde.kdecoration3"
     mkdir -p "$HOME/.local/${libdir}/qt6/plugins/org.kde.kdecoration3"
-    cp -f "$SO_FILE" "$HOME/.local/${libdir}/plugins/org.kde.kdecoration3/org.doodlebookos.decoration.so"
+    # never overwrite a loaded plugin in place: every running Qt app / KWin has it mapped and
+    # crashes (SIGSEGV) when its pages change. Copy next to it, then rename atomically.
+    dest="$HOME/.local/${libdir}/plugins/org.kde.kdecoration3/org.doodlebookos.decoration.so"
+    cp -f "$SO_FILE" "$dest.new.$$" && mv -f "$dest.new.$$" "$dest"
     ln -sf "$HOME/.local/${libdir}/plugins/org.kde.kdecoration3/org.doodlebookos.decoration.so" \
            "$HOME/.local/${libdir}/qt6/plugins/org.kde.kdecoration3/org.doodlebookos.decoration.so"
 done

@@ -1,0 +1,14 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [ { "Name": "DoodlebookOS" } ],
+        "Category": "Date and Time",
+        "Description": "Horloge Material You expressive (heure et date)",
+        "Icon": "preferences-system-time",
+        "Id": "org.doodlebookos.m3clock",
+        "License": "GPL-3.0-or-later",
+        "Name": "DoodlebookOS Horloge",
+        "Version": "1.0.0"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

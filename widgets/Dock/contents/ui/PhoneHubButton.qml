@@ -29,8 +29,9 @@ Item {
     readonly property real capsuleTopMargin: snap(effectiveBase * 0.12)
     readonly property real iconSize: snap(effectiveBase * 0.37)
 
-    implicitWidth: phoneHubBtn.isVertical ? phoneHubBtn.buttonHeight : phoneHubBtn.capsuleWidth
-    implicitHeight: phoneHubBtn.isVertical ? phoneHubBtn.capsuleWidth : phoneHubBtn.buttonHeight
+    readonly property bool shaped: appIndex.shapeName !== "circle" && appIndex.shapePath.length > 0
+    implicitWidth: phoneHubBtn.isVertical ? phoneHubBtn.buttonHeight : (phoneHubBtn.shaped ? phoneHubBtn.buttonHeight * 0.92 : phoneHubBtn.capsuleWidth)
+    implicitHeight: phoneHubBtn.isVertical ? (phoneHubBtn.shaped ? phoneHubBtn.buttonHeight * 0.92 : phoneHubBtn.capsuleWidth) : phoneHubBtn.buttonHeight
     width: phoneHubBtn.implicitWidth
     height: phoneHubBtn.implicitHeight
     Layout.preferredWidth: phoneHubBtn.implicitWidth
@@ -41,19 +42,21 @@ Item {
 
     Rectangle {
         id: capsuleBg
-        y: phoneHubBtn.capsuleTopMargin
+        y: phoneHubBtn.shaped ? (phoneHubBtn.height - height) / 2 : phoneHubBtn.capsuleTopMargin
         anchors.horizontalCenter: parent.horizontalCenter
-        width: phoneHubBtn.isVertical ? phoneHubBtn.capsuleHeight : phoneHubBtn.capsuleWidth
-        height: phoneHubBtn.isVertical ? phoneHubBtn.capsuleWidth : phoneHubBtn.capsuleHeight
+        width: phoneHubBtn.shaped ? phoneHubBtn.capsuleHeight * 1.08 : (phoneHubBtn.isVertical ? phoneHubBtn.capsuleHeight : phoneHubBtn.capsuleWidth)
+        height: phoneHubBtn.shaped ? phoneHubBtn.capsuleHeight * 1.08 : (phoneHubBtn.isVertical ? phoneHubBtn.capsuleWidth : phoneHubBtn.capsuleHeight)
         radius: (phoneHubBtn.isVertical ? phoneHubBtn.capsuleWidth : phoneHubBtn.capsuleHeight) / 2
 
         Kirigami.Theme.colorSet: Kirigami.Theme.Header
         Kirigami.Theme.inherit: false
-        readonly property color baseColor: Kirigami.Theme.backgroundColor
+        // same tonal colours as the Material You app icons when they are generated
+        readonly property color baseColor: appIndex.hasIconColors ? appIndex.iconBg : Kirigami.Theme.backgroundColor
+        readonly property color baseIconColor: appIndex.hasIconColors ? appIndex.iconFg : Kirigami.Theme.textColor
         readonly property color activeColor: Kirigami.Theme.highlightColor
         readonly property color activeIconColor: Kirigami.Theme.highlightedTextColor
 
-        color: {
+        property color fillColor: {
             if (phoneHubBtn.active) {
                 return mouseArea.pressed ? Qt.darker(activeColor, 1.1) : activeColor;
             }
@@ -66,16 +69,28 @@ Item {
             return baseColor;
         }
 
+        color: phoneHubBtn.shaped ? "transparent" : fillColor
         border.color: {
             if (phoneHubBtn.active) {
                 return activeColor;
             }
             return phoneHubBtn.isDarkTheme ? Qt.rgba(1, 1, 1, 0.06) : Qt.rgba(0, 0, 0, 0.04);
         }
-        border.width: 1
+        border.width: phoneHubBtn.shaped ? 0 : 1
 
-        Behavior on color {
+        Behavior on fillColor {
             ColorAnimation { duration: 150; easing.type: Easing.OutCubic }
+        }
+
+        ShapeBackground {
+            anchors.fill: parent
+            visible: phoneHubBtn.shaped
+            pathData: appIndex.shapePath
+            turn: appIndex.shapeTurn
+            color: capsuleBg.fillColor
+            hovered: mouseArea.containsMouse
+            scale: mouseArea.pressed ? 0.9 : 1
+            Behavior on scale { SpringAnimation { spring: 4; damping: 0.3; epsilon: 0.005 } }
         }
 
         Kirigami.Icon {
@@ -85,7 +100,7 @@ Item {
             height: phoneHubBtn.iconSize
             source: Qt.resolvedUrl("icons/phone_hub.svg")
             isMask: true
-            color: phoneHubBtn.active ? capsuleBg.activeIconColor : Kirigami.Theme.textColor
+            color: phoneHubBtn.active ? capsuleBg.activeIconColor : capsuleBg.baseIconColor
             roundToIconSize: false
 
             Behavior on scale {

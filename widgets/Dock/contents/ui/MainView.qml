@@ -5,6 +5,7 @@
  */
 
 import QtQuick
+import org.kde.plasma.plasmoid
 import QtQuick.Layouts
 import QtQuick.Controls
 import org.kde.kirigami as Kirigami
@@ -12,6 +13,9 @@ import org.kde.kirigami as Kirigami
 Item {
   id: main
   property bool searching: (searchBar.textField.text != "")
+  // typed text, immediately (KRunner gets it debounced, see SearchBar)
+  readonly property string searchText: searchBar.textField.text
+  property string category: "all"
 
   readonly property var plasmoidConfig: (typeof root !== "undefined" && root && root.plasmoidConfiguration) ? root.plasmoidConfiguration : (typeof Plasmoid !== "undefined" ? Plasmoid.configuration : null)
   readonly property bool usePlasmaTheme: Boolean(!plasmoidConfig || plasmoidConfig.usePlasmaTheme !== false)
@@ -27,18 +31,18 @@ Item {
   property color contrastBgColor: isDarkTheme ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(0, 0, 0, 0.06)
 
   property alias searchBar: searchBar
-  property int itemSpacing: 8
+  property alias chips: chips
+  property alias bottomBar: bottomBar
+  readonly property Item stackItem: stack.currentItem
+  property int itemSpacing: 6
 
   function reset(){
     if (searchBar.textField.text !== "") {
       searchBar.textField.clear();
     }
+    category = "all";
     searchBar.textField.forceActiveFocus();
-    if (!stack.currentItem || !stack.currentItem.isCombinedAppsView) {
-      stack.replace(pinnedAppsComponent, StackView.Immediate);
-    } else if (stack.currentItem.viewItem) {
-      stack.currentItem.viewItem.positionViewAtBeginning();
-    }
+    if (appsPage.viewItem) appsPage.viewItem.positionViewAtBeginning();
   }
 
   function setQuery(queryText) {
@@ -49,92 +53,124 @@ Item {
   }
 
   function findAppByNamePrefix(prefix) {
-    if (!prefix || prefix.length === 0) return "";
-    var lowerPrefix = prefix.toLowerCase().trim();
+    var res = appIndex.search(prefix, 1);
+    return res.length && res[0].key.indexOf(appIndex.fold(prefix).trim()) === 0 ? res[0].name : "";
+  }
 
-    if (typeof globalFavorites !== "undefined" && globalFavorites && globalFavorites.count) {
-      for (var f = 0; f < globalFavorites.count; f++) {
-        var favIdx = globalFavorites.index(f, 0);
-        var favName = (globalFavorites.data(favIdx, Qt.DisplayRole) || "").toString();
-        if (favName.toLowerCase().indexOf(lowerPrefix) === 0) {
-          return favName;
-        }
-      }
-    }
+  // Tab / Shift+Tab: search -> categories -> apps -> bottom bar
+  function focusZone(dir) {
+    var zones = [searchBar.textField];
+    if (chips.visible) zones.push(chips);
+    if (stack.currentItem && stack.currentItem.viewItem) zones.push(stack.currentItem.viewItem);
+    zones.push(bottomBar);
+    var cur = 0;
+    for (var i = 0; i < zones.length; i++) if (zones[i].activeFocus) cur = i;
+    var next = zones[(cur + dir + zones.length) % zones.length];
+    if (next === bottomBar) bottomBar.focusFirst();
+    else next.forceActiveFocus(dir > 0 ? Qt.TabFocusReason : Qt.BacktabFocusReason);
+  }
 
-    if (typeof rootModel !== "undefined" && rootModel && rootModel.count > 2) {
-      var allAppsModel = rootModel.modelForRow(2);
-      if (allAppsModel && allAppsModel.count) {
-        for (var a = 0; a < allAppsModel.count; a++) {
-          var appIdx = allAppsModel.index(a, 0);
-          var appName = (allAppsModel.data(appIdx, Qt.DisplayRole) || "").toString();
-          if (appName.toLowerCase().indexOf(lowerPrefix) === 0) {
-            return appName;
-          }
-        }
-      }
+  function launchPinned(n) {
+    var fav = kicker.globalFavorites;
+    if (fav && n < fav.count) {
+      fav.trigger(n, "", null);
+      root.closeAfterLaunch();
     }
-    return "";
+  }
+
+  Keys.onPressed: event => {
+    var ctrl = event.modifiers & Qt.ControlModifier;
+    if (ctrl && event.key >= Qt.Key_1 && event.key <= Qt.Key_9) {
+      launchPinned(event.key - Qt.Key_1);
+      event.accepted = true;
+    } else if (ctrl && (event.key === Qt.Key_Left || event.key === Qt.Key_Right) && !searching) {
+      chips.step(event.key === Qt.Key_Left ? -1 : 1);
+      event.accepted = true;
+    } else if (ctrl && event.key === Qt.Key_E) {
+      root.editMode = !root.editMode;
+      event.accepted = true;
+    } else if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
+      focusZone(event.key === Qt.Key_Backtab || (event.modifiers & Qt.ShiftModifier) ? -1 : 1);
+      event.accepted = true;
+    } else if (event.key === Qt.Key_Escape) {
+      if (!root.handleEscape()) root.closeAnimated();
+      event.accepted = true;
+    }
   }
 
   ColumnLayout {
     anchors.fill: parent
     spacing: itemSpacing
 
-    // Search Bar
     SearchBar {
       id: searchBar
-      Layout.fillWidth: true
+      Layout.fillWidth: !root.fullscreen
+      Layout.preferredWidth: root.fullscreen ? Math.min(720, main.width) : -1
       Layout.preferredHeight: 50
       Layout.maximumHeight: Layout.preferredHeight
-      Layout.alignment: Qt.AlignTop
-      Layout.topMargin: 20
-      Layout.bottomMargin: 8
+      Layout.alignment: Qt.AlignTop | Qt.AlignHCenter
+      Layout.topMargin: root.fullscreen ? 8 : 4
+      Layout.bottomMargin: 2
       Keys.priority: Keys.AfterItem
-      Keys.forwardTo: stack.currentItem.viewItem
+      Keys.forwardTo: stack.currentItem ? stack.currentItem.viewItem : null
     }
 
-    StackView {
+    CategoryChips {
+      id: chips
+      visible: !main.searching && Plasmoid.configuration.showCategories !== false
+      Layout.fillWidth: !root.fullscreen
+      Layout.preferredWidth: root.fullscreen ? Math.min(contentWidth, main.width) : -1
+      Layout.alignment: Qt.AlignHCenter
+      Layout.preferredHeight: 36
+      Layout.bottomMargin: 4
+      current: main.category
+      onPicked: (key) => {
+        main.category = key;
+        if (stack.currentItem && stack.currentItem.viewItem) stack.currentItem.viewItem.positionViewAtBeginning();
+      }
+    }
+
+    // Both pages stay alive: switching between apps and results no longer rebuilds the whole
+    // app grid (or the results list) on the first / last keystroke.
+    Item {
       id: stack
-      initialItem: pinnedAppsComponent
       Layout.fillWidth: true
       Layout.fillHeight: true
       Layout.minimumHeight: 100
-      replaceEnter: null
-      replaceExit: null
-      pushEnter: null
-      pushExit: null
-      popEnter: null
-      popExit: null
+      readonly property Item currentItem: main.searching ? searchLoader.item : appsPage
       Keys.priority: Keys.AfterItem
       Keys.forwardTo: searchBar.textField
-    }
 
-    Component {
-      id: pinnedAppsComponent
       CombinedAppsView {
-        id: pinnedApps
+        id: appsPage
+        visible: !main.searching
       }
+      Loader {
+        id: searchLoader
+        anchors.fill: parent
+        active: true             // built once in the background at startup, then kept
+        asynchronous: true
+        visible: main.searching
+        sourceComponent: RunnerList {
+          model: runnerModel.count ? runnerModel.modelForRow(0) : null
+        }
+      }
+      NumberAnimation { id: pageFade; property: "opacity"; from: 0.35; to: 1; duration: 110; easing.type: Easing.OutCubic }
     }
 
-    Component {
-      id: searchComponent
-      RunnerList {
-        id: runnerList
-        model: runnerModel.count ? runnerModel.modelForRow(0) : null
-      }
+    SessionBar {
+      id: bottomBar
+      Layout.fillWidth: true
+      Layout.preferredHeight: 52
     }
-
   }
 
   onSearchingChanged: {
     if (typeof root !== "undefined" && root && root.launcherContextMenu && root.launcherContextMenu.visible) {
       root.launcherContextMenu.close();
     }
-    if (searching) {
-      stack.replace(searchComponent, StackView.Immediate);
-    } else { 
-      stack.replace(pinnedAppsComponent, StackView.Immediate);
-    }
+    if (searching) searchLoader.active = true;
+    pageFade.target = searching ? searchLoader : appsPage;
+    pageFade.restart();
   }
 }

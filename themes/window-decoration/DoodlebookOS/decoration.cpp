@@ -127,6 +127,8 @@ static int g_sDecoCount = 0;
 static int g_shadowSizeEnum = InternalSettings::ShadowLarge;
 static int g_shadowStrength = 255;
 static QColor g_shadowColor = Qt::black;
+static int g_shadowOpacity = 100;
+static int g_shadowSpread = 100;
 static std::shared_ptr<KDecoration3::DecorationShadow> g_sShadow;
 static std::shared_ptr<KDecoration3::DecorationShadow> g_sShadowInactive;
 
@@ -136,7 +138,15 @@ Decoration::Decoration(QObject *parent, const QVariantList &args)
     , m_animation(new QVariantAnimation(this))
     , m_shadowAnimation(new QVariantAnimation(this))
     , m_arrowAnimation(new QVariantAnimation(this))
+    , m_radiusAnimation(new QVariantAnimation(this))
 {
+    m_radiusAnimation->setEasingCurve(QEasingCurve::OutCubic);
+    connect(m_radiusAnimation, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
+        m_radiusFactor = value.toReal();
+        applyBorderRadius();
+        update();
+    });
+
     g_sDecoCount++;
 
     m_arrowAnimation->setStartValue(0.0);
@@ -176,13 +186,34 @@ void Decoration::setOpacity(qreal value)
 //________________________________________________________________
 QColor Decoration::titleBarColor() const
 {
+    // one flat surface, identical for active and inactive windows: the colour scheme gives the
+    // title bar the same colour as the app's header/toolbar and window body (only the title text
+    // fades on deactivation, see fontColor())
     return window()->color(ColorGroup::Active, ColorRole::TitleBar);
 }
 
 //________________________________________________________________
 QColor Decoration::fontColor() const
 {
-    return window()->color(ColorGroup::Active, ColorRole::Foreground);
+    const QColor fg = window()->color(ColorGroup::Active, ColorRole::Foreground);
+    const QColor base = window()->color(ColorGroup::Active, ColorRole::TitleBar);
+    return KColorUtils::mix(KColorUtils::mix(fg, base, 0.45), fg, m_opacity);
+}
+
+//________________________________________________________________
+bool Decoration::isDarkTitleBar() const
+{
+    return qGray(window()->color(ColorGroup::Active, ColorRole::TitleBar).rgb()) < 128;
+}
+
+QColor Decoration::errorColor() const
+{
+    return isDarkTitleBar() ? QColor(0xff, 0xb4, 0xab) : QColor(0xba, 0x1a, 0x1a);
+}
+
+QColor Decoration::onErrorColor() const
+{
+    return isDarkTitleBar() ? QColor(0x69, 0x00, 0x05) : QColor(Qt::white);
 }
 
 //________________________________________________________________
@@ -192,8 +223,7 @@ bool Decoration::init()
     // It is important start and end value are of the same type, hence 0.0 and not just 0
     m_animation->setStartValue(0.0);
     m_animation->setEndValue(1.0);
-    // Linear to have the same easing as Breeze animations
-    m_animation->setEasingCurve(QEasingCurve::Linear);
+    m_animation->setEasingCurve(QEasingCurve::OutCubic);
     connect(m_animation, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         setOpacity(value.toReal());
     });
@@ -215,7 +245,10 @@ bool Decoration::init()
                  this,
                  SLOT(reconfigure()));
 
+    m_opacity = window()->isActive() ? 1.0 : 0.0;
     reconfigure();
+    m_radiusFactor = wantsSquareCorners() ? 0.0 : 1.0;
+    applyBorderRadius();
     updateTitleBar();
     auto s = settings();
     connect(s.get(), &KDecoration3::DecorationSettings::borderSizeChanged, this, &Decoration::recalculateBorders);
@@ -251,6 +284,8 @@ bool Decoration::init()
     connect(window(), &KDecoration3::DecoratedWindow::widthChanged, this, &Decoration::updateTitleBar);
     connect(window(), &KDecoration3::DecoratedWindow::maximizedChanged, this, &Decoration::updateTitleBar);
     connect(window(), &KDecoration3::DecoratedWindow::maximizedChanged, this, &Decoration::setOpaque);
+    connect(window(), &KDecoration3::DecoratedWindow::maximizedChanged, this, &Decoration::updateRadiusAnimation);
+    connect(window(), &KDecoration3::DecoratedWindow::adjacentScreenEdgesChanged, this, &Decoration::updateRadiusAnimation);
 
     connect(window(), &KDecoration3::DecoratedWindow::widthChanged, this, &Decoration::updateButtonsGeometry);
     connect(window(), &KDecoration3::DecoratedWindow::maximizedChanged, this, &Decoration::updateButtonsGeometry);
@@ -293,8 +328,36 @@ void Decoration::updateAnimationState()
         }
 
     } else {
-        update();
+        setOpacity(window()->isActive() ? 1.0 : 0.0);
     }
+}
+
+//________________________________________________________________
+bool Decoration::wantsSquareCorners() const
+{
+    return isMaximized() || isTopEdge() || isLeftEdge() || isBottomEdge() || isRightEdge();
+}
+
+//________________________________________________________________
+void Decoration::updateRadiusAnimation()
+{
+    const qreal target = wantsSquareCorners() ? 0.0 : 1.0;
+    if (m_radiusAnimation->state() == QAbstractAnimation::Running && qFuzzyCompare(m_radiusAnimation->endValue().toReal() + 1.0, target + 1.0)) {
+        return;
+    }
+    m_radiusAnimation->stop();
+    if (qFuzzyCompare(m_radiusFactor + 1.0, target + 1.0)) {
+        return;
+    }
+    if (m_radiusAnimation->duration() <= 0) {
+        m_radiusFactor = target;
+        applyBorderRadius();
+        update();
+        return;
+    }
+    m_radiusAnimation->setStartValue(m_radiusFactor);
+    m_radiusAnimation->setEndValue(target);
+    m_radiusAnimation->start();
 }
 
 //________________________________________________________________
@@ -350,10 +413,10 @@ void Decoration::reconfigure()
     KSharedConfig::Ptr config = KSharedConfig::openConfig();
     const KConfigGroup cg(config, QStringLiteral("KDE"));
 
-    m_animation->setDuration(0);
-    // Syncing anis between client and decoration is troublesome, so we're not using
-    // any animations right now.
-    // m_animation->setDuration( cg.readEntry("AnimationDurationFactor", 1.0f) * 100.0f );
+    // active <-> inactive titlebar cross-fade and maximize/tile corner morph
+    const float factor = cg.readEntry("AnimationDurationFactor", 1.0f);
+    m_animation->setDuration(factor * 200.0f);
+    m_radiusAnimation->setDuration(factor * 260.0f);
 
     // But the shadow is fine to animate like this!
     m_shadowAnimation->setDuration(cg.readEntry("AnimationDurationFactor", 1.0f) * 100.0f);
@@ -406,30 +469,28 @@ void Decoration::recalculateBorders()
 
     setResizeOnlyBorders(QMarginsF(extSides, extTop, extSides, extBottom));
 
-    const bool isTiled = isTopEdge() || isLeftEdge() || isBottomEdge() || isRightEdge();
+    applyBorderRadius();
+}
+
+//________________________________________________________________
+void Decoration::applyBorderRadius()
+{
+    if (!m_internalSettings) {
+        return;
+    }
+    // m_radiusFactor animates 1 -> 0 when the window gets maximized or tiled (and back)
+    const qreal r = effectiveRadius();
 
     qreal topLeftRadius = 0;
     qreal topRightRadius = 0;
     qreal bottomLeftRadius = 0;
     qreal bottomRightRadius = 0;
-    if (!isTiled && hasNoBorders() && m_internalSettings->roundedCorners()) {
-        if (!isBottomEdge()) {
-            if (!isLeftEdge()) {
-                bottomLeftRadius = m_scaledCornerRadius;
-            }
-            if (!isRightEdge()) {
-                bottomRightRadius = m_scaledCornerRadius;
-            }
-        }
+    if (r > 0 && hasNoBorders() && m_internalSettings->roundedCorners()) {
+        bottomLeftRadius = r;
+        bottomRightRadius = r;
         if (hideTitleBar()) {
-            if (!isTopEdge()) {
-                if (!isLeftEdge()) {
-                    topLeftRadius = m_scaledCornerRadius;
-                }
-                if (!isRightEdge()) {
-                    topRightRadius = m_scaledCornerRadius;
-                }
-            }
+            topLeftRadius = r;
+            topRightRadius = r;
         }
     }
     setBorderRadius(KDecoration3::BorderRadius(topLeftRadius, topRightRadius, bottomRightRadius, bottomLeftRadius));
@@ -445,12 +506,12 @@ void Decoration::recalculateBorders()
         qreal topLeftRightRadius = 0;
         qreal bottomLeftRadius = 0;
         qreal bottomRightRadius = 0;
-        if (!isTiled && (!hideTitleBar() || m_internalSettings->roundedCorners())) {
-            topLeftRightRadius = m_scaledCornerRadius;
+        if (!hideTitleBar() || m_internalSettings->roundedCorners()) {
+            topLeftRightRadius = r;
         }
-        if (!isTiled && (!hasNoBorders() || m_internalSettings->roundedCorners())) {
-            bottomLeftRadius = m_scaledCornerRadius;
-            bottomRightRadius = m_scaledCornerRadius;
+        if (!hasNoBorders() || m_internalSettings->roundedCorners()) {
+            bottomLeftRadius = r;
+            bottomRightRadius = r;
         }
 
         const auto radius = KDecoration3::BorderRadius(topLeftRightRadius, topLeftRightRadius, bottomRightRadius, bottomLeftRadius);
@@ -518,7 +579,6 @@ void Decoration::paint(QPainter *painter, const QRectF &repaintRegion)
 {
     // TODO: optimize based on repaintRegion
     auto s = settings();
-    const bool isTiled = isTopEdge() || isLeftEdge() || isBottomEdge() || isRightEdge();
     // paint background
     if (!window()->isShaded()) {
         painter->fillRect(rect(), Qt::transparent);
@@ -533,10 +593,11 @@ void Decoration::paint(QPainter *painter, const QRectF &repaintRegion)
         }
 
         if (s->isAlphaChannelSupported()) {
-            if (hasNoBorders() || isTiled) {
-                painter->drawRoundedRect(rect(), 0, 0);
+            const qreal r = effectiveRadius();
+            if (hasNoBorders() || r <= 0) {
+                painter->drawRect(rect());
             } else {
-                painter->drawRoundedRect(rect(), m_scaledCornerRadius, m_scaledCornerRadius);
+                painter->drawRoundedRect(rect(), r, r);
             }
         } else {
             painter->drawRect(rect());
@@ -568,7 +629,7 @@ void Decoration::paintTitleBar(QPainter *painter, const QRectF &repaintRegion)
     QRectF rect(QPointF(0, 0), QSizeF(size().width(), borderTop()));
     QBrush frontBrush;
     QBrush backBrush(this->titleBarColor());
-    const bool isTiled = isTopEdge() || isLeftEdge() || isBottomEdge() || isRightEdge();
+    const qreal r = effectiveRadius();
 
     if (!rect.intersects(repaintRegion)) {
         return;
@@ -591,7 +652,7 @@ void Decoration::paintTitleBar(QPainter *painter, const QRectF &repaintRegion)
         painter->setBrush(titleBarColor());
     }
 
-    if (isMaximized() || isTiled || !settings()->isAlphaChannelSupported()) {
+    if (r <= 0 || !settings()->isAlphaChannelSupported()) {
         painter->setBrush(backBrush);
         painter->drawRect(rect);
 
@@ -599,18 +660,18 @@ void Decoration::paintTitleBar(QPainter *painter, const QRectF &repaintRegion)
         painter->drawRect(rect);
     } else if (window()->isShaded()) {
         painter->setBrush(backBrush);
-        painter->drawRoundedRect(rect, m_scaledCornerRadius, m_scaledCornerRadius);
+        painter->drawRoundedRect(rect, r, r);
 
         painter->setBrush(frontBrush);
-        painter->drawRoundedRect(rect, m_scaledCornerRadius, m_scaledCornerRadius);
+        painter->drawRoundedRect(rect, r, r);
 
     } else {
         painter->setClipRect(rect, Qt::IntersectClip);
 
-        auto drawThe = [this, painter](const QRectF &r) {
-            painter->drawRoundedRect(r, m_scaledCornerRadius, m_scaledCornerRadius);
+        auto drawThe = [painter, r](const QRectF &br) {
+            painter->drawRoundedRect(br, r, r);
             // remove the rounding on the bottom
-            painter->drawRect(QRectF(r.bottomLeft() - QPointF(0, m_scaledCornerRadius), r.bottomRight()));
+            painter->drawRect(QRectF(br.bottomLeft() - QPointF(0, r), br.bottomRight()));
         };
 
         painter->setBrush(backBrush);
@@ -640,17 +701,20 @@ void Decoration::paintTitleBar(QPainter *painter, const QRectF &repaintRegion)
 
     m_arrowHitRect = arrowHitRect();
     if (!caption.isEmpty() && m_arrowHitRect.isValid()) {
-        static const QColor s_hoverColor(QStringLiteral("#3d3e3f"));
+        QColor s_hoverColor(fontColor());
+        s_hoverColor.setAlphaF(0.12);
         if (m_arrowPressed) {
             painter->save();
             painter->setPen(Qt::NoPen);
-            painter->setBrush(s_hoverColor.darker(115));
+            QColor pressedColor(fontColor());
+            pressedColor.setAlphaF(0.18);
+            painter->setBrush(pressedColor);
             painter->setRenderHint(QPainter::Antialiasing);
             painter->drawEllipse(m_arrowHitRect);
             painter->restore();
         } else if (m_arrowOpacity > 0.0) {
             QColor c(s_hoverColor);
-            c.setAlphaF(m_arrowOpacity);
+            c.setAlphaF(0.12 * m_arrowOpacity);
             painter->save();
             painter->setPen(Qt::NoPen);
             painter->setBrush(c);
@@ -676,6 +740,9 @@ void Decoration::paintTitleBar(QPainter *painter, const QRectF &repaintRegion)
             const quint32 colorKey = fontColor().rgba();
             auto it = arrowCache.constFind(colorKey);
             if (it == arrowCache.constEnd()) {
+                if (arrowCache.size() > 32) {
+                    arrowCache.clear(); // colours fade on (de)activation: keep the cache bounded
+                }
                 QImage img(renderSize, renderSize, QImage::Format_ARGB32_Premultiplied);
                 img.fill(Qt::transparent);
 
@@ -775,12 +842,15 @@ void Decoration::updateShadow()
     }
 
     if (g_shadowSizeEnum != m_internalSettings->shadowSize() || g_shadowStrength != m_internalSettings->shadowStrength()
-        || g_shadowColor != m_internalSettings->shadowColor()) {
+        || g_shadowColor != m_internalSettings->shadowColor() || g_shadowOpacity != m_internalSettings->shadowOpacity()
+        || g_shadowSpread != m_internalSettings->shadowSpread()) {
         g_sShadow.reset();
         g_sShadowInactive.reset();
         g_shadowSizeEnum = m_internalSettings->shadowSize();
         g_shadowStrength = m_internalSettings->shadowStrength();
         g_shadowColor = m_internalSettings->shadowColor();
+        g_shadowOpacity = m_internalSettings->shadowOpacity();
+        g_shadowSpread = m_internalSettings->shadowSpread();
     }
 
     auto &shadow = (window()->isActive()) ? g_sShadow : g_sShadowInactive;
@@ -799,6 +869,19 @@ std::shared_ptr<KDecoration3::DecorationShadow> Decoration::createShadowObject(c
         // If shadows are disabled, return nothing
         return nullptr;
     }
+    // doodlebookosrc [Common] ShadowSpread / ShadowOpacity (%): bigger / darker without a rebuild
+    const qreal spread = m_internalSettings->shadowSpread() / 100.0;
+    const qreal boost = m_internalSettings->shadowOpacity() / 100.0;
+    auto grow = [spread](const QPoint &p) {
+        return QPoint(qRound(p.x() * spread), qRound(p.y() * spread));
+    };
+    params.offset = grow(params.offset);
+    params.shadow1.offset = grow(params.shadow1.offset);
+    params.shadow2.offset = grow(params.shadow2.offset);
+    params.shadow1.radius = qRound(params.shadow1.radius * spread);
+    params.shadow2.radius = qRound(params.shadow2.radius * spread);
+    params.shadow1.opacity = qMin(1.0, params.shadow1.opacity * boost);
+    params.shadow2.opacity = qMin(1.0, params.shadow2.opacity * boost);
 
     auto withOpacity = [](const QColor &color, qreal opacity) -> QColor {
         QColor c(color);
@@ -854,7 +937,8 @@ std::shared_ptr<KDecoration3::DecorationShadow> Decoration::createShadowObject(c
 void Decoration::setScaledCornerRadius()
 {
     const qreal scale = window()->nextScale() > 0 ? window()->nextScale() : 1.25;
-    m_scaledCornerRadius = KDecoration3::snapToPixelGrid(12.0 / scale, scale);
+    const qreal radius = m_internalSettings ? m_internalSettings->cornerRadius() : 20; // doodlebookosrc [Common] CornerRadius
+    m_scaledCornerRadius = KDecoration3::snapToPixelGrid(radius / scale, scale);
 }
 
 QRectF Decoration::arrowHitRect() const

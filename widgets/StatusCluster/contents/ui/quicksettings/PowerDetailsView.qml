@@ -186,6 +186,98 @@ Item {
                 }
             }
 
+            // Power mode: M3 connected (segmented) button group
+            Rectangle {
+                visible: fullRep && fullRep.powerProfiles.length > 1
+                Layout.fillWidth: true
+                Layout.preferredHeight: modeCol.implicitHeight + 24
+                radius: 16
+                color: fullRep ? fullRep.oneUiTrackBg : Kirigami.Theme.alternateBackgroundColor
+
+                ColumnLayout {
+                    id: modeCol
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    spacing: 10
+
+                    PlasmaComponents3.Label {
+                        text: i18n("Power mode")
+                        font.family: powerViewRoot.appFontFamily
+                        font.weight: Font.DemiBold
+                        color: Kirigami.Theme.textColor
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 4
+
+                        Repeater {
+                            model: fullRep ? fullRep.powerProfiles : []
+
+                            Rectangle {
+                                id: segment
+                                required property string modelData
+                                required property int index
+                                readonly property bool selected: fullRep && fullRep.currentPowerProfile === modelData
+                                readonly property bool first: index === 0
+                                readonly property bool last: fullRep && index === fullRep.powerProfiles.length - 1
+
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 56
+                                // Selected segment morphs to a full pill, others keep "connected" inner corners
+                                topLeftRadius: (selected || first) ? 18 : 6
+                                bottomLeftRadius: (selected || first) ? 18 : 6
+                                topRightRadius: (selected || last) ? 18 : 6
+                                bottomRightRadius: (selected || last) ? 18 : 6
+                                Behavior on topLeftRadius { NumberAnimation { duration: Kirigami.Units.longDuration; easing.type: Easing.OutCubic } }
+                                Behavior on bottomLeftRadius { NumberAnimation { duration: Kirigami.Units.longDuration; easing.type: Easing.OutCubic } }
+                                Behavior on topRightRadius { NumberAnimation { duration: Kirigami.Units.longDuration; easing.type: Easing.OutCubic } }
+                                Behavior on bottomRightRadius { NumberAnimation { duration: Kirigami.Units.longDuration; easing.type: Easing.OutCubic } }
+
+                                color: selected
+                                       ? (fullRep ? fullRep.effectiveAccentColor : Kirigami.Theme.highlightColor)
+                                       : Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, segMouse.containsMouse ? 0.12 : 0.06)
+                                Behavior on color { ColorAnimation { duration: Kirigami.Units.shortDuration } }
+
+                                ColumnLayout {
+                                    anchors.centerIn: parent
+                                    spacing: 2
+
+                                    Kirigami.Icon {
+                                        Layout.alignment: Qt.AlignHCenter
+                                        Layout.preferredWidth: 20
+                                        Layout.preferredHeight: 20
+                                        source: fullRep ? fullRep.powerProfileIcon(segment.modelData) : ""
+                                        isMask: true
+                                        color: segment.selected ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
+                                    }
+
+                                    PlasmaComponents3.Label {
+                                        Layout.alignment: Qt.AlignHCenter
+                                        text: fullRep ? fullRep.powerProfileTitle(segment.modelData) : segment.modelData
+                                        font.family: powerViewRoot.appFontFamily
+                                        font.pixelSize: Math.round(Kirigami.Theme.smallFont.pixelSize * 0.95)
+                                        font.weight: segment.selected ? Font.DemiBold : Font.Normal
+                                        color: segment.selected ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
+                                        elide: Text.ElideRight
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: segMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        if (fullRep) fullRep.setPowerProfile(segment.modelData);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Power Session Actions Card (matching power menu)
             Rectangle {
                 Layout.fillWidth: true

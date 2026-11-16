@@ -10,6 +10,7 @@ import QtQuick.Layouts
 import QtQuick.Effects
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
+import org.kde.plasma.plasma5support as Plasma5Support
 import org.kde.kirigami as Kirigami
 
 // Backend subsystem imports
@@ -18,6 +19,7 @@ import org.kde.notificationmanager as NotificationManager
 import org.kde.plasma.networkmanagement as PlasmaNM
 import org.kde.plasma.private.battery as PlasmaBattery
 import org.kde.plasma.private.volume as Volume
+import org.kde.plasma.private.brightnesscontrolplugin as BrightnessControl
 import org.kde.plasma.private.clipboard as Klipper
 import org.kde.taskmanager as TaskManager
 
@@ -26,6 +28,8 @@ import "media" as Media
 import "notifications" as NotificationsUI
 import "notifications/global" as NotifGlobal
 import "quicksettings" as QuickSettingsUI
+import "tray" as Tray
+import "osd" as OsdUI
 
 PlasmoidItem {
     id: root
@@ -131,7 +135,35 @@ PlasmoidItem {
         id: mediaBackend
         visible: false
 
-        readonly property string rawTrack: mpris2Model.currentPlayer?.track ?? ""
+        // The multiplexer can stay on an idle player (Bluetooth headphones without metadata, a paused
+        // browser tab…). Pick ourselves: a playing player with a title, else the multiplexer's choice
+        // if it has one, else any player with a title. Pure bindings, no polling.
+        Instantiator {
+            id: mprisPlayers
+            model: mpris2Model
+            delegate: QtObject {
+                required property var container
+                required property bool isMultiplexer
+                readonly property bool isPlaying: container ? container.playbackStatus === Mpris.PlaybackStatus.Playing : false
+                readonly property bool hasTrack: container ? String(container.track || "").trim().length > 0 : false
+            }
+        }
+        readonly property var player: {
+            const cur = mpris2Model.currentPlayer;
+            let fallback = (cur && String(cur.track || "").trim().length > 0) ? cur : null;
+            if (fallback && fallback.playbackStatus === Mpris.PlaybackStatus.Playing) {
+                return fallback;
+            }
+            for (let i = 0; i < mprisPlayers.count; ++i) {
+                const o = mprisPlayers.objectAt(i);
+                if (!o || o.isMultiplexer || !o.hasTrack) continue;
+                if (o.isPlaying) return o.container;
+                if (!fallback) fallback = o.container;
+            }
+            return fallback;
+        }
+
+        readonly property string rawTrack: mediaBackend.player?.track ?? ""
 
         readonly property string track: {
             let raw = String(rawTrack);
@@ -147,11 +179,11 @@ PlasmoidItem {
             return raw;
         }
 
-        readonly property string artist: mpris2Model.currentPlayer?.artist ?? ""
-        readonly property string identity: mpris2Model.currentPlayer?.identity ?? ""
+        readonly property string artist: mediaBackend.player?.artist ?? ""
+        readonly property string identity: mediaBackend.player?.identity ?? ""
 
         readonly property string artUrl: {
-            const raw = String(mpris2Model.currentPlayer?.artUrl ?? "");
+            const raw = String(mediaBackend.player?.artUrl ?? "");
             if (raw.length > 0 && raw.startsWith("/")) return "file://" + raw;
             return raw;
         }
@@ -169,22 +201,22 @@ PlasmoidItem {
             if (idLower.includes("firefox")) return "firefox";
             if (idLower.includes("spotify")) return "spotify";
             if (idLower.includes("vlc")) return "vlc";
-            if (mpris2Model.currentPlayer?.iconName) {
-                const icon = String(mpris2Model.currentPlayer.iconName);
+            if (mediaBackend.player?.iconName) {
+                const icon = String(mediaBackend.player.iconName);
                 if (icon !== "multimedia-audio-player" && icon !== "audio-x-generic") return icon;
             }
             return "multimedia-audio-player";
         }
 
-        readonly property bool canSeek: mpris2Model.currentPlayer?.canSeek ?? false
+        readonly property bool canSeek: mediaBackend.player?.canSeek ?? false
 
-        readonly property int playbackStatus: mpris2Model.currentPlayer?.playbackStatus ?? Mpris.PlaybackStatus.Stopped
+        readonly property int playbackStatus: mediaBackend.player?.playbackStatus ?? Mpris.PlaybackStatus.Stopped
         readonly property bool isPlaying: mediaBackend.playbackStatus === Mpris.PlaybackStatus.Playing
 
-        property double position: mpris2Model.currentPlayer?.position ?? 0
-        property double length: mpris2Model.currentPlayer?.length ?? 0
+        property double position: mediaBackend.player?.position ?? 0
+        property double length: mediaBackend.player?.length ?? 0
 
-        readonly property bool hasMedia: mpris2Model.currentPlayer !== null && rawTrack.trim().length > 0
+        readonly property bool hasMedia: mediaBackend.player !== null && rawTrack.trim().length > 0
         readonly property bool hasActiveMedia: hasMedia && (playbackStatus === Mpris.PlaybackStatus.Playing || playbackStatus === Mpris.PlaybackStatus.Paused)
 
         property bool effectiveVisible: hasActiveMedia
@@ -236,18 +268,18 @@ PlasmoidItem {
         }
 
         function togglePlaying(): void {
-            if (mpris2Model.currentPlayer) {
-                if (isPlaying) mpris2Model.currentPlayer.Pause();
-                else mpris2Model.currentPlayer.Play();
+            if (mediaBackend.player) {
+                if (isPlaying) mediaBackend.player.Pause();
+                else mediaBackend.player.Play();
             }
         }
 
         function seek(newPosMicros: double): void {
-            if (mpris2Model.currentPlayer) mpris2Model.currentPlayer.position = newPosMicros;
+            if (mediaBackend.player) mediaBackend.player.position = newPosMicros;
         }
 
         function changeVolume(delta: double): void {
-            if (mpris2Model.currentPlayer) mpris2Model.currentPlayer.changeVolume(delta, true);
+            if (mediaBackend.player) mediaBackend.player.changeVolume(delta, true);
         }
 
         Mpris.Mpris2Model {
@@ -268,7 +300,9 @@ PlasmoidItem {
         showDismissed: true
         showJobs: notifSettings.jobsInNotifications
         sortMode: NotificationManager.Notifications.SortByTypeAndUrgency
-        groupMode: NotificationManager.Notifications.GroupDisabled
+        groupMode: NotificationManager.Notifications.GroupApplicationsFlat
+        groupLimit: 1
+        expandUnread: false
         ignoreBlacklistDuringInhibition: true
         blacklistedDesktopEntries: notifSettings.historyBlacklistedApplications
         blacklistedNotifyRcNames: notifSettings.historyBlacklistedServices
@@ -287,6 +321,7 @@ PlasmoidItem {
         NotifGlobal.Globals.adopt(root);
         root.updateWifiSignal();
         root.updateUnreadNotifs();
+        root.dndScheduleCheck();
     }
 
     Component.onDestruction: {
@@ -319,17 +354,94 @@ PlasmoidItem {
         function onRowsRemoved() { root.updateUnreadNotifs(); }
         function onModelReset() { root.updateUnreadNotifs(); }
     }
-    readonly property bool isDndActive: Boolean(notifSettings.notificationsInhibitedUntil && notifSettings.notificationsInhibitedUntil > new Date())
+    // ── Do not disturb: durations + nightly schedule. One single-shot Timer armed on the next
+    // deadline (end of an inhibition or start of the schedule) — nothing polls.
+    property int dndClock: 0
+    readonly property var dndUntil: notifSettings.notificationsInhibitedUntil
+    readonly property bool isDndActive: dndClock >= 0 && Boolean(dndUntil && dndUntil > new Date())
+    readonly property bool dndSchedule: Boolean(Plasmoid.configuration.dndSchedule)
+    readonly property int dndStartMinutes: Plasmoid.configuration.dndStartMinutes
+    readonly property int dndEndMinutes: Plasmoid.configuration.dndEndMinutes
 
+    function setDndUntil(d): void {
+        notifSettings.notificationsInhibitedUntil = d;
+        notifSettings.save();
+        dndClock++;
+        armDndTimer();
+    }
     function toggleDoNotDisturbMode(): void {
         if (isDndActive) {
-            notifSettings.notificationsInhibitedUntil = undefined;
+            setDndUntil(undefined);
         } else {
             var d = new Date();
             d.setFullYear(d.getFullYear() + 1);
-            notifSettings.notificationsInhibitedUntil = d;
+            setDndUntil(d);
         }
-        notifSettings.save();
+    }
+    function dndNext(minutes): var {
+        var d = new Date();
+        d.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
+        if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1);
+        return d;
+    }
+    function dndInWindow(): bool {
+        var n = new Date(), m = n.getHours() * 60 + n.getMinutes();
+        var s = dndStartMinutes, e = dndEndMinutes;
+        return s < e ? (m >= s && m < e) : (m >= s || m < e);
+    }
+    function armDndTimer(): void {
+        var now = Date.now(), next = 0;
+        if (dndUntil && dndUntil.getTime() > now) next = dndUntil.getTime();
+        if (dndSchedule) {
+            var st = dndNext(dndStartMinutes).getTime();
+            next = next ? Math.min(next, st) : st;
+        }
+        dndTimer.stop();
+        if (next) {
+            dndTimer.interval = Math.max(1000, Math.min(next - now + 500, 2000000000));
+            dndTimer.start();
+        }
+    }
+    function dndScheduleCheck(): void {
+        if (dndSchedule && dndInWindow() && !isDndActive) setDndUntil(dndNext(dndEndMinutes));
+        else armDndTimer();
+    }
+    // ── Focus mode: Do not disturb + greyscale screen + auto-hidden dock (doodlebookos-focus)
+    readonly property bool focusMode: Boolean(Plasmoid.configuration.focusMode)
+    function toggleFocusMode(): void {
+        var on = !focusMode;
+        Plasmoid.configuration.focusMode = on;
+        if (on) {
+            var d = new Date();
+            d.setFullYear(d.getFullYear() + 1);
+            setDndUntil(d);
+        } else {
+            setDndUntil(undefined);
+        }
+        focusRunner.connectSource("doodlebookos-focus " + (on ? "on" : "off") + " # " + Date.now());
+    }
+    // ── Game mode (doodlebookos-gamemode): the script writes gameMode back through evaluateScript,
+    // so the tile follows automatic detection too, without any polling here.
+    readonly property bool gameMode: Boolean(Plasmoid.configuration.gameMode)
+    function toggleGameMode(): void {
+        Plasmoid.configuration.gameMode = !gameMode;     // optimistic, confirmed by the script
+        focusRunner.connectSource("systemctl --user start --no-block doodlebookos-gamemode@toggle.service # " + Date.now());
+    }
+    Plasma5Support.DataSource {
+        id: focusRunner
+        engine: "executable"
+        connectedSources: []
+        onNewData: (src, data) => disconnectSource(src)
+        // the KWin effect is not persistent: re-apply after login / shell restart
+        Component.onCompleted: if (root.focusMode) connectSource("doodlebookos-focus on # boot")
+    }
+    onDndScheduleChanged: dndScheduleCheck()
+    onDndStartMinutesChanged: dndScheduleCheck()
+    onDndEndMinutesChanged: dndScheduleCheck()
+    Timer {
+        id: dndTimer
+        repeat: false
+        onTriggered: { root.dndClock++; root.dndScheduleCheck(); }
     }
 
     PlasmaCore.Action {
@@ -501,6 +613,86 @@ PlasmoidItem {
         id: paSinkModel
     }
 
+    // ── Material 3 Expressive OSD (replaces the stock volume OSD; also covers headset buttons,
+    //    which change the sink volume without any key press). Event-driven only.
+    OsdUI.Osd {
+        id: osdWindow
+        screenRect: Qt.rect(Screen.virtualX, Screen.virtualY, Screen.width, Screen.height)
+        readonly property var sink: Volume.PreferredDevice.sink
+        deviceName: sink ? (sink.description || sink.name || "") : ""
+        deviceType: {
+            if (!sink) return "speaker";
+            var ff = String((sink.properties && sink.properties["device.form_factor"]) || "");
+            var n = String(sink.name || "") + " " + String(sink.description || "");
+            if (ff.indexOf("head") >= 0 || /bluez/i.test(n)) return "headphones";
+            if (/hdmi|displayport|tv/i.test(n + " " + ff)) return "tv";
+            return "speaker";
+        }
+        onWheelStep: (dir) => {
+            if (kind === "brightness") { root.stepBrightness(dir); return; }
+            var s = Volume.PreferredDevice.sink;
+            if (!s) return;
+            var n = Volume.PulseAudio.NormalVolume;
+            s.volume = Math.max(0, Math.min(n, s.volume + dir * n * 0.05));
+            if (dir > 0 && s.muted) s.muted = false;
+        }
+        onDeviceClicked: {
+            // cycle to the next output; the OSD then shows the new device's volume
+            var list = [];
+            for (var i = 0; i < sinkList.count; i++) {
+                var o = sinkList.objectAt(i);
+                if (o && o.obj) list.push(o.obj);
+            }
+            if (list.length < 2) return;
+            var cur = list.indexOf(Volume.PreferredDevice.sink);
+            list[(cur + 1) % list.length]["default"] = true;
+            switchedOsd.restart();
+        }
+    }
+    Instantiator {
+        id: sinkList
+        model: paSinkModel
+        delegate: QtObject { required property var model; readonly property var obj: model.PulseObject }
+    }
+    Timer { id: switchedOsd; interval: 150; onTriggered: root.volumeOsd() }
+    property bool osdReady: false
+    Timer { interval: 3000; running: true; onTriggered: root.osdReady = true }
+    function volumeOsd(): void {
+        var s = Volume.PreferredDevice.sink;
+        if (!osdReady || !s || qsDialog.visible) return;
+        osdWindow.show("volume", s.volume / Volume.PulseAudio.NormalVolume, s.muted);
+    }
+    Connections {
+        target: Volume.PreferredDevice.sink
+        ignoreUnknownSignals: true
+        function onVolumeChanged() { root.volumeOsd(); }
+        function onMutedChanged() { root.volumeOsd(); }
+    }
+
+    // Brightness: mouse wheel on the battery icon (5 % steps), with the same OSD
+    BrightnessControl.ScreenBrightnessControl { id: rootBrightness }
+    Instantiator {
+        id: rootDisplays
+        model: rootBrightness.displays
+        delegate: QtObject {
+            required property string displayName
+            required property int brightness
+            required property int maxBrightness
+        }
+    }
+    function stepBrightness(dir): void {
+        var shown = -1;
+        for (var i = 0; i < rootDisplays.count; i++) {
+            var d = rootDisplays.objectAt(i);
+            if (!d || d.maxBrightness <= 0) continue;
+            var step = Math.max(1, Math.round(d.maxBrightness * 0.05));
+            var target = Math.max(Math.round(d.maxBrightness * 0.01), Math.min(d.maxBrightness, d.brightness + dir * step));
+            rootBrightness.setBrightness(d.displayName, target);
+            if (shown < 0) shown = target / d.maxBrightness;
+        }
+        if (shown >= 0) osdWindow.show("brightness", shown, false);
+    }
+
     // ==========================================
     // POPUP MANAGEMENT (Handshake & Seamless Switching)
     // ==========================================
@@ -608,7 +800,26 @@ PlasmoidItem {
 
                 readonly property bool isExpanded: mediaDialog.visible
 
-                color: isExpanded ? root.effectiveAccentColor : "#000000"
+                // Album art tints the pill (colours computed once per artwork, off the GUI thread)
+                readonly property bool artReady: mediaBackend.hasRealArtwork && pillArt.status === Image.Ready
+                readonly property color artTint: artReady && artColors.dominant.a > 0
+                    ? Qt.tint("#000000", Qt.rgba(artColors.dominant.r, artColors.dominant.g, artColors.dominant.b, 0.38))
+                    : "#000000"
+                color: isExpanded ? root.effectiveAccentColor : artTint
+
+                Image {
+                    id: pillArt
+                    visible: false
+                    source: mediaBackend.hasRealArtwork ? mediaBackend.artUrl : ""
+                    sourceSize: Qt.size(64, 64)
+                    asynchronous: true
+                    cache: true
+                    fillMode: Image.PreserveAspectCrop
+                }
+                Kirigami.ImageColors {
+                    id: artColors
+                    source: pillArt.status === Image.Ready ? pillArt : null
+                }
 
                 border.color: "#46484d"
                 border.width: 1
@@ -666,11 +877,20 @@ PlasmoidItem {
                     Behavior on scale { NumberAnimation { duration: Kirigami.Units.shortDuration; easing.type: Easing.OutQuad } }
 
                     // App Logo (stan spoczynku: widoczny, gdy NIE najechano i NIE jest otwarte okno)
+                    Kirigami.ShadowedTexture {
+                        anchors.fill: parent
+                        radius: width / 2
+                        source: pillArt
+                        color: "transparent"
+                        opacity: (mediaPillButton.artReady && !mediaPillButton.isPillHovered && !mediaPillButton.isExpanded) ? 1.0 : 0.0
+                        visible: opacity > 0.0
+                        Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration } }
+                    }
                     Kirigami.Icon {
                         id: appLogoIcon
                         anchors.fill: parent
                         source: mediaBackend.appIcon
-                        opacity: (mediaPillButton.isPillHovered || mediaPillButton.isExpanded) ? 0.0 : 1.0
+                        opacity: (mediaPillButton.isPillHovered || mediaPillButton.isExpanded || mediaPillButton.artReady) ? 0.0 : 1.0
                         visible: opacity > 0.0
                         Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration } }
                     }
@@ -709,7 +929,9 @@ PlasmoidItem {
                     anchors.verticalCenter: parent.verticalCenter
                     height: parent.height
 
-                    text: mediaBackend.track
+                    text: mediaBackend.artist.length > 0 && mediaBackend.track !== mediaBackend.artist
+                        ? mediaBackend.track + " · " + mediaBackend.artist
+                        : mediaBackend.track
                     font.family: "Google Sans Flex"
                     font.weight: Font.DemiBold
                     font.pixelSize: root.snap(10.4)
@@ -735,7 +957,7 @@ PlasmoidItem {
 
                     gradient: Gradient {
                         orientation: Gradient.Horizontal
-                        GradientStop { position: 0.0; color: mediaPillButton.isExpanded ? root.effectiveAccentColor : "#000000" }
+                        GradientStop { position: 0.0; color: mediaPillButton.isExpanded ? root.effectiveAccentColor : mediaPillButton.artTint }
                         GradientStop { position: 1.0; color: "#00000000" }
                     }
                 }
@@ -757,10 +979,22 @@ PlasmoidItem {
                     gradient: Gradient {
                         orientation: Gradient.Horizontal
                         GradientStop { position: 0.0; color: "#00000000" }
-                        GradientStop { position: 0.75; color: mediaPillButton.isExpanded ? root.effectiveAccentColor : "#000000" }
-                        GradientStop { position: 1.0; color: mediaPillButton.isExpanded ? root.effectiveAccentColor : "#000000" }
+                        GradientStop { position: 0.75; color: mediaPillButton.isExpanded ? root.effectiveAccentColor : mediaPillButton.artTint }
+                        GradientStop { position: 1.0; color: mediaPillButton.isExpanded ? root.effectiveAccentColor : mediaPillButton.artTint }
                     }
                 }
+            }
+
+            // ----------------------------------------------------
+            // 1b. BACKGROUND APPS (system tray icons, Material You)
+            // ----------------------------------------------------
+            Tray.TrayArea {
+                id: trayArea
+                appletRoot: root
+                railHeight: root.railHeight
+                contentColor: root.topBarContentColor
+                capsuleColor: root.highlightCapsuleColor
+                highlightedContentColor: root.highlightedContentColor
             }
 
             // ----------------------------------------------------
@@ -913,6 +1147,19 @@ PlasmoidItem {
 
                     QSIcon {
                         source: root.currentBatteryIcon
+                    }
+                }
+
+                // wheel on the battery half of the pill → screen brightness
+                WheelHandler {
+                    id: brightnessWheel
+                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                    property int acc: 0
+                    onWheel: (ev) => {
+                        if (ev.x < qsPillButton.width / 2) return;
+                        acc += ev.angleDelta.y;
+                        while (acc >= 120) { root.stepBrightness(1); acc -= 120; }
+                        while (acc <= -120) { root.stepBrightness(-1); acc += 120; }
                     }
                 }
 

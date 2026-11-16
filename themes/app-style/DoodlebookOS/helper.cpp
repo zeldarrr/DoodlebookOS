@@ -721,7 +721,10 @@ void Helper::renderButtonFrame(QPainter *painter,
     painter->setBrush(bgBrush);
     painter->setPen(flat ? QPen(Qt::NoPen) : QPen(penBrush, PenWidth::Frame));
     const qreal pillRadius = frameRect.height() / 2.0;
-    const qreal radius = roundButton ? roundRadius : pillRadius;
+    qreal radius = roundButton ? roundRadius : pillRadius;
+    if (down && enabled && !flat) {
+        radius = std::min(radius, std::max<qreal>(6.0, frameRect.height() * 0.28));
+    }
     painter->drawRoundedRect(frameRect, radius, radius);
 }
 

@@ -87,14 +87,23 @@ Item {
         }
     }
 
+    function activateView() {
+        if (!networkModel) {
+            networkModel = nmComponent.createObject(wifiViewRoot);
+            appletProxyModel.sourceModel = networkModel;
+        }
+        nmHandler.requestScan();
+        visibleNetworksTracker.refresh();
+    }
+
+    // The view is now created on demand (Loader), already visible: initialise right away.
+    Component.onCompleted: {
+        if (visible) activateView();
+    }
+
     onVisibleChanged: {
         if (visible) {
-            if (!networkModel) {
-                networkModel = nmComponent.createObject(wifiViewRoot);
-                appletProxyModel.sourceModel = networkModel;
-            }
-            nmHandler.requestScan();
-            visibleNetworksTracker.refresh();
+            activateView();
         } else {
             isExpanded = false;
             selectedSsidToConnect = "";

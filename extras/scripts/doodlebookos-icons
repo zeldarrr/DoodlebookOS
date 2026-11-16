@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# DoodlebookOS — choose the icon pack under the Material You folder tint.
+#   doodlebookos-icons tela-circle   round Android/Pixel-like icons (doodlebookos-telacircle-install)
+#   doodlebookos-icons colloid       rounded-square icons (doodlebookos-colloid-install)
+#   doodlebookos-icons material      generated Material You theme (doodlebookos-m3icons), like Android themed icons
+#   doodlebookos-icons shape [NOM]  forme Material 3 Expressive des icônes et boutons (sans NOM : la liste)
+#   doodlebookos-icons status
+set -euo pipefail
+F="${XDG_CONFIG_HOME:-$HOME/.config}/doodlebookos/icon-pack"
+# one change at a time (fast clicks in the dock's shape picker)
+exec 9>"${XDG_RUNTIME_DIR:-/tmp}/doodlebookos-icons.lock"
+flock 9
+case "${1:-status}" in
+  tela-circle|colloid|material)
+    case "$1" in tela-circle|material) need=Tela-circle-dark ;; colloid) need=Colloid-Dark ;; esac
+    if [[ ! -d "$HOME/.local/share/icons/$need" ]]; then
+      echo "[!] $need n'est pas installé (doodlebookos-${1/-/}-install <source>)." >&2; exit 1
+    fi
+    mkdir -p "$(dirname "$F")"
+    printf '%s\n' "$1" > "$F.new" && mv -f "$F.new" "$F"
+    doodlebookos-materialyou icons
+    echo "[✓] Icônes : $1"
+    ;;
+  shape)
+    SF="${XDG_CONFIG_HOME:-$HOME/.config}/doodlebookos/icon-shape"
+    if [[ -z "${2:-}" ]]; then
+      cur=$(cat "$SF" 2>/dev/null || echo circle)
+      doodlebookos-m3icons shapes | sed "s/^\($cur \)/* \1/;t;s/^/  /"
+      exit 0
+    fi
+    if ! doodlebookos-m3icons shapes | awk '{print $1}' | grep -qx -- "$2"; then
+      echo "[!] Forme inconnue : $2 (doodlebookos-icons shape)" >&2; exit 1
+    fi
+    mkdir -p "$(dirname "$SF")"
+    printf '%s\n' "$2" > "$SF.new" && mv -f "$SF.new" "$SF"
+    doodlebookos-m3icons shape-json                 # boutons du dock : tout de suite
+    [[ "$(cat "$F" 2>/dev/null)" == material ]] && doodlebookos-materialyou icons >/dev/null
+    echo "[✓] Forme : $2"
+    ;;
+  status) cat "$F" 2>/dev/null || echo colloid ;;
+  *) sed -n '3,8p' "$0" | sed 's/^# //'; exit 1 ;;
+esac

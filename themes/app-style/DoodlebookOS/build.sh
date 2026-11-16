@@ -28,7 +28,10 @@ echo "[i] Installing DoodlebookOS Application Style..."
 for libdir in lib64 lib; do
     mkdir -p "$HOME/.local/${libdir}/plugins/styles"
     mkdir -p "$HOME/.local/${libdir}/qt6/plugins/styles"
-    cp -f "$SO_FILE" "$HOME/.local/${libdir}/plugins/styles/doodlebookos6.so"
+    # never overwrite a loaded plugin in place: every running Qt app / KWin has it mapped and
+    # crashes (SIGSEGV) when its pages change. Copy next to it, then rename atomically.
+    dest="$HOME/.local/${libdir}/plugins/styles/doodlebookos6.so"
+    cp -f "$SO_FILE" "$dest.new.$$" && mv -f "$dest.new.$$" "$dest"
     ln -sf "$HOME/.local/${libdir}/plugins/styles/doodlebookos6.so" \
            "$HOME/.local/${libdir}/qt6/plugins/styles/doodlebookos6.so"
 done

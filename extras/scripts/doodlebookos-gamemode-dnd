@@ -1,0 +1,12 @@
+#!/usr/bin/python3 -I
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Holds a notification inhibition (Do not disturb) for DoodlebookOS game mode.
+# Plasma drops the inhibition as soon as this process exits (systemctl --user stop ...).
+from gi.repository import Gio, GLib
+
+bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+bus.call_sync("org.freedesktop.Notifications", "/org/freedesktop/Notifications",
+              "org.freedesktop.Notifications", "Inhibit",
+              GLib.Variant("(ssa{sv})", ("doodlebookos-gamemode", "Game mode", {})),
+              GLib.VariantType("(u)"), Gio.DBusCallFlags.NONE, -1, None)
+GLib.MainLoop().run()

@@ -4,7 +4,9 @@
  */
 
 import QtQuick
+import org.kde.plasma.plasmoid
 import QtQuick.Layouts
+import org.kde.kirigami as Kirigami
 import org.kde.plasma.core as PlasmaCore
 
 PlasmaCore.Dialog {
@@ -18,31 +20,57 @@ PlasmaCore.Dialog {
 
     objectName: "popupWindow"
     flags: Qt.WindowStaysOnTopHint
-
     visualParent: visualParentItem
-    location: (typeof Plasmoid !== "undefined" && Plasmoid.location !== undefined) ? Plasmoid.location : PlasmaCore.Types.BottomEdge
+    // Floating: KWin's "sliding popups" animation is skipped (it delayed the launcher on Super);
+    // the dialog is still placed above the dock and our own 130 ms fade plays instead
+    location: PlasmaCore.Types.Floating
     floating: 12
     hideOnWindowDeactivate: true
-
     backgroundHints: PlasmaCore.Types.StandardBackground
 
+    property bool fullscreen: false
+    property bool editMode: false
+    property int openSerial: 0                 // bumped on every open: drives the staggered entrance
     property int popupWidth: 680
-    property int popupHeight: Math.round(Screen.height * 0.66)
+    property int popupHeight: Math.round(Screen.height * Math.max(40, Math.min(95, Plasmoid.configuration.launcherHeight || 62)) / 100)
     property real panelHeight: 52
 
     width: popupWidth
     height: popupHeight
 
-    property int iconSize: 50
-    readonly property real containerInnerPadding: 20
-    readonly property real cellSizeWidth: Math.floor((popupWidth - (containerInnerPadding * 2)) / ((root.plasmoidConfiguration && root.plasmoidConfiguration.numberColumns) || (typeof Plasmoid !== "undefined" && Plasmoid.configuration ? Plasmoid.configuration.numberColumns : 6)))
-    readonly property real cellSizeHeight: 102
+    readonly property real containerInnerPadding: fullscreen ? 28 : (Plasmoid.configuration.launcherPadding || 16)
+    readonly property real railWidth: 0          // A–Z rail removed
+    readonly property int columns: fullscreen
+        ? Math.max(6, Math.floor((popupWidth - containerInnerPadding * 2 - railWidth) / 132))
+        : ((root.plasmoidConfiguration && root.plasmoidConfiguration.numberColumns) || 6)
+    property int iconSize: fullscreen ? 60 : (Plasmoid.configuration.launcherIconSize || 44)
+    readonly property real cellSizeWidth: Math.floor((popupWidth - (containerInnerPadding * 2) - railWidth) / columns)
+    readonly property real cellSizeHeight: fullscreen ? 120 : Math.max(iconSize + 34, Plasmoid.configuration.launcherRowHeight || 90)
 
     property alias launcherContainer: launcherBox.card
     property alias launcherContextMenu: launcherContextMenu
+    property alias folderOverlay: folderOverlay
+    property alias infoCard: infoCard
 
     function closeAnimated() {
         close();
+    }
+    // launch first, then close once the tile's launch animation has played
+    function closeAfterLaunch() {
+        closeTimer.restart();
+    }
+
+    function toast(text) { toastItem.show(text); }
+    function openFolder(fid, item) { folderOverlay.openFolder(fid, item); }
+    function showInfo(appId) { infoCard.openFor(appId); }
+
+    // Escape: innermost layer first
+    function handleEscape() {
+        if (launcherContextMenu.visible) { launcherContextMenu.close(); return true; }
+        if (infoCard.shown) { infoCard.close(); return true; }
+        if (folderOverlay.shown) { folderOverlay.close(); return true; }
+        if (editMode) { editMode = false; return true; }
+        return false;
     }
 
     function updatePosition() {
@@ -50,23 +78,16 @@ PlasmaCore.Dialog {
             var scrHeight = Screen.height;
             var scrX = Screen.virtualX;
             var scrY = Screen.virtualY;
-
             var effPanelHeight = root.panelHeight;
             if (visualParentItem && visualParentItem.Window && visualParentItem.Window.window && visualParentItem.Window.window.height > 0) {
                 effPanelHeight = visualParentItem.Window.window.height;
             }
-
             var bottomGap = 12;
             var panelTop = scrY + scrHeight - effPanelHeight;
             var targetX = scrX + Math.round((Screen.width - popupWidth) / 2);
             var targetY = Math.max(24, Math.round(panelTop - popupHeight - bottomGap));
-
-            if (root.x !== targetX) {
-                root.x = targetX;
-            }
-            if (root.y !== targetY) {
-                root.y = targetY;
-            }
+            if (root.x !== targetX) root.x = targetX;
+            if (root.y !== targetY) root.y = targetY;
         }
     }
 
@@ -77,12 +98,10 @@ PlasmaCore.Dialog {
         if (shouldDimBackground && dimOverlayItem && typeof dimOverlayItem.showOverlay === "function") {
             dimOverlayItem.showOverlay();
         }
-
         updatePosition();
         root.visible = true;
         updatePosition();
         root.requestActivate();
-
         if (main && typeof main.setQuery === "function") {
             main.setQuery(term);
         }
@@ -101,26 +120,22 @@ PlasmaCore.Dialog {
         if (shouldDimBackground && dimOverlayItem && typeof dimOverlayItem.showOverlay === "function") {
             dimOverlayItem.showOverlay();
         }
-
         updatePosition();
         root.visible = true;
         updatePosition();
         root.requestActivate();
-        if (!skipResetOnOpen && main && typeof main.reset === "function") {
-            main.reset();
-        }
     }
 
     function close() {
-        if (launcherContextMenu && launcherContextMenu.visible) {
-            launcherContextMenu.close();
-        }
-
+        closeTimer.stop();
+        if (launcherContextMenu && launcherContextMenu.visible) launcherContextMenu.close();
+        folderOverlay.close();
+        infoCard.close();
         if (dimOverlayItem && typeof dimOverlayItem.hideOverlay === "function") {
             dimOverlayItem.hideOverlay();
         }
-
         root.visible = false;
+        root.editMode = false;
         if (main && typeof main.reset === "function") {
             main.reset();
         }
@@ -135,30 +150,22 @@ PlasmaCore.Dialog {
         }
         if (visible) {
             updatePosition();
-            if (root.rootModel && typeof root.rootModel.refresh === "function") {
-                root.rootModel.refresh();
-            }
+            openSerial++;
+            launcherRevealAnim.restart();
+            // no rootModel.refresh() here: Kicker refreshes itself on KSycoca changes
             if (!skipResetOnOpen && main && typeof main.reset === "function") {
                 main.reset();
             }
         } else {
+            editMode = false;
             if (dimOverlayItem && typeof dimOverlayItem.hideOverlay === "function") {
                 dimOverlayItem.hideOverlay();
             }
         }
     }
 
-    onWidthChanged: {
-        if (visible) {
-            updatePosition();
-        }
-    }
-
-    onHeightChanged: {
-        if (visible) {
-            updatePosition();
-        }
-    }
+    onWidthChanged: if (visible) updatePosition()
+    onHeightChanged: if (visible) updatePosition()
 
     mainItem: Item {
         id: launcherBox
@@ -173,6 +180,13 @@ PlasmaCore.Dialog {
 
         property alias card: launcherCard
 
+        Timer { id: closeTimer; interval: 170; onTriggered: root.close() }
+
+        // M3 Expressive entrance: the card grows out of the dock (bottom origin) with a soft overshoot
+        property real revealT: 1.0
+        // one short fade + slide for the whole page (cheap: two properties on one item)
+        NumberAnimation { id: launcherRevealAnim; target: launcherBox; property: "revealT"; from: 0.4; to: 1; duration: 130; easing.type: Easing.OutCubic }
+
         Rectangle {
             id: launcherCard
             anchors.bottom: parent.bottom
@@ -180,9 +194,7 @@ PlasmaCore.Dialog {
             width: parent.width
             height: parent.height
             radius: 0
-            opacity: 1.0
             color: "transparent"
-            border.color: "transparent"
             border.width: 0
             clip: false
 
@@ -197,6 +209,29 @@ PlasmaCore.Dialog {
                     id: main
                     anchors.fill: parent
                     anchors.margins: root.containerInnerPadding
+                    anchors.bottomMargin: Math.round(root.containerInnerPadding * 0.6)
+                    opacity: launcherBox.revealT
+                    transform: Translate { y: (1 - launcherBox.revealT) * 12 }
+                }
+
+                FolderOverlay {
+                    id: folderOverlay
+                    anchors.fill: parent
+                    z: 50
+                }
+
+                AppInfoCard {
+                    id: infoCard
+                    anchors.fill: parent
+                    z: 60
+                }
+
+                LauncherToast {
+                    id: toastItem
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 76
+                    z: 70
                 }
 
                 LauncherContextMenu {
@@ -212,7 +247,7 @@ PlasmaCore.Dialog {
         updatePosition();
         if (root.rootModel) {
             root.rootModel.refreshed.connect(function() {
-                if (main && typeof main.reset === "function") {
+                if (main && typeof main.reset === "function" && !root.visible) {
                     main.reset();
                 }
             });

@@ -48,6 +48,9 @@ static void renderSvgIcon(QPainter *painter, const char *svgData, const QRectF &
 
     auto it = cache.constFind(key);
     if (it == cache.constEnd()) {
+        if (cache.size() > 48) {
+            cache.clear(); // icon colours fade with hover/activation: keep the tint cache bounded
+        }
         QImage img(renderSize, renderSize, QImage::Format_ARGB32_Premultiplied);
         img.fill(Qt::transparent);
 
@@ -71,13 +74,29 @@ static void renderSvgIcon(QPainter *painter, const char *svgData, const QRectF &
 Button::Button(DecorationButtonType type, Decoration *decoration, QObject *parent)
     : DecorationButton(type, decoration, parent)
     , m_animation(new QVariantAnimation(this))
+    , m_pressAnimation(new QVariantAnimation(this))
 {
     m_animation->setStartValue(0.0);
     m_animation->setEndValue(1.0);
-    m_animation->setDuration(150);
+    m_animation->setDuration(180);
     m_animation->setEasingCurve(QEasingCurve::OutCubic);
     connect(m_animation, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
         setOpacity(value.toReal());
+    });
+
+    m_pressAnimation->setStartValue(0.0);
+    m_pressAnimation->setEndValue(1.0);
+    m_pressAnimation->setDuration(140);
+    m_pressAnimation->setEasingCurve(QEasingCurve::OutCubic);
+    connect(m_pressAnimation, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
+        m_press = value.toReal();
+        repaintPill();
+    });
+    connect(this, &KDecoration3::DecorationButton::pressedChanged, this, [this](bool pressed) {
+        m_pressAnimation->setDirection(pressed ? QAbstractAnimation::Forward : QAbstractAnimation::Backward);
+        if (m_pressAnimation->state() != QAbstractAnimation::Running) {
+            m_pressAnimation->start();
+        }
     });
 
     connect(decoration->window(), SIGNAL(iconChanged(QIcon)), this, SLOT(update()));
@@ -182,18 +201,24 @@ void Button::paint(QPainter *painter, const QRectF &repaintRegion)
         painter->save();
 
         const QColor backgroundColor(this->backgroundColor());
-        if (backgroundColor.isValid()) {
+        if (backgroundColor.isValid() && backgroundColor.alpha() > 0) {
             painter->setRenderHints(QPainter::Antialiasing);
             painter->setPen(Qt::NoPen);
             painter->setBrush(backgroundColor);
 
+            // M3 Expressive: the circle grows in and stretches into a pill on hover,
+            // then squishes into a squircle while pressed
             const auto deco = qobject_cast<Decoration *>(decoration());
             const qreal scale = deco ? deco->effectiveScale() : 1.25;
             const qreal diameter = KDecoration3::snapToPixelGrid(34.0 / scale, scale);
+            const qreal t = std::max(m_opacity, m_press);
+            const qreal h = diameter * (0.78 + 0.22 * t);
+            const qreal w = h + pillStretch() * t;
             const QPointF center = geometry().center();
-            const QRectF circleRect(center.x() - diameter / 2.0, center.y() - diameter / 2.0, diameter, diameter);
+            const QRectF pill(center.x() - w / 2.0, center.y() - h / 2.0, w, h);
+            const qreal radius = (h / 2.0) * (1.0 - 0.42 * m_press);
 
-            painter->drawEllipse(circleRect);
+            painter->drawRoundedRect(pill, radius, radius);
         }
 
         drawIcon(painter);
@@ -254,6 +279,9 @@ QColor Button::foregroundColor() const
     if (!d) {
         return QColor();
     }
+    if (type() == DecorationButtonType::Close) {
+        return KColorUtils::mix(d->fontColor(), d->onErrorColor(), std::max(m_opacity, m_press));
+    }
     return d->fontColor();
 }
 
@@ -265,17 +293,20 @@ QColor Button::backgroundColor() const
         return QColor();
     }
 
-    static const QColor s_hoverColor(QStringLiteral("#3d3e3f"));
-
-    if (isPressed()) {
-        return s_hoverColor.darker(115);
-    } else if (m_opacity > 0.0) {
-        QColor color(s_hoverColor);
-        color.setAlphaF(m_opacity);
-        return color;
-    } else {
+    const qreal t = std::max(m_opacity, m_press);
+    if (t <= 0.0) {
         return QColor();
     }
+    if (type() == DecorationButtonType::Close) {
+        // close turns M3 error red only while hovered / pressed
+        QColor color = KColorUtils::mix(d->errorColor(), d->fontColor(), 0.12 * m_press);
+        color.setAlphaF(t);
+        return color;
+    }
+    // other buttons: M3 state layer (on-surface 12 % hover, 18 % pressed)
+    QColor color = d->fontColor();
+    color.setAlphaF(0.12 * m_opacity + 0.06 * m_press);
+    return color;
 }
 
 //________________________________________________________________
@@ -309,8 +340,26 @@ void Button::reconfigure()
         break;
     }
 
-    m_animation->setDuration(150);
+    m_animation->setDuration(180);
     m_animation->setEasingCurve(QEasingCurve::OutCubic);
+}
+
+//__________________________________________________________________
+qreal Button::pillStretch() const
+{
+    // buttons are 11 px apart (physical): the pill may grow 4 px on each side
+    auto d = qobject_cast<Decoration *>(decoration());
+    const qreal scale = d ? d->effectiveScale() : 1.25;
+    return KDecoration3::snapToPixelGrid(8.0 / scale, scale);
+}
+
+//__________________________________________________________________
+void Button::repaintPill()
+{
+    if (auto d = decoration()) {
+        const qreal ext = pillStretch() / 2.0 + 1.0;
+        d->update(geometry().adjusted(-ext, 0, ext, 0));
+    }
 }
 
 //__________________________________________________________________

@@ -1,0 +1,844 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""
+DoodlebookOS Material You — colours from the wallpaper (Android 12+ "dynamic color").
+
+The wallpaper's source colour is picked with Google's Material Color Utilities method
+(HCT colour space + "Score"), re-implemented here in plain Python (no extra packages).
+The DoodlebookOS dark/light colour schemes are then re-tinted: every colour keeps its
+tone (lightness) so the visual hierarchy of the theme is preserved, surfaces take the
+wallpaper hue, accents get Material "Tonal Spot" chroma, status colours stay unchanged.
+
+Usage:
+  doodlebookos-materialyou on | off | toggle | status
+  doodlebookos-materialyou auto [--mode dark|light]   # re-apply if enabled (wallpaper / theme change)
+  doodlebookos-materialyou preview                    # print the extracted palette
+  doodlebookos-materialyou sync                       # align Konsole/lock screen/icons with the active theme
+  doodlebookos-materialyou icons                      # rebuild the icons only (after doodlebookos-icons)
+Icons: with Colloid or Tela-circle installed (doodlebookos-colloid-install / doodlebookos-telacircle-install),\nfolders are tinted with the wallpaper colour; pick the pack with doodlebookos-icons.
+"""
+import configparser
+import hashlib
+import json
+import math
+import os
+import re
+import subprocess
+import sys
+from urllib.parse import unquote
+
+HOME = os.path.expanduser("~")
+CONF_DIR = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.join(HOME, ".config")), "doodlebookos")
+STATE = os.path.join(CONF_DIR, "materialyou.json")
+SCHEMES = os.path.join(HOME, ".local", "share", "color-schemes")
+APPLETSRC = os.path.join(HOME, ".config", "plasma-org.kde.plasma.desktop-appletsrc")
+TEMPLATES = {"dark": "DoodlebookOS_DARK", "light": "DoodlebookOS_LIGHT"}
+OUT_NAMES = {"dark": ("DoodlebookOS_MaterialYou_Dark", "DoodlebookOS_MaterialYou_Dark2"),
+             "light": ("DoodlebookOS_MaterialYou_Light", "DoodlebookOS_MaterialYou_Light2")}
+
+# ───────────────────────── Material colour science (port of material-color-utilities) ─────────────────────────
+SRGB_TO_XYZ = ((0.41233895, 0.35762064, 0.18051042), (0.2126, 0.7152, 0.0722), (0.01932141, 0.11916382, 0.95034478))
+XYZ_TO_SRGB = ((3.2413774792388685, -1.5376652402851851, -0.49885366846268053),
+               (-0.9691452513005321, 1.8758853451067872, 0.04156585616912061),
+               (0.05562093689691305, -0.20395524564742123, 1.0571799111220335))
+WHITE = (95.047, 100.0, 108.883)
+
+
+def linearized(c):
+    n = c / 255.0
+    return (n / 12.92 if n <= 0.040449936 else ((n + 0.055) / 1.055) ** 2.4) * 100.0
+
+
+def delinearized(c):
+    n = c / 100.0
+    d = n * 12.92 if n <= 0.0031308 else 1.055 * n ** (1.0 / 2.4) - 0.055
+    return max(0, min(255, round(d * 255.0)))
+
+
+def lab_f(t):
+    e, k = 216.0 / 24389.0, 24389.0 / 27.0
+    return t ** (1.0 / 3.0) if t > e else (k * t + 16) / 116
+
+
+def lab_invf(ft):
+    e, k = 216.0 / 24389.0, 24389.0 / 27.0
+    ft3 = ft * ft * ft
+    return ft3 if ft3 > e else (116 * ft - 16) / k
+
+
+def y_from_lstar(l):
+    return 100.0 * lab_invf((l + 16.0) / 116.0)
+
+
+def lstar_from_y(y):
+    return 116.0 * lab_f(y / 100.0) - 16.0
+
+
+def rgb_to_xyz(rgb):
+    lr, lg, lb = (linearized(c) for c in rgb)
+    return tuple(m[0] * lr + m[1] * lg + m[2] * lb for m in SRGB_TO_XYZ)
+
+
+def xyz_to_rgb(x, y, z):
+    return tuple(delinearized(m[0] * x + m[1] * y + m[2] * z) for m in XYZ_TO_SRGB)
+
+
+def lstar_from_rgb(rgb):
+    return lstar_from_y(rgb_to_xyz(rgb)[1])
+
+
+def gray_from_lstar(l):
+    c = delinearized(y_from_lstar(l))
+    return (c, c, c)
+
+
+class VC:  # default viewing conditions
+    def __init__(self):
+        x, y, z = WHITE
+        la = (200.0 / math.pi) * y_from_lstar(50.0) / 100.0
+        rw = x * 0.401288 + y * 0.650173 + z * -0.051461
+        gw = x * -0.250268 + y * 1.204414 + z * 0.045854
+        bw = x * -0.002079 + y * 0.048952 + z * 0.953127
+        f = 1.0
+        self.c = 0.69
+        d = max(0.0, min(1.0, f * (1.0 - (1.0 / 3.6) * math.exp((-la - 42.0) / 92.0))))
+        self.nc = f
+        self.rgb_d = (d * (100.0 / rw) + 1.0 - d, d * (100.0 / gw) + 1.0 - d, d * (100.0 / bw) + 1.0 - d)
+        k = 1.0 / (5.0 * la + 1.0)
+        k4 = k ** 4
+        k4f = 1.0 - k4
+        self.fl = k4 * la + 0.1 * k4f * k4f * (5.0 * la) ** (1.0 / 3.0)
+        self.n = y_from_lstar(50.0) / y
+        self.z = 1.48 + math.sqrt(self.n)
+        self.nbb = 0.725 / self.n ** 0.2
+        self.ncb = self.nbb
+        fac = [(self.fl * self.rgb_d[i] * w / 100.0) ** 0.42 for i, w in enumerate((rw, gw, bw))]
+        a = [400.0 * v / (v + 27.13) for v in fac]
+        self.aw = (2.0 * a[0] + a[1] + 0.05 * a[2]) * self.nbb
+        self.fl_root = self.fl ** 0.25
+
+
+V = VC()
+
+
+class Cam:
+    __slots__ = ("hue", "chroma", "j", "jstar", "astar", "bstar")
+
+    def __init__(self, hue, chroma, j):
+        self.hue, self.chroma, self.j = hue, chroma, j
+        m = chroma * V.fl_root
+        self.jstar = (1.0 + 100.0 * 0.007) * j / (1.0 + 0.007 * j)
+        mstar = 1.0 / 0.0228 * math.log(1.0 + 0.0228 * m)
+        hr = math.radians(hue)
+        self.astar, self.bstar = mstar * math.cos(hr), mstar * math.sin(hr)
+
+    @staticmethod
+    def from_rgb(rgb):
+        x, y, z = rgb_to_xyz(rgb)
+        rc = 0.401288 * x + 0.650173 * y - 0.051461 * z
+        gc = -0.250268 * x + 1.204414 * y + 0.045854 * z
+        bc = -0.002079 * x + 0.048952 * y + 0.953127 * z
+        out = []
+        for i, c in enumerate((rc, gc, bc)):
+            dd = V.rgb_d[i] * c
+            af = (V.fl * abs(dd) / 100.0) ** 0.42
+            out.append(math.copysign(1, dd) * 400.0 * af / (af + 27.13))
+        ra, ga, ba = out
+        a = (11.0 * ra + -12.0 * ga + ba) / 11.0
+        b = (ra + ga - 2.0 * ba) / 9.0
+        u = (20.0 * ra + 20.0 * ga + 21.0 * ba) / 20.0
+        p2 = (40.0 * ra + 20.0 * ga + ba) / 20.0
+        hue = math.degrees(math.atan2(b, a)) % 360.0
+        ac = p2 * V.nbb
+        j = 100.0 * (ac / V.aw) ** (V.c * V.z)
+        hp = hue + 360 if hue < 20.14 else hue
+        e_hue = 0.25 * (math.cos(math.radians(hp) + 2.0) + 3.8)
+        p1 = 50000.0 / 13.0 * e_hue * V.nc * V.ncb
+        t = p1 * math.hypot(a, b) / (u + 0.305)
+        alpha = (t ** 0.9) * (1.64 - 0.29 ** V.n) ** 0.73
+        return Cam(hue, alpha * math.sqrt(j / 100.0), j)
+
+    def to_rgb(self):
+        alpha = 0.0 if self.chroma == 0 or self.j == 0 else self.chroma / math.sqrt(self.j / 100.0)
+        t = (alpha / (1.64 - 0.29 ** V.n) ** 0.73) ** (1.0 / 0.9)
+        hr = math.radians(self.hue)
+        e_hue = 0.25 * (math.cos(hr + 2.0) + 3.8)
+        ac = V.aw * (self.j / 100.0) ** (1.0 / V.c / V.z)
+        p1 = e_hue * (50000.0 / 13.0) * V.nc * V.ncb
+        p2 = ac / V.nbb
+        hs, hc = math.sin(hr), math.cos(hr)
+        gamma = 23.0 * (p2 + 0.305) * t / (23.0 * p1 + 11.0 * t * hc + 108.0 * t * hs)
+        a, b = gamma * hc, gamma * hs
+        ra = (460.0 * p2 + 451.0 * a + 288.0 * b) / 1403.0
+        ga = (460.0 * p2 - 891.0 * a - 261.0 * b) / 1403.0
+        ba = (460.0 * p2 - 220.0 * a - 6300.0 * b) / 1403.0
+        lin = []
+        for i, v in enumerate((ra, ga, ba)):
+            base = max(0.0, 27.13 * abs(v) / (400.0 - abs(v)))
+            lin.append(math.copysign(1, v) * (100.0 / V.fl) * base ** (1.0 / 0.42) / V.rgb_d[i])
+        rf, gf, bf = lin
+        x = 1.86206786 * rf - 1.01125463 * gf + 0.14918677 * bf
+        y = 0.38752654 * rf + 0.62144744 * gf - 0.00897398 * bf
+        z = -0.01584150 * rf - 0.03412294 * gf + 1.04996444 * bf
+        return xyz_to_rgb(x, y, z)
+
+    def distance(self, o):
+        d = math.sqrt((self.jstar - o.jstar) ** 2 + (self.astar - o.astar) ** 2 + (self.bstar - o.bstar) ** 2)
+        return 1.41 * d ** 0.63
+
+
+def _find_by_j(hue, chroma, tone):
+    low, high = 0.0, 100.0
+    best_dl, best_de, best = 1000.0, 1000.0, None
+    while abs(low - high) > 0.01:
+        mid = low + (high - low) / 2
+        clipped = Cam(hue, chroma, mid).to_rgb()
+        cl = lstar_from_rgb(clipped)
+        dl = abs(tone - cl)
+        if dl < 0.2:
+            cc = Cam.from_rgb(clipped)
+            de = cc.distance(Cam(hue, cc.chroma, cc.j))
+            if de <= 1.0 and de <= best_de:
+                best_dl, best_de, best = dl, de, clipped
+        if best_dl == 0 and best_de == 0:
+            break
+        if cl < tone:
+            low = mid
+        else:
+            high = mid
+    return best
+
+
+_cache = {}
+
+
+def hct_to_rgb(hue, chroma, tone):
+    """Closest in-gamut sRGB colour for (hue, chroma, tone); chroma is reduced if needed."""
+    key = (round(hue, 2), round(chroma, 2), round(tone, 2))
+    if key in _cache:
+        return _cache[key]
+    hue %= 360.0
+    if chroma < 1.0 or round(tone) <= 0 or round(tone) >= 100:
+        res = gray_from_lstar(tone)
+    else:
+        high, mid, low, first, answer = chroma, chroma, 0.0, True, None
+        res = None
+        while abs(low - high) >= 0.4:
+            cand = _find_by_j(hue, mid, tone)
+            if first:
+                if cand is not None:
+                    res = cand
+                    break
+                first = False
+                mid = low + (high - low) / 2
+                continue
+            if cand is None:
+                high = mid
+            else:
+                answer, low = cand, mid
+            mid = low + (high - low) / 2
+        if res is None:
+            res = answer if answer is not None else gray_from_lstar(tone)
+    _cache[key] = res
+    return res
+
+
+def hct_of(rgb):
+    cam = Cam.from_rgb(rgb)
+    return cam.hue, cam.chroma, lstar_from_rgb(rgb)
+
+
+def diff_degrees(a, b):
+    return 180.0 - abs(abs(a - b) - 180.0)
+
+
+def score(colors_population, desired=4):
+    """Material 'Score': prefer frequent hues with good chroma (port of score.ts)."""
+    hcts, hue_pop, total = [], [0.0] * 360, 0.0
+    for rgb, pop in colors_population:
+        h = hct_of(rgb)
+        hcts.append(h)
+        hue_pop[int(h[0]) % 360] += pop
+        total += pop
+    if total <= 0:
+        return []
+    excited = [0.0] * 360
+    for hue in range(360):
+        prop = hue_pop[hue] / total
+        for i in range(hue - 14, hue + 16):
+            excited[i % 360] += prop
+    scored = []
+    for h in hcts:
+        prop = excited[round(h[0]) % 360]
+        if h[1] < 5.0 or prop <= 0.01:
+            continue
+        s = prop * 100.0 * 0.7 + (h[1] - 48.0) * (0.1 if h[1] < 48.0 else 0.3)
+        scored.append((s, h))
+    scored.sort(key=lambda x: -x[0])
+    for diff in range(90, 14, -1):
+        chosen = []
+        for _, h in scored:
+            if not any(diff_degrees(h[0], c[0]) < diff for c in chosen):
+                chosen.append(h)
+            if len(chosen) >= desired:
+                break
+        if len(chosen) >= desired:
+            break
+    return chosen
+
+
+def source_from_image(path):
+    from PIL import Image
+    im = Image.open(path)
+    im.draft("RGB", (256, 256))
+    im = im.convert("RGB")
+    im.thumbnail((128, 128))
+    q = im.quantize(colors=96, method=Image.Quantize.MEDIANCUT)
+    pal = q.getpalette()
+    pops = []
+    for count, idx in q.getcolors(96 * 2) or []:
+        pops.append(((pal[idx * 3], pal[idx * 3 + 1], pal[idx * 3 + 2]), count))
+    chosen = score(pops)
+    if chosen:
+        return chosen[0]
+    return (265.0, 36.0, 50.0)  # Google blue-ish fallback
+
+
+# ───────────────────────── wallpaper & scheme handling ─────────────────────────
+def resolve_wallpaper(raw):
+    p = unquote(raw.strip().replace("file://", ""))
+    if os.path.isfile(p):
+        return p
+    if os.path.isdir(p):
+        best, best_size = "", 0
+        for sub in ("contents/images", "contents/images_dark", ""):
+            d = os.path.join(p, sub)
+            if not os.path.isdir(d):
+                continue
+            for f in os.listdir(d):
+                fp = os.path.join(d, f)
+                if f.lower().endswith((".jpg", ".jpeg", ".png", ".webp")) and os.path.getsize(fp) > best_size:
+                    best, best_size = fp, os.path.getsize(fp)
+            if best:
+                return best
+    return ""
+
+
+def current_wallpaper():
+    found = ""
+    try:
+        with open(APPLETSRC, encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                if line.startswith("Image="):
+                    r = resolve_wallpaper(line.split("=", 1)[1])
+                    if r:
+                        found = r
+    except OSError:
+        pass
+    return found
+
+
+def kread(file, group, key):
+    try:
+        return subprocess.run(["kreadconfig6", "--file", file, "--group", group, "--key", key],
+                              capture_output=True, text=True, timeout=5).stdout.strip()
+    except Exception:
+        return ""
+
+
+def current_mode():
+    s = kread("kdeglobals", "General", "ColorScheme")
+    return "light" if "light" in s.lower() else "dark"
+
+
+def load_state():
+    try:
+        with open(STATE) as f:
+            return json.load(f)
+    except Exception:
+        return {"enabled": False}
+
+
+def save_state(st):
+    os.makedirs(CONF_DIR, exist_ok=True)
+    with open(STATE, "w") as f:
+        json.dump(st, f, indent=2)
+
+
+def parse_rgb(v):
+    parts = [int(x) for x in re.findall(r"\d+", v)[:3]]
+    return tuple(parts) if len(parts) == 3 else None
+
+
+KEEP_KEYS = ("ForegroundNegative", "ForegroundNeutral", "ForegroundPositive")
+
+
+def retint(rgb, key, src_hue):
+    h, c, t = hct_of(rgb)
+    if key in KEEP_KEYS:
+        return rgb
+    if key == "ForegroundVisited":
+        return hct_to_rgb(src_hue + 60.0, max(24.0, c * 0.8), t)        # tertiary
+    if c >= 16.0 and 35.0 <= t <= 95.0:
+        return hct_to_rgb(src_hue, max(36.0, min(c, 48.0)), t)          # accents -> primary (Tonal Spot)
+    return hct_to_rgb(src_hue, min(max(c, 4.0), 20.0), t)               # surfaces keep their own chroma
+
+
+def build_scheme(mode, src, out_name):
+    template = os.path.join(SCHEMES, TEMPLATES[mode] + ".colors")
+    if not os.path.exists(template):
+        raise SystemExit(f"Template introuvable : {template}")
+    lines_out = [f"# Generated by doodlebookos-materialyou from {TEMPLATES[mode]}",
+                 f"# Source colour: hue {src[0]:.1f}, chroma {src[1]:.1f}, tone {src[2]:.1f}", ""]
+    group = ""
+    with open(template, encoding="utf-8") as f:
+        for raw in f:
+            line = raw.rstrip("\n")
+            if line.startswith("#"):
+                continue
+            m = re.match(r"^\[(.+)\]$", line)
+            if m:
+                group = m.group(1)
+                lines_out.append(line)
+                continue
+            if "=" not in line:
+                lines_out.append(line)
+                continue
+            key, val = line.split("=", 1)
+            if group == "General" and key.split("[")[0] in ("ColorScheme", "Name"):
+                if "[" in key:
+                    continue
+                lines_out.append(f"{key}={out_name}")
+                continue
+            rgb = parse_rgb(val) if (group.startswith("Colors:") or group == "WM") else None
+            if rgb and val.count(",") == 2:
+                nr = retint(rgb, key, src[0])
+                lines_out.append(f"{key}={nr[0]},{nr[1]},{nr[2]}")
+            else:
+                lines_out.append(line)
+    lines_out = unify_chrome(lines_out)
+    os.makedirs(SCHEMES, exist_ok=True)
+    with open(os.path.join(SCHEMES, out_name + ".colors"), "w", encoding="utf-8") as f:
+        f.write("\n".join(lines_out) + "\n")
+
+
+def unify_chrome(lines):
+    """One colour for the whole window chrome: the app header/toolbar (Header, active and
+    inactive) takes the Window colours and the title bar (WM) the Window background, so
+    titlebar + toolbar + window body read as one surface and nothing changes on focus."""
+    win, group = {}, ""
+    for line in lines:
+        m = re.match(r"^\[(.+)\]$", line)
+        if m:
+            group = m.group(1)
+        elif group == "Colors:Window" and "=" in line:
+            k, v = line.split("=", 1)
+            win[k] = v
+    if "BackgroundNormal" not in win:
+        return lines
+    wm = {"activeBackground": win["BackgroundNormal"], "inactiveBackground": win["BackgroundNormal"]}
+    out, group = [], ""
+    for line in lines:
+        m = re.match(r"^\[(.+)\]$", line)
+        if m:
+            group = m.group(1)
+        elif "=" in line:
+            k = line.split("=", 1)[0]
+            if group in ("Colors:Header", "Colors:Header][Inactive") and k in win:
+                line = f"{k}={win[k]}"
+            elif group == "WM" and k in wm:
+                line = f"{k}={wm[k]}"
+        out.append(line)
+    return out
+
+
+PALETTE = os.path.join(CONF_DIR, "palette.json")
+
+
+def write_palette(src, mode, enabled=True):
+    """Extra Material roles KDE schemes do not have (read by the DoodlebookOS widgets)."""
+    hx = lambda rgb: "#%02x%02x%02x" % rgb
+    data = {"enabled": enabled}
+    if enabled and src:
+        dark = mode == "dark"
+        h = src[0]
+        data.update({
+            "mode": mode,
+            "primary": hx(hct_to_rgb(h, max(src[1], 36.0), 80.0 if dark else 40.0)),
+            "onPrimary": hx(hct_to_rgb(h, max(src[1], 36.0), 20.0 if dark else 100.0)),
+            "tertiary": hx(hct_to_rgb(h + 60.0, 24.0, 80.0 if dark else 40.0)),
+            "onTertiary": hx(hct_to_rgb(h + 60.0, 24.0, 20.0 if dark else 100.0)),
+            "tertiaryContainer": hx(hct_to_rgb(h + 60.0, 24.0, 30.0 if dark else 90.0)),
+            "onTertiaryContainer": hx(hct_to_rgb(h + 60.0, 24.0, 90.0 if dark else 10.0)),
+        })
+        if icon_pack() == "material":                # same colours as the generated app icons
+            icons = m3_icon_palette(src, mode)
+            data.update({"iconBg": icons["app_bg"], "iconFg": icons["app_fg"]})
+    os.makedirs(CONF_DIR, exist_ok=True)
+    tmp = PALETTE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f)
+    os.replace(tmp, PALETTE)
+
+
+def apply_scheme(name):
+    subprocess.run(["plasma-apply-colorscheme", name], capture_output=True, timeout=30)
+
+
+
+# ───────────────────────── extras: Konsole colours + blurred lock screen ─────────────────────────
+KONSOLE_DIR = os.path.join(HOME, ".local", "share", "konsole")
+KONSOLE_SCHEME = "DoodlebookOS-MaterialYou"
+LOCK_IMG = os.path.join(HOME, ".local", "share", "doodlebookos", "lockscreen-materialyou.jpg")
+LOCK_GROUPS = ["--group", "Greeter", "--group", "Wallpaper", "--group", "org.kde.image", "--group", "General"]
+
+
+def konsole_profiles():
+    try:
+        return [os.path.join(KONSOLE_DIR, f) for f in os.listdir(KONSOLE_DIR) if f.endswith(".profile")]
+    except OSError:
+        return []
+
+
+def profile_scheme(path):
+    cp = configparser.ConfigParser(interpolation=None, strict=False)
+    cp.optionxform = str
+    cp.read(path, encoding="utf-8")
+    return cp.get("Appearance", "ColorScheme", fallback=""), cp
+
+
+def set_profile_scheme(path, scheme):
+    _, cp = profile_scheme(path)
+    if not cp.has_section("Appearance"):
+        cp.add_section("Appearance")
+    cp.set("Appearance", "ColorScheme", scheme)
+    with open(path, "w", encoding="utf-8") as f:
+        cp.write(f, space_around_delimiters=False)
+
+
+def write_konsole_scheme(src, mode):
+    hue = src[0]
+    dark = mode == "dark"
+    rgb = lambda c: "%d,%d,%d" % c
+    t_norm, t_int = (72, 82) if dark else (42, 32)
+    ansi_hues = [None, 25.0, 145.0, 85.0, 265.0, 320.0, 200.0, None]   # black red green yellow blue magenta cyan white
+    lines = ["[General]", "Description=DoodlebookOS Material You", "Opacity=1", "Wallpaper=", ""]
+    bg = hct_to_rgb(hue, 6, 8 if dark else 98)
+    fgc = hct_to_rgb(hue, 8, 90 if dark else 12)
+    for name, val in (("Background", bg), ("BackgroundIntense", hct_to_rgb(hue, 8, 12 if dark else 94)),
+                      ("BackgroundFaint", bg), ("Foreground", fgc),
+                      ("ForegroundIntense", hct_to_rgb(hue, 10, 98 if dark else 4)), ("ForegroundFaint", hct_to_rgb(hue, 6, 70 if dark else 35))):
+        lines += [f"[{name}]", f"Color={rgb(val)}", ""]
+    for i, h in enumerate(ansi_hues):
+        if h is None:
+            black, white = (hct_to_rgb(hue, 6, 25), hct_to_rgb(hue, 6, 85)) if dark else (hct_to_rgb(hue, 6, 20), hct_to_rgb(hue, 6, 70))
+            n = black if i == 0 else white
+            it = hct_to_rgb(hue, 6, 45 if i == 0 else 97) if dark else hct_to_rgb(hue, 6, 40 if i == 0 else 90)
+        else:
+            if i == 4:
+                h = hue          # blue slot = the wallpaper primary
+            n, it = hct_to_rgb(h, 48, t_norm), hct_to_rgb(h, 40, t_int)
+        lines += [f"[Color{i}]", f"Color={rgb(n)}", "", f"[Color{i}Intense]", f"Color={rgb(it)}", "",
+                  f"[Color{i}Faint]", f"Color={rgb(n)}", ""]
+    os.makedirs(KONSOLE_DIR, exist_ok=True)
+    with open(os.path.join(KONSOLE_DIR, KONSOLE_SCHEME + ".colorscheme"), "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+
+
+def make_lock_image(wp):
+    from PIL import Image, ImageFilter, ImageEnhance
+    im = Image.open(wp)
+    im.draft("RGB", (1920, 1920))
+    im = im.convert("RGB")
+    im.thumbnail((1280, 1280))                       # blur on a small copy: fast, and the result is soft anyway
+    im = im.filter(ImageFilter.GaussianBlur(18))
+    im = ImageEnhance.Brightness(im).enhance(0.72)   # Android-like dim for legibility
+    os.makedirs(os.path.dirname(LOCK_IMG), exist_ok=True)
+    tmp = LOCK_IMG + ".tmp.jpg"
+    im.save(tmp, "JPEG", quality=88)
+    os.replace(tmp, LOCK_IMG)
+
+
+def kwrite_lock(img):
+    for key in ("Image", "PreviewImage"):
+        subprocess.run(["kwriteconfig6", "--file", "kscreenlockerrc", *LOCK_GROUPS, "--key", key, img],
+                       capture_output=True, timeout=5)
+
+
+# ───────────────────────── extras: Colloid icons with Material You folders ─────────────────────────
+ICONS_DIR = os.path.join(HOME, ".local", "share", "icons")
+ICON_TPL = os.path.join(HOME, ".local", "share", "doodlebookos", "icon-template")
+ICON_NAMES = ("DoodlebookOS-MaterialYou", "DoodlebookOS-MaterialYou-2")
+# icon packs the folder tint can sit on: pack -> (template dir, {mode: base theme}); chosen with doodlebookos-icons
+ICON_PACK_FILE = os.path.join(CONF_DIR, "icon-pack")
+ICON_PACKS = {
+    "colloid": (ICON_TPL, {"dark": "Colloid-Dark", "light": "Colloid-Light"}),
+    "tela-circle": (ICON_TPL + "-tela-circle", {"dark": "Tela-circle-dark", "light": "Tela-circle"}),
+    # generated theme (doodlebookos-m3icons): apps, folders and file types drawn from the palette;
+    # the base pack only supplies what is not generated (actions, devices, status…)
+    "material": (None, {"dark": "Tela-circle-dark", "light": "Tela-circle"}),
+}
+M3ICONS = os.path.join(HOME, ".local", "bin", "doodlebookos-m3icons")
+
+
+def m3_icon_palette(src, mode):
+    """Android 13+ themed-icon roles from the source colour (Material "Tonal Spot" hues/chromas)."""
+    h = src[0]
+    hx = lambda hue, chroma, tone: "#%02x%02x%02x" % hct_to_rgb(hue % 360.0, chroma, tone)
+    dark = mode == "dark"
+    fam = {"primary": (h, 36.0), "secondary": (h, 20.0), "tertiary": (h + 60.0, 32.0)}
+    return {
+        "app_bg": hx(h, 30.0, 35.0) if dark else hx(h, 36.0, 90.0),
+        "app_fg": hx(h, 40.0, 94.0) if dark else hx(h, 48.0, 25.0),
+        "folder_back": hx(h, 40.0, 50.0) if dark else hx(h, 48.0, 45.0),
+        "folder_front": hx(h, 44.0, 72.0) if dark else hx(h, 48.0, 62.0),
+        "folder_glyph": hx(h, 40.0, 25.0) if dark else hx(h, 30.0, 97.0),
+        "small": hx(h, 40.0, 80.0) if dark else hx(h, 48.0, 40.0),
+        "file": {k: [hx(fh, fc, 85.0 if dark else 88.0), hx(fh, fc + 8.0, 65.0 if dark else 70.0),
+                     hx(fh, fc, 28.0 if dark else 30.0)] for k, (fh, fc) in fam.items()},
+    }
+ICON_INDEX = """[Icon Theme]
+Name={name}
+Comment={base}, dossiers teintés Material You ({color})
+Inherits={base},breeze,hicolor
+Example=folder
+FollowsColorScheme=true
+DesktopDefault=48
+DesktopSizes=16,22,32,48,64,96,128,256
+PanelDefault=48
+SmallDefault=16
+ToolbarDefault=22
+DialogDefault=32
+Directories={dirs}
+
+[places/16]
+Size=16
+Context=Places
+Type=Fixed
+
+[places/scalable]
+Size=64
+Context=Places
+MinSize=32
+MaxSize=512
+Type=Scalable
+
+[apps/scalable]
+Size=64
+Context=Applications
+MinSize=16
+MaxSize=512
+Type=Scalable
+"""
+
+
+def change_icons(name):
+    subprocess.run(["/usr/libexec/plasma-changeicons", name], capture_output=True, timeout=30)
+
+
+def build_icon_overlay(out, tpl, base, color):
+    import shutil
+    if os.path.isdir(out):
+        shutil.rmtree(out)
+    for root, dirs, files in os.walk(tpl):
+        rel = os.path.relpath(root, tpl)
+        os.makedirs(os.path.join(out, rel), exist_ok=True)
+        for f in files:
+            sp, dp = os.path.join(root, f), os.path.join(out, rel, f)
+            if os.path.islink(sp):
+                os.symlink(os.readlink(sp), dp)
+                continue
+            with open(sp, "rb") as h:
+                data = h.read()
+            with open(dp, "wb") as h:
+                h.write(data.replace(b"#60c0f0", color.encode()))
+    with open(os.path.join(out, "index.theme"), "w", encoding="utf-8") as f:
+        dirs = [d for d in ("places/16", "places/scalable", "apps/scalable") if os.path.isdir(os.path.join(tpl, d))]
+        f.write(ICON_INDEX.format(name=os.path.basename(out), color=color, base=base, dirs=",".join(dirs)))
+    subprocess.run(["gtk-update-icon-cache", "-f", "-q", out], capture_output=True, timeout=30)
+
+
+def icon_pack():
+    try:
+        with open(ICON_PACK_FILE, encoding="utf-8") as f:
+            name = f.read().strip()
+    except OSError:
+        name = ""
+    return name if name in ICON_PACKS else "colloid"
+
+
+def apply_icons(st, src, mode, force):
+    pack = icon_pack()
+    tpl_root, bases = ICON_PACKS[pack]
+    base = bases[mode]
+    tpl = os.path.join(tpl_root, mode) if tpl_root else None
+    if not os.path.isdir(os.path.join(ICONS_DIR, base)):
+        return
+    if tpl is None and not os.access(M3ICONS, os.X_OK):
+        return
+    if tpl is not None and not os.path.isdir(tpl):
+        return
+    cur = kread("kdeglobals", "Icons", "Theme") or "breeze"
+    if cur not in ICON_NAMES:
+        if "iconsPrev" in st and not force:
+            return  # the user picked another icon theme on purpose
+        st["iconsPrev"] = cur
+        st.setdefault("iconsOrig", cur)   # survives theme-switch round trips
+    # folders: vivid primary (tone 70 on dark, 60 on light), never greyish
+    color = "#%02x%02x%02x" % hct_to_rgb(src[0], max(src[1], 40.0), 70.0 if mode == "dark" else 60.0)
+    key = color + "-" + mode + "-" + pack
+    if tpl is None:
+        pal = m3_icon_palette(src, mode)
+        sig = subprocess.run([M3ICONS, "signature"], capture_output=True, text=True, timeout=60).stdout.strip()
+        key = hashlib.md5(json.dumps(pal, sort_keys=True).encode()).hexdigest()[:12] + "-" + sig + "-" + mode + "-" + pack
+    if cur in ICON_NAMES and st.get("iconsKey") == key and os.path.isdir(os.path.join(ICONS_DIR, cur)):
+        return
+    name = ICON_NAMES[1] if cur == ICON_NAMES[0] else ICON_NAMES[0]   # alternate: apps reload icons
+    if tpl is None:
+        r = subprocess.run([M3ICONS, "build", os.path.join(ICONS_DIR, name), "--name", name, "--inherits", base,
+                            "--palette", json.dumps(pal)], capture_output=True, text=True, timeout=300)
+        if r.returncode != 0:
+            print("[!] doodlebookos-m3icons :", r.stderr.strip()[-400:])
+            return
+    else:
+        build_icon_overlay(os.path.join(ICONS_DIR, name), tpl, base, color)
+    change_icons(name)
+    st["iconsKey"] = key
+
+
+def restore_icons(st):
+    prev = st.pop("iconsPrev", None) or st.get("iconsOrig")
+    st.pop("iconsKey", None)
+    if prev and kread("kdeglobals", "Icons", "Theme") in ICON_NAMES:
+        change_icons(prev)
+
+
+def apply_extras(st, wp, src, mode, wallpaper_changed, force=False):
+    # remember the user's own settings once, to restore them on "off"
+    if "konsolePrev" not in st:
+        st["konsolePrev"] = {p: profile_scheme(p)[0] for p in konsole_profiles()}
+    if "lockPrev" not in st:
+        st["lockPrev"] = subprocess.run(["kreadconfig6", "--file", "kscreenlockerrc", *LOCK_GROUPS, "--key", "Image"],
+                                        capture_output=True, text=True, timeout=5).stdout.strip()
+    write_konsole_scheme(src, mode)
+    for p in konsole_profiles():
+        if profile_scheme(p)[0] != KONSOLE_SCHEME:
+            set_profile_scheme(p, KONSOLE_SCHEME)
+    if wallpaper_changed or not os.path.exists(LOCK_IMG):
+        try:
+            make_lock_image(wp)
+        except Exception:  # noqa: BLE001
+            return
+    kwrite_lock(LOCK_IMG)
+    apply_icons(st, src, mode, force)
+
+
+def restore_extras(st):
+    write_palette(None, None, enabled=False)
+    restore_icons(st)
+    for p, scheme in (st.pop("konsolePrev", None) or {}).items():
+        if os.path.exists(p) and profile_scheme(p)[0] == KONSOLE_SCHEME:
+            set_profile_scheme(p, scheme)
+    prev = st.pop("lockPrev", None)
+    if prev is not None:
+        kwrite_lock(prev)
+
+
+def doodlebook_scheme_active():
+    return kread("kdeglobals", "General", "ColorScheme").startswith("DoodlebookOS")
+
+
+def generate_and_apply(mode, force=False):
+    st = load_state()
+    wp = current_wallpaper()
+    if not wp:
+        print("[!] Fond d'écran introuvable.")
+        return
+    with open(wp, "rb") as f:
+        digest = hashlib.md5(f.read(1 << 20)).hexdigest()
+    cur = kread("kdeglobals", "General", "ColorScheme")
+    if (not force and st.get("wallpaperHash") == digest and st.get("mode") == mode and cur in OUT_NAMES[mode]
+            and (kread("kdeglobals", "Icons", "Theme") in ICON_NAMES or "iconsPrev" in st or not os.path.isdir(ICON_TPL))):
+        return  # nothing changed
+    if st.get("wallpaperHash") == digest and st.get("source"):
+        src = tuple(st["source"])
+    else:
+        src = source_from_image(wp)
+    a, b = OUT_NAMES[mode]
+    name = b if cur == a else a           # alternate names so Plasma reloads the scheme
+    build_scheme(mode, src, name)
+    # Both alternating files are kept: a saved theme-switch profile may reference either.
+    other = a if name == b else b
+    if not os.path.exists(os.path.join(SCHEMES, other + ".colors")):
+        build_scheme(mode, src, other)
+    write_palette(src, mode)          # before the scheme: widgets re-read it on the colour change
+    apply_scheme(name)
+    apply_extras(st, wp, src, mode, st.get("wallpaperHash") != digest, force)
+    st.update({"enabled": True, "wallpaper": wp, "wallpaperHash": digest, "mode": mode,
+               "source": list(src), "scheme": name,
+               "sourceRGB": "#%02x%02x%02x" % hct_to_rgb(src[0], src[1], src[2])})
+    save_state(st)
+    print(f"[✓] Material You appliqué ({mode}) — couleur source {st['sourceRGB']} depuis {os.path.basename(wp)}")
+
+
+def main(argv):
+    cmd = argv[1] if len(argv) > 1 else "status"
+    mode = None
+    if "--mode" in argv:
+        mode = argv[argv.index("--mode") + 1]
+    st = load_state()
+    if cmd in ("on", "enable"):
+        st["enabled"] = True
+        save_state(st)
+        generate_and_apply(mode or current_mode(), force=True)
+    elif cmd in ("off", "disable"):
+        m = mode or current_mode()
+        st["enabled"] = False
+        restore_extras(st)
+        save_state(st)
+        if doodlebook_scheme_active():
+            apply_scheme(TEMPLATES[m])
+        print(f"[✓] Material You désactivé — retour à {TEMPLATES[m]}")
+    elif cmd == "toggle":
+        return main([argv[0], "off" if st.get("enabled") else "on"] + argv[2:])
+    elif cmd == "auto":
+        # Never touch a non-DoodlebookOS theme (e.g. after `theme-switch use mon-theme`)
+        if st.get("enabled") and doodlebook_scheme_active():
+            generate_and_apply(mode or current_mode())
+    elif cmd == "sync":
+        # called by theme-switch after a profile change: extras follow the active theme
+        if st.get("enabled") and doodlebook_scheme_active():
+            generate_and_apply(mode or current_mode(), force=True)
+        elif "konsolePrev" in st or "lockPrev" in st or "iconsPrev" in st:
+            restore_extras(st)
+            save_state(st)
+    elif cmd == "icons":
+        # icon pack changed (doodlebookos-icons): rebuild only the tinted icon overlay
+        m = mode or current_mode()
+        if st.get("enabled") and doodlebook_scheme_active() and st.get("source"):
+            apply_icons(st, tuple(st["source"]), m, True)
+            write_palette(tuple(st["source"]), m)   # dock buttons follow the icon colours
+            save_state(st)
+        else:
+            change_icons(ICON_PACKS[icon_pack()][1][m])
+    elif cmd == "refresh-icons":
+        # applications installed/removed: only the generated pack depends on them
+        if (icon_pack() == "material" and st.get("enabled") and doodlebook_scheme_active() and st.get("source")):
+            apply_icons(st, tuple(st["source"]), mode or st.get("mode") or current_mode(), False)
+            save_state(st)
+    elif cmd == "status":
+        print("on" if st.get("enabled") else "off")
+    elif cmd == "preview":
+        wp = current_wallpaper()
+        src = source_from_image(wp)
+        print(f"wallpaper: {wp}\nsource HCT: {src}\nsource RGB: #%02x%02x%02x" % hct_to_rgb(*src))
+        for name, (dh, ch) in {"primary": (0, 36), "secondary": (0, 16), "tertiary": (60, 24), "neutral": (0, 6)}.items():
+            print(name.ljust(10), " ".join("#%02x%02x%02x" % hct_to_rgb(src[0] + dh, ch, t) for t in (10, 20, 30, 40, 60, 80, 90, 95)))
+    else:
+        print(__doc__)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

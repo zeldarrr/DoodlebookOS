@@ -41,7 +41,301 @@ PlasmaExtras.Representation {
     readonly property var defaultTiles: ["wifi", "bluetooth", "dark_mode", "battery_saver", "modes", "mic", "screenshot", "quickshare"]
     property var activeTiles: ["wifi", "bluetooth", "dark_mode", "battery_saver", "modes", "mic", "screenshot", "quickshare"]
     property var tileSpans: ({})
-    readonly property var allSupportedTiles: ["wifi", "bluetooth", "dark_mode", "battery_saver", "modes", "mic", "screenshot", "quickshare", "keyboard"]
+    readonly property var builtinTiles: ["wifi", "bluetooth", "dark_mode", "battery_saver", "modes", "mic", "screenshot", "quickshare", "keyboard",
+                                         "night_light", "airplane", "caffeine", "screen_record", "clipboard", "material_you", "storage", "display", "focus", "game_mode"]
+    // User-defined tiles: [{ id: "custom_xxx", name, icon, command }]
+    property var customTiles: []
+    readonly property var allSupportedTiles: builtinTiles.concat(customTiles.map(function(t) { return t.id; }))
+
+    function isCustomTile(id) {
+        return typeof id === "string" && id.indexOf("custom_") === 0;
+    }
+
+    function findCustomTile(id) {
+        for (var i = 0; i < customTiles.length; i++) {
+            if (customTiles[i].id === id) return customTiles[i];
+        }
+        return null;
+    }
+
+    function loadCustomTiles() {
+        var raw = (Plasmoid && Plasmoid.configuration && Plasmoid.configuration.customTiles) ? Plasmoid.configuration.customTiles : "";
+        var list = [];
+        if (raw && raw.length > 0) {
+            try {
+                var parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                    for (var i = 0; i < parsed.length; i++) {
+                        var t = parsed[i];
+                        if (t && isCustomTile(t.id)) {
+                            list.push({ id: t.id, name: String(t.name || ""), icon: String(t.icon || ""), command: String(t.command || "") });
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn("DoodlebookOS QS: invalid customTiles config:", e);
+            }
+        }
+        customTiles = list;
+    }
+
+    function saveCustomTiles() {
+        if (Plasmoid && Plasmoid.configuration) {
+            Plasmoid.configuration.customTiles = JSON.stringify(customTiles);
+        }
+    }
+
+    // Creates a custom tile and places it on the panel right away (live, no restart needed)
+    function addCustomTile(name, icon, command) {
+        var id = "custom_" + Date.now().toString(36);
+        var copy = customTiles.slice();
+        copy.push({ id: id, name: String(name).trim(), icon: String(icon || "").trim(), command: String(command).trim() });
+        customTiles = copy;
+        saveCustomTiles();
+        var arr = activeTiles.slice();
+        arr.push(id);
+        activeTiles = arr;
+        setTileSpan(id, 2);
+        return id;
+    }
+
+    function removeCustomTile(id) {
+        customTiles = customTiles.filter(function(t) { return t.id !== id; });
+        saveCustomTiles();
+        if (activeTiles.indexOf(id) !== -1) {
+            activeTiles = activeTiles.filter(function(t) { return t !== id; });
+            saveActiveTiles();
+        }
+    }
+
+    // Monochrome (masked) rendering for our bundled SVGs and *-symbolic theme icons;
+    // full-colour rendering for regular application icons used by custom tiles.
+    function tileIconIsMask(id) {
+        if (!isCustomTile(id)) return true;
+        var t = findCustomTile(id);
+        var icon = t ? t.icon : "";
+        return icon.length === 0 || /-symbolic$/.test(icon) || icon.indexOf("/") !== -1;
+    }
+
+    function closePopup() {
+        if (appletRoot && typeof appletRoot.closeAllPopups === "function") {
+            appletRoot.closeAllPopups();
+        }
+    }
+
+    // Opens the tile editor, optionally pre-selecting a tile (right-click / "+" tile)
+    function openTileEditor(tileId) {
+        powerMenuOpen = false;
+        activeSubView = "";
+        isEditingTiles = true;
+        var idx = (tileId && tileId.length > 0) ? activeTiles.indexOf(tileId) : -1;
+        Qt.callLater(function() {
+            if (editTilesLoader.item) {
+                editTilesLoader.item.selectedTileIndex = idx;
+            }
+        });
+    }
+
+    // ---------- Night Light (shared by the moon button and the "night_light" tile) ----------
+    readonly property bool isNightLightOn: {
+        if (manualNightLightActive) {
+            return true;
+        }
+        if (nightLightControl.available && nightLightControl.running && !nightLightControl.inhibited) {
+            if (!nightLightControl.daylight || (nightLightControl.currentTemperature > 0 && nightLightControl.currentTemperature < 6000)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function toggleNightLight() {
+        var nightTemp = (nightLightControl.targetTemperature > 0 && nightLightControl.targetTemperature < 6000)
+                        ? nightLightControl.targetTemperature
+                        : 3300;
+        if (isNightLightOn) {
+            if (manualNightLightActive) {
+                manualNightLightActive = false;
+                executable.exec("$(command -v qdbus-qt6 || command -v qdbus6 || command -v qdbus) org.kde.KWin /org/kde/KWin/NightLight org.kde.KWin.NightLight.stopPreview");
+            }
+            if (nightLightControl.running && !nightLightControl.inhibited && !nightLightControl.daylight) {
+                BrightnessControl.NightLightInhibitor.toggleInhibition();
+            }
+        } else {
+            if (nightLightControl.inhibited) {
+                BrightnessControl.NightLightInhibitor.toggleInhibition();
+            }
+            if (nightLightControl.daylight || !nightLightControl.running) {
+                manualNightLightActive = true;
+                executable.exec("$(command -v qdbus-qt6 || command -v qdbus6 || command -v qdbus) org.kde.KWin /org/kde/KWin/NightLight org.kde.KWin.NightLight.preview " + nightTemp);
+            }
+        }
+    }
+
+    // ---------- System queries (power profiles, "stay awake") ----------
+    // PowerDevil proxies power-profiles-daemon / tuned-ppd on the session bus.
+    readonly property string ppCall: "busctl --user call org.kde.Solid.PowerManagement /org/kde/Solid/PowerManagement/Actions/PowerProfile org.kde.Solid.PowerManagement.Actions.PowerProfile"
+    property var powerProfiles: []
+    property string currentPowerProfile: ""
+    property bool caffeineActive: false
+
+    function parseDbusStrings(out) {
+        var re = /"([^"]*)"/g;
+        var m;
+        var res = [];
+        while ((m = re.exec(String(out))) !== null) {
+            res.push(m[1]);
+        }
+        return res;
+    }
+
+    function runQuery(cmd, tag) {
+        sysQuery.connectSource(cmd + " # " + tag + "-" + Date.now());
+    }
+
+    function refreshPowerProfile() {
+        runQuery(ppCall + " profileChoices", "ppchoices");
+        runQuery(ppCall + " currentProfile", "ppcurrent");
+    }
+
+    function setPowerProfile(profile) {
+        if (!/^[a-z-]+$/.test(profile) || powerProfiles.indexOf(profile) === -1) return;
+        if (profile === currentPowerProfile) return; // avoid a needless system-wide re-tune
+        currentPowerProfile = profile; // optimistic, confirmed by the follow-up query
+        runQuery(ppCall + " setProfile s " + profile + " ; " + ppCall + " currentProfile", "ppcurrent");
+    }
+
+    function powerProfileTitle(p) {
+        switch (p) {
+            case "power-saver": return i18n("Power saver");
+            case "balanced": return i18n("Balanced");
+            case "performance": return i18n("Performance");
+            default: return p;
+        }
+    }
+
+    function powerProfileIcon(p) {
+        switch (p) {
+            case "power-saver": return Qt.resolvedUrl("icons/eco.svg");
+            case "performance": return Qt.resolvedUrl("icons/speed.svg");
+            default: return Qt.resolvedUrl("icons/gauge.svg");
+        }
+    }
+
+    // "Stay awake" runs as a transient systemd user unit holding a logind idle+sleep
+    // inhibitor, so it is independent from (and survives restarts of) plasmashell.
+    readonly property string caffeineUnit: "doodlebookos-stay-awake"
+
+    function refreshCaffeine() {
+        runQuery("systemctl --user is-active --quiet " + caffeineUnit + " && echo on || echo off", "caffeine");
+    }
+
+    // Material You: colour scheme generated from the wallpaper (extras/scripts/doodlebookos-materialyou)
+    property bool materialYouActive: false
+    readonly property string materialYouCmd: "\"$HOME/.local/bin/doodlebookos-materialyou\""
+
+    function refreshMaterialYou() {
+        runQuery(materialYouCmd + " status 2>/dev/null || echo off", "materialyou");
+    }
+
+    function toggleMaterialYou() {
+        materialYouActive = !materialYouActive; // optimistic, the scheme follows in ~0.3 s
+        executable.exec(materialYouCmd + (materialYouActive ? " on" : " off"));
+    }
+
+    function toggleCaffeine() {
+        if (caffeineActive) {
+            caffeineActive = false;
+            executable.exec("systemctl --user stop " + caffeineUnit);
+        } else {
+            caffeineActive = true;
+            executable.exec("systemd-run --user --collect --unit=" + caffeineUnit + " --description='DoodlebookOS stay awake'"
+                            + " systemd-inhibit --what=idle:sleep --who=DoodlebookOS --why='Stay awake (Quick Settings)' sleep infinity");
+        }
+    }
+
+    Plasma5Support.DataSource {
+        id: sysQuery
+        engine: "executable"
+        connectedSources: []
+        onNewData: (sourceName, data) => {
+            var out = data["stdout"] || "";
+            if (sourceName.indexOf("# ppchoices") !== -1) {
+                var choices = fullRep.parseDbusStrings(out);
+                fullRep.powerProfiles = choices.length > 1 ? choices : [];
+            } else if (sourceName.indexOf("# ppcurrent") !== -1) {
+                var cur = fullRep.parseDbusStrings(out);
+                if (cur.length > 0) fullRep.currentPowerProfile = cur[0];
+            } else if (sourceName.indexOf("# caffeine") !== -1) {
+                fullRep.caffeineActive = String(out).trim() === "on";
+            } else if (sourceName.indexOf("# materialyou") !== -1) {
+                fullRep.materialYouActive = String(out).trim() === "on";
+            }
+            disconnectSource(sourceName);
+        }
+    }
+
+    // ---------- Material 3 motion: staggered reveal when the drawer opens ----------
+    readonly property bool animationsEnabled: Kirigami.Units.longDuration > 1
+    property real revealT: 1.0
+    NumberAnimation {
+        id: revealAnim
+        target: fullRep
+        property: "revealT"
+        from: 0
+        to: 1
+        duration: 480
+        easing.type: Easing.Linear
+    }
+
+    // Emphasized-decelerate approximation (M3 "enter" curve)
+    function m3ease(x) {
+        var c = Math.max(0, Math.min(1, x));
+        return 1 - Math.pow(1 - c, 4);
+    }
+
+    // Progress of an element whose entrance starts at `delay` (0..0.5) of the timeline
+    function reveal(delay) {
+        return m3ease((revealT - Math.min(0.5, delay)) / 0.5);
+    }
+
+    function playReveal() {
+        if (!animationsEnabled) {
+            revealT = 1.0;
+            return;
+        }
+        revealAnim.stop();
+        revealT = 0;
+        revealAnim.start();
+    }
+
+    property bool popupShown: false
+
+    function onPopupShown() {
+        popupShown = true;
+        slider1Item.syncFromSystem();
+        slider2Item.syncFromSystem();
+        refreshPowerProfile();
+        refreshCaffeine();
+        refreshMaterialYou();
+        playReveal();
+    }
+
+    function onPopupHidden() {
+        popupShown = false;
+        revealAnim.stop();
+        powerMenuOpen = false;
+        isEditingTiles = false;
+        activeSubView = "";
+        revealT = 1.0;
+    }
+
+    onActiveSubViewChanged: {
+        if (popupShown && activeSubView === "" && !isEditingTiles) playReveal();
+    }
+    onIsEditingTilesChanged: {
+        if (popupShown && !isEditingTiles && activeSubView === "") playReveal();
+    }
 
     function getTileSpan(id) {
         if (tileSpans && tileSpans[id] !== undefined) {
@@ -137,6 +431,10 @@ PlasmaExtras.Representation {
         if (typeof BluezQt !== "undefined" && BluezQt.Manager && BluezQt.Manager.connectedDevices && BluezQt.Manager.connectedDevices.length > 0) {
             var dev = BluezQt.Manager.connectedDevices[0];
             var devName = dev.name || dev.friendlyName || dev.alias || "";
+            // headphones battery (BlueZ Battery1) right in the tile, like Android
+            if (devName.length > 0 && dev.battery && dev.battery.percentage >= 0) {
+                devName += " · " + dev.battery.percentage + " %";
+            }
             if (devName.length > 0) {
                 if (BluezQt.Manager.connectedDevices.length > 1) {
                     return devName + " (+" + (BluezQt.Manager.connectedDevices.length - 1) + ")";
@@ -176,7 +474,20 @@ PlasmaExtras.Representation {
             case "screenshot": return i18n("Screenshot");
             case "quickshare": return i18n("Quick Share");
             case "keyboard": return i18n("Keyboard");
-            default: return id;
+            case "night_light": return i18n("Night Light");
+            case "airplane": return i18n("Airplane mode");
+            case "caffeine": return i18n("Stay awake");
+            case "screen_record": return i18n("Screen record");
+            case "clipboard": return i18n("Clipboard");
+            case "material_you": return "Material You";
+            case "storage": return i18n("Storage");
+            case "focus": return i18n("Focus");
+            case "game_mode": return i18n("Game mode");
+            case "display": return i18n("Display");
+            default: {
+                var ct = findCustomTile(id);
+                return ct ? ct.name : id;
+            }
         }
     }
 
@@ -185,15 +496,32 @@ PlasmaExtras.Representation {
             case "wifi": return getWifiSubtitle();
             case "bluetooth": return getBluetoothSubtitle();
             case "dark_mode": return fullRep.isSystemDark ? i18n("On") : i18n("Off");
-            case "battery_saver": return getBatterySubtitle();
-            case "modes": return (appletRoot && appletRoot.isDndActive) ? i18n("On") : i18n("Off");
+            case "battery_saver":
+                // Desktop PCs have no internal battery: show the active power profile instead
+                if (!(appletRoot && appletRoot.hasInternalBattery) && currentPowerProfile.length > 0) {
+                    return powerProfileTitle(currentPowerProfile);
+                }
+                return getBatterySubtitle();
+            case "modes": return (appletRoot && appletRoot.isDndActive)
+                ? (appletRoot.dndUntil - new Date() < 86400000 ? i18n("Until %1", Qt.formatTime(appletRoot.dndUntil, "HH:mm")) : i18n("On"))
+                : (appletRoot && appletRoot.dndSchedule ? i18n("Scheduled") : i18n("Off"));
             case "mic":
                 if (!fullRep.activeSource) return i18n("Unavailable");
                 return fullRep.activeSource.muted ? i18n("Muted") : i18n("Available");
             case "screenshot": return i18n("Area capture");
             case "quickshare": return i18n("KDE Connect");
             case "keyboard": return i18n("Virtual keyboard");
-            default: return "";
+            case "night_light": return isNightLightOn ? i18n("On") : i18n("Off");
+            case "airplane": return PlasmaNM.Configuration.airplaneModeEnabled ? i18n("On") : i18n("Off");
+            case "caffeine": return caffeineActive ? i18n("On") : i18n("Off");
+            case "screen_record": return i18n("Region");
+            case "clipboard": return i18n("History");
+            case "material_you": return materialYouActive ? i18n("Wallpaper colors") : i18n("Off");
+            case "storage": return i18n("USB & disks");
+            case "focus": return (appletRoot && appletRoot.focusMode) ? i18n("On") : i18n("Off");
+            case "game_mode": return (appletRoot && appletRoot.gameMode) ? i18n("Max CPU performance") : i18n("Automatic");
+            case "display": return i18n("Scale & refresh rate");
+            default: return isCustomTile(id) ? i18n("Shortcut") : "";
         }
     }
 
@@ -208,12 +536,25 @@ PlasmaExtras.Representation {
             case "screenshot": return Qt.resolvedUrl("icons/screenshot.svg");
             case "quickshare": return Qt.resolvedUrl("icons/quickshare.svg");
             case "keyboard": return Qt.resolvedUrl("icons/keyboard.svg");
-            default: return Qt.resolvedUrl("icons/settings.svg");
+            case "night_light": return Qt.resolvedUrl("icons/moon.svg");
+            case "airplane": return Qt.resolvedUrl("icons/airplane.svg");
+            case "caffeine": return Qt.resolvedUrl("icons/coffee.svg");
+            case "screen_record": return Qt.resolvedUrl("icons/screen_record.svg");
+            case "clipboard": return Qt.resolvedUrl("icons/clipboard.svg");
+            case "material_you": return Qt.resolvedUrl("icons/palette.svg");
+            case "storage": return Qt.resolvedUrl("icons/usb.svg");
+            case "focus": return Qt.resolvedUrl("icons/focus.svg");
+            case "game_mode": return Qt.resolvedUrl("icons/gamepad.svg");
+            case "display": return Qt.resolvedUrl("icons/monitor.svg");
+            default: {
+                var ct = findCustomTile(id);
+                return (ct && ct.icon.length > 0) ? ct.icon : Qt.resolvedUrl("icons/touch.svg");
+            }
         }
     }
 
     function tileHasCircleBadge(id) {
-        return id === "wifi" || id === "bluetooth";
+        return id === "wifi" || id === "bluetooth" || id === "modes";
     }
 
     function isTileActive(id) {
@@ -221,12 +562,18 @@ PlasmaExtras.Representation {
             case "wifi": return Boolean(nmEnabled.wirelessEnabled);
             case "bluetooth": return Boolean(isBtOn);
             case "dark_mode": return fullRep.isSystemDark;
-            case "battery_saver": return false;
+            case "battery_saver": return currentPowerProfile === "power-saver";
             case "modes": return Boolean(appletRoot && appletRoot.isDndActive);
             case "mic": return Boolean(fullRep.activeSource && !fullRep.activeSource.muted);
             case "screenshot": return false;
             case "quickshare": return false;
             case "keyboard": return false;
+            case "night_light": return isNightLightOn;
+            case "airplane": return Boolean(PlasmaNM.Configuration.airplaneModeEnabled);
+            case "caffeine": return caffeineActive;
+            case "material_you": return materialYouActive;
+            case "focus": return Boolean(appletRoot && appletRoot.focusMode);
+            case "game_mode": return Boolean(appletRoot && appletRoot.gameMode);
             default: return false;
         }
     }
@@ -249,9 +596,8 @@ PlasmaExtras.Representation {
                 fullRep.activeSubView = "power";
                 break;
             case "modes":
-                if (appletRoot && appletRoot.toggleDoNotDisturbMode) {
-                    appletRoot.toggleDoNotDisturbMode();
-                }
+                fullRep.powerMenuOpen = false;
+                fullRep.activeSubView = "dnd";
                 break;
             case "mic":
                 if (fullRep.activeSource) {
@@ -261,17 +607,68 @@ PlasmaExtras.Representation {
                 }
                 break;
             case "screenshot":
-                executable.exec("spectacle -r");
+                // Collapse the drawer first so it is not part of the capture (Android behaviour)
+                closePopup();
+                executable.exec("sleep 0.25; spectacle -r");
                 break;
             case "quickshare":
+                closePopup();
                 executable.exec("kdeconnect-app");
                 break;
             case "keyboard":
                 executable.exec("$(command -v qdbus-qt6 || command -v qdbus6 || command -v qdbus) org.kde.KWin /KWin org.kde.KWin.showVirtualKeyboard");
                 break;
-            default:
+            case "night_light":
+                toggleNightLight();
                 break;
+            case "airplane": {
+                var enable = !PlasmaNM.Configuration.airplaneModeEnabled;
+                nmHandler.enableAirplaneMode(enable);
+                PlasmaNM.Configuration.airplaneModeEnabled = enable;
+                break;
+            }
+            case "caffeine":
+                toggleCaffeine();
+                break;
+            case "material_you":
+                toggleMaterialYou();
+                break;
+            case "focus":
+                if (appletRoot && appletRoot.toggleFocusMode) appletRoot.toggleFocusMode();
+                break;
+            case "game_mode":
+                if (appletRoot && appletRoot.toggleGameMode) appletRoot.toggleGameMode();
+                break;
+            case "storage":
+                fullRep.powerMenuOpen = false;
+                fullRep.activeSubView = "storage";
+                break;
+            case "display":
+                fullRep.powerMenuOpen = false;
+                fullRep.activeSubView = "display";
+                break;
+            case "screen_record":
+                closePopup();
+                executable.exec("sleep 0.25; spectacle -R region");
+                break;
+            case "clipboard":
+                fullRep.powerMenuOpen = false;
+                fullRep.activeSubView = "clipboard";
+                break;
+            default: {
+                var ct = findCustomTile(id);
+                if (ct && ct.command.length > 0) {
+                    closePopup();
+                    executable.exec("nohup sh -c " + JSON.stringify(ct.command) + " </dev/null >/dev/null 2>&1 &");
+                }
+                break;
+            }
         }
+    }
+
+    // short, quiet click (PipeWire); one process per tap, nothing resident
+    function playClick() {
+        if (Plasmoid.configuration.tileSound) executable.exec("pw-play --volume 0.3 /usr/share/sounds/ocean/stereo/button-pressed.oga");
     }
 
     function executeTileIconAction(id) {
@@ -284,13 +681,17 @@ PlasmaExtras.Representation {
                 }
                 BluezQt.Manager.bluetoothBlocked = !BluezQt.Manager.bluetoothBlocked;
             }
+        } else if (id === "modes") {
+            if (appletRoot && appletRoot.toggleDoNotDisturbMode) appletRoot.toggleDoNotDisturbMode();
         } else {
             executeTileAction(id);
         }
     }
 
     Component.onCompleted: {
+        loadCustomTiles();
         loadActiveTiles();
+        refreshPowerProfile();
     }
 
     Sessions.SessionManagement {
@@ -363,6 +764,13 @@ PlasmaExtras.Representation {
         target: fullRep.Window ? fullRep.Window.window : null
         function onVisibleChanged() {
             var win = fullRep.Window ? fullRep.Window.window : null;
+            // The drawer is a PlasmaCore.AppletPopup driven by visibility, not by
+            // Plasmoid.expanded, so open/close lifecycle hooks live here.
+            if (win && win.visible) {
+                fullRep.onPopupShown();
+            } else {
+                fullRep.onPopupHidden();
+            }
             if (win && win.visible) {
                 Qt.callLater(() => {
                     if (!win || !win.visible || !win.screen) return;
@@ -386,7 +794,8 @@ PlasmaExtras.Representation {
             disconnectSource(sourceName);
         }
         function exec(cmd) {
-            connectSource(cmd);
+            // Unique source name so repeating the same action is never swallowed
+            connectSource(cmd + " # " + Date.now());
         }
     }
 
@@ -531,6 +940,32 @@ PlasmaExtras.Representation {
         }
     }
 
+    // Material You tertiary (from doodlebookos-materialyou's palette.json); falls back to the accent.
+    // Re-read only when the colour scheme changes.
+    property color tertiaryColor: effectiveAccentColor
+    property color onTertiaryColor: Kirigami.Theme.highlightedTextColor
+    readonly property color schemeHighlight: Kirigami.Theme.highlightColor
+    onSchemeHighlightChanged: loadPalette()
+    function loadPalette() { paletteSource.connectSource("cat \"$HOME/.config/doodlebookos/palette.json\" 2>/dev/null # " + Date.now()); }
+    Plasma5Support.DataSource {
+        id: paletteSource
+        engine: "executable"
+        connectedSources: []
+        Component.onCompleted: fullRep.loadPalette()
+        onNewData: (src, data) => {
+            disconnectSource(src);
+            var p = null;
+            try { p = JSON.parse(data["stdout"] || "{}"); } catch (e) { p = null; }
+            if (p && p.enabled && p.tertiary) {
+                fullRep.tertiaryColor = p.tertiary;
+                fullRep.onTertiaryColor = p.onTertiary;
+            } else {
+                fullRep.tertiaryColor = Qt.binding(() => fullRep.effectiveAccentColor);
+                fullRep.onTertiaryColor = Qt.binding(() => Kirigami.Theme.highlightedTextColor);
+            }
+        }
+    }
+
     readonly property color effectiveAccentColor: {
         if (appletRoot && appletRoot.effectiveAccentColor) {
             return appletRoot.effectiveAccentColor;
@@ -555,15 +990,15 @@ PlasmaExtras.Representation {
 
     Layout.preferredHeight: {
         var wantedH = snap(440.0);
-        if (fullRep.activeSubView === "wifi") {
-            wantedH = (wifiDetailsView ? wifiDetailsView.implicitHeight : 0) + fullRep.snap(14.4) + fullRep.snap(28.8);
+        if (fullRep.isEditingTiles) {
+            wantedH = (editTilesLoader.item ? editTilesLoader.item.implicitHeight : 0) + fullRep.snap(14.4) + fullRep.snap(28.8);
+            wantedH = Math.max(fullRep.snap(300.0), wantedH);
+        } else if (fullRep.activeSubView === "wifi") {
+            wantedH = (wifiLoader.item ? wifiLoader.item.implicitHeight : 0) + fullRep.snap(14.4) + fullRep.snap(28.8);
             wantedH = Math.max(fullRep.snap(260.0), wantedH);
         } else if (fullRep.activeSubView === "bluetooth") {
-            wantedH = (bluetoothDetailsView ? bluetoothDetailsView.implicitHeight : 0) + fullRep.snap(14.4) + fullRep.snap(28.8);
+            wantedH = (bluetoothLoader.item ? bluetoothLoader.item.implicitHeight : 0) + fullRep.snap(14.4) + fullRep.snap(28.8);
             wantedH = Math.max(fullRep.snap(260.0), wantedH);
-        } else if (fullRep.isEditingTiles) {
-            wantedH = (editTilesView ? editTilesView.implicitHeight : 0) + fullRep.snap(14.4) + fullRep.snap(28.8);
-            wantedH = Math.max(fullRep.snap(300.0), wantedH);
         } else if (fullRep.activeSubView !== "") {
             wantedH = snap(544.0);
         } else {
@@ -603,6 +1038,9 @@ PlasmaExtras.Representation {
             // 1. Top Header Row
             RowLayout {
                 id: headerRow
+                readonly property real enter: fullRep.reveal(0.0)
+                opacity: enter
+                transform: Translate { y: (1 - headerRow.enter) * -fullRep.snap(10) }
                 Layout.fillWidth: true
                 Layout.preferredHeight: fullRep.snap(29.6) // dokładnie 37px fizycznych (29.6 dp)
                 Layout.bottomMargin: fullRep.snap(14.4) - fullRep.snap(3.6) - mainCol.spacing // dokładnie 18px fizycznych od dolnej krawędzi boxów do toru suwaka jasności (na linii testowej)
@@ -735,6 +1173,10 @@ PlasmaExtras.Representation {
 
                 // Row 1: Brightness Slider + Moon Button
                 RowLayout {
+                    id: brightnessRow
+                    readonly property real enter: fullRep.reveal(0.06)
+                    opacity: enter
+                    transform: Translate { y: (1 - brightnessRow.enter) * fullRep.snap(14) }
                     Layout.fillWidth: true
                     spacing: fullRep.snap(9.6) // 12px fizycznych
 
@@ -891,21 +1333,11 @@ PlasmaExtras.Representation {
                         Layout.preferredHeight: fullRep.snap(28.8) // 36px fizycznych
                         radius: Math.round(height / 2)
 
-                        readonly property bool isNightLightOn: {
-                            if (fullRep.manualNightLightActive) {
-                                return true;
-                            }
-                            if (nightLightControl.available && nightLightControl.running && !nightLightControl.inhibited) {
-                                if (!nightLightControl.daylight || (nightLightControl.currentTemperature > 0 && nightLightControl.currentTemperature < 6000)) {
-                                    return true;
-                                }
-                            }
-                            return false;
-                        }
+                        readonly property bool isNightLightOn: fullRep.isNightLightOn
 
-                        readonly property color activeContentColor: Kirigami.Theme.highlightedTextColor
+                        readonly property color activeContentColor: fullRep.onTertiaryColor
 
-                        color: isNightLightOn ? fullRep.effectiveAccentColor : fullRep.oneUiTrackBg
+                        color: isNightLightOn ? fullRep.tertiaryColor : fullRep.oneUiTrackBg
 
                         Behavior on color { ColorAnimation { duration: Kirigami.Units.shortDuration } }
 
@@ -926,38 +1358,12 @@ PlasmaExtras.Representation {
                             Behavior on color { ColorAnimation { duration: Kirigami.Units.shortDuration } }
                         }
 
-                        function toggleNightLight() {
-                            var nightTemp = (nightLightControl.targetTemperature > 0 && nightLightControl.targetTemperature < 6000)
-                                            ? nightLightControl.targetTemperature
-                                            : 3300;
-
-                            if (moonButton.isNightLightOn) {
-                                // Turn OFF
-                                if (fullRep.manualNightLightActive) {
-                                    fullRep.manualNightLightActive = false;
-                                    executable.exec("$(command -v qdbus-qt6 || command -v qdbus6 || command -v qdbus) org.kde.KWin /org/kde/KWin/NightLight org.kde.KWin.NightLight.stopPreview");
-                                }
-                                if (nightLightControl.running && !nightLightControl.inhibited && !nightLightControl.daylight) {
-                                    BrightnessControl.NightLightInhibitor.toggleInhibition();
-                                }
-                            } else {
-                                // Turn ON
-                                if (nightLightControl.inhibited) {
-                                    BrightnessControl.NightLightInhibitor.toggleInhibition();
-                                }
-                                if (nightLightControl.daylight || !nightLightControl.running) {
-                                    fullRep.manualNightLightActive = true;
-                                    executable.exec("$(command -v qdbus-qt6 || command -v qdbus6 || command -v qdbus) org.kde.KWin /org/kde/KWin/NightLight org.kde.KWin.NightLight.preview " + nightTemp);
-                                }
-                            }
-                        }
-
                         MouseArea {
                             id: moonMouse
                             anchors.fill: parent
                             hoverEnabled: true
                             onClicked: {
-                                moonButton.toggleNightLight();
+                                fullRep.toggleNightLight();
                             }
                         }
                     }
@@ -965,6 +1371,10 @@ PlasmaExtras.Representation {
 
                 // Row 2: Volume Slider + Equalizer Button
                 RowLayout {
+                    id: volumeRow
+                    readonly property real enter: fullRep.reveal(0.10)
+                    opacity: enter
+                    transform: Translate { y: (1 - volumeRow.enter) * fullRep.snap(14) }
                     Layout.fillWidth: true
                     spacing: fullRep.snap(9.6) // 12px fizycznych
 
@@ -1170,7 +1580,263 @@ PlasmaExtras.Representation {
                             anchors.fill: parent
                             hoverEnabled: true
                             onClicked: {
-                                KCMUtils.KCMLauncher.openSystemSettings("kcm_pulseaudio");
+                                fullRep.powerMenuOpen = false;
+                                fullRep.activeSubView = "audio";
+                            }
+                        }
+                    }
+                }
+
+                // Row 3: Power profile bar (discrete 3-stop slider) + Power & battery button
+                RowLayout {
+                    id: powerRow
+                    visible: fullRep.powerProfiles.length > 1
+                    readonly property real enter: fullRep.reveal(0.14)
+                    opacity: enter
+                    transform: Translate { y: (1 - powerRow.enter) * fullRep.snap(14) }
+                    Layout.fillWidth: true
+                    spacing: fullRep.snap(9.6)
+
+                    Item {
+                        id: powerBar
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: handleHeight
+
+                        readonly property real trackHeight: fullRep.snap(28.8)
+                        readonly property real handleWidth: fullRep.snap(2.4)
+                        readonly property real handleHeight: fullRep.snap(36.0)
+                        readonly property real gapSize: fullRep.snap(5.6)
+                        readonly property int steps: Math.max(1, fullRep.powerProfiles.length)
+                        readonly property int activeIndex: Math.max(0, fullRep.powerProfiles.indexOf(fullRep.currentPowerProfile))
+                        property int previewIndex: -1 // while pressing / dragging
+                        readonly property int shownIndex: previewIndex >= 0 ? previewIndex : activeIndex
+                        readonly property string shownProfile: fullRep.powerProfiles.length > 0 ? fullRep.powerProfiles[shownIndex] : ""
+
+                        // One stop per profile: saver = start, balanced = middle, performance = end.
+                        // A small minimum pill keeps the profile icon readable at the first stop.
+                        readonly property real minFill: fullRep.snap(36)
+                        readonly property real range: Math.max(1, width - handleWidth - minFill)
+                        property real animatedValue: steps > 1 ? shownIndex / (steps - 1) : 1
+                        Behavior on animatedValue {
+                            NumberAnimation {
+                                duration: fullRep.animationsEnabled ? 420 : 0
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: [0.2, 0.0, 0.0, 1.0, 1.0, 1.0] // M3 emphasized
+                            }
+                        }
+                        readonly property real handleX: width > handleWidth ? fullRep.snap(minFill + animatedValue * range) : 0
+                        function stopX(i) { return minFill + (steps > 1 ? i / (steps - 1) : 1) * range; }
+
+                        // Nearest stop to the pointer
+                        function indexAt(px) {
+                            if (steps <= 1) return 0;
+                            return Math.max(0, Math.min(steps - 1, Math.round(((px - minFill) / range) * (steps - 1))));
+                        }
+
+                        Rectangle {
+                            id: fill3
+                            x: 0
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: powerBar.trackHeight
+                            width: Math.max(0, powerBar.handleX - powerBar.gapSize)
+                            color: fullRep.effectiveAccentColor
+                            visible: width > 0
+                            topLeftRadius: fullRep.snap(11.2)
+                            bottomLeftRadius: fullRep.snap(11.2)
+                            topRightRadius: width < height ? (width / 2) : fullRep.snap(2)
+                            bottomRightRadius: width < height ? (width / 2) : fullRep.snap(2)
+                        }
+
+                        Rectangle {
+                            x: powerBar.handleX
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: powerBar.handleWidth
+                            height: powerBar.handleHeight
+                            radius: width / 2
+                            color: fullRep.effectiveAccentColor
+                            z: 2
+                            scale: powerMouse.pressed ? 1.12 : 1.0
+                            Behavior on scale { NumberAnimation { duration: Kirigami.Units.shortDuration; easing.type: Easing.OutCubic } }
+                        }
+
+                        Rectangle {
+                            id: rightTrack3
+                            x: powerBar.handleX + powerBar.handleWidth + powerBar.gapSize
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: powerBar.trackHeight
+                            width: Math.max(0, parent.width - x)
+                            color: fullRep.oneUiTrackBg
+                            visible: width > 0
+                            topLeftRadius: width < height ? (width / 2) : fullRep.snap(2)
+                            bottomLeftRadius: width < height ? (width / 2) : fullRep.snap(2)
+                            topRightRadius: fullRep.snap(11.2)
+                            bottomRightRadius: fullRep.snap(11.2)
+                        }
+
+                        // M3 discrete-slider stop indicators on the inactive track
+                        Repeater {
+                            model: powerBar.steps
+                            Rectangle {
+                                required property int index
+                                readonly property real stopX: Math.min(powerBar.stopX(index) + powerBar.handleWidth / 2, powerBar.width - fullRep.snap(7))
+                                visible: stopX > powerBar.handleX + powerBar.gapSize * 2 && stopX < powerBar.width - profileLabel.implicitWidth - fullRep.snap(18)
+                                x: fullRep.snap(stopX - width / 2)
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: fullRep.snap(4)
+                                height: width
+                                radius: width / 2
+                                color: Kirigami.Theme.textColor
+                                opacity: 0.45
+                                z: 3
+                            }
+                        }
+
+                        // Profile icon sits at the start of the active fill
+                        Kirigami.Icon {
+                            id: profileIcon
+                            anchors.verticalCenter: parent.verticalCenter
+                            x: fullRep.snap(8.8)
+                            width: fullRep.snap(17.6)
+                            height: width
+                            z: 4
+                            source: fullRep.powerProfileIcon(powerBar.shownProfile)
+                            isMask: true
+                            color: fill3.width > x + width ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
+                            Behavior on color { ColorAnimation { duration: Kirigami.Units.shortDuration } }
+                        }
+
+                        // Profile name, right-aligned; switches to on-accent colour when the fill reaches it
+                        PlasmaComponents3.Label {
+                            id: profileLabel
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.right: parent.right
+                            anchors.rightMargin: fullRep.snap(11.2)
+                            z: 4
+                            text: fullRep.powerProfileTitle(powerBar.shownProfile)
+                            font.family: "Google Sans Flex"
+                            font.pixelSize: fullRep.snap(10.4)
+                            font.weight: Font.Medium
+                            readonly property bool onFill: (powerBar.width - anchors.rightMargin - implicitWidth) < fill3.width
+                            color: onFill ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
+                            Behavior on color { ColorAnimation { duration: Kirigami.Units.shortDuration } }
+                        }
+
+                        MouseArea {
+                            id: powerMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onPressed: (mouse) => {
+                                powerBar.previewIndex = powerBar.indexAt(mouse.x);
+                            }
+                            onPositionChanged: (mouse) => {
+                                if (pressed) {
+                                    powerBar.previewIndex = powerBar.indexAt(mouse.x);
+                                }
+                            }
+                            onReleased: (mouse) => {
+                                var idx = powerBar.indexAt(mouse.x);
+                                powerBar.previewIndex = -1;
+                                fullRep.setPowerProfile(fullRep.powerProfiles[idx]);
+                            }
+                            onCanceled: {
+                                powerBar.previewIndex = -1;
+                            }
+                            // Wheel previews instantly but commits once scrolling settles:
+                            // on Bazzite every profile switch re-tunes the whole system (tuned).
+                            onWheel: (wheel) => {
+                                var dir = wheel.angleDelta.y > 0 ? 1 : -1;
+                                var base = powerBar.previewIndex >= 0 ? powerBar.previewIndex : powerBar.activeIndex;
+                                powerBar.previewIndex = Math.max(0, Math.min(powerBar.steps - 1, base + dir));
+                                wheelCommit.restart();
+                            }
+                        }
+
+                        Timer {
+                            id: wheelCommit
+                            interval: 450
+                            onTriggered: {
+                                if (powerBar.previewIndex >= 0) {
+                                    var idx = powerBar.previewIndex;
+                                    powerBar.previewIndex = -1;
+                                    fullRep.setPowerProfile(fullRep.powerProfiles[idx]);
+                                }
+                            }
+                        }
+                    }
+
+                    // Button: block sleep ("Stay awake" / caffeine), M3 toggle icon button
+                    Rectangle {
+                        id: stayAwakeButton
+                        Layout.preferredWidth: fullRep.snap(28.8)
+                        Layout.preferredHeight: fullRep.snap(28.8)
+                        radius: fullRep.caffeineActive ? fullRep.snap(9.6) : Math.round(height / 2)
+                        color: fullRep.caffeineActive ? fullRep.tertiaryColor : fullRep.oneUiTrackBg
+                        Behavior on radius { NumberAnimation { duration: 350; easing.type: Easing.OutQuart } }
+                        Behavior on color { ColorAnimation { duration: 250 } }
+                        scale: stayAwakeMouse.pressed ? 0.9 : 1.0
+                        Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutQuart } }
+
+                        PlasmaComponents3.ToolTip.text: fullRep.caffeineActive ? i18n("Sleep blocked") : i18n("Block sleep")
+                        PlasmaComponents3.ToolTip.visible: stayAwakeMouse.containsMouse
+                        PlasmaComponents3.ToolTip.delay: Kirigami.Units.toolTipDelay
+
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: parent.radius
+                            color: fullRep.caffeineActive ? fullRep.onTertiaryColor : Kirigami.Theme.textColor
+                            opacity: stayAwakeMouse.pressed ? 0.20 : (stayAwakeMouse.containsMouse ? 0.08 : 0)
+                        }
+
+                        Kirigami.Icon {
+                            anchors.centerIn: parent
+                            width: fullRep.snap(14.4)
+                            height: fullRep.snap(14.4)
+                            source: Qt.resolvedUrl("icons/coffee.svg")
+                            isMask: true
+                            color: fullRep.caffeineActive ? fullRep.onTertiaryColor : Kirigami.Theme.textColor
+                        }
+
+                        MouseArea {
+                            id: stayAwakeMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: fullRep.toggleCaffeine()
+                        }
+                    }
+
+                    // Button: Power & battery details
+                    Rectangle {
+                        id: energyButton
+                        Layout.preferredWidth: fullRep.snap(28.8)
+                        Layout.preferredHeight: fullRep.snap(28.8)
+                        radius: Math.round(height / 2)
+                        color: fullRep.oneUiTrackBg
+
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: parent.radius
+                            color: Kirigami.Theme.textColor
+                            opacity: energyMouse.pressed ? 0.20 : (energyMouse.containsMouse ? 0.08 : 0)
+                        }
+
+                        Kirigami.Icon {
+                            anchors.centerIn: parent
+                            width: fullRep.snap(14.4)
+                            height: fullRep.snap(14.4)
+                            source: Qt.resolvedUrl("icons/bolt.svg")
+                            isMask: true
+                            color: Kirigami.Theme.textColor
+                        }
+
+                        MouseArea {
+                            id: energyMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: {
+                                fullRep.powerMenuOpen = false;
+                                fullRep.activeSubView = "power";
                             }
                         }
                     }
@@ -1197,15 +1863,14 @@ PlasmaExtras.Representation {
                     property bool isHovered: false
 
                     Layout.fillWidth: true
-                    implicitHeight: Math.ceil(measureLabel.implicitHeight)
+                    implicitHeight: Math.ceil(scrollLabel.implicitHeight)
 
-                    readonly property real overflow: Math.max(0, measureLabel.implicitWidth - width)
+                    readonly property real overflow: Math.max(0, measureText.advanceWidth - width)
                     readonly property bool needsScroll: overflow > 2
 
-                    // Hidden invisible label purely for measurement
-                    PlasmaComponents3.Label {
-                        id: measureLabel
-                        visible: false
+                    // PERF: lightweight text measurement (was a hidden Label per text)
+                    TextMetrics {
+                        id: measureText
                         text: mRoot.text
                         font.family: "Google Sans Flex"
                         font.pixelSize: mRoot.fontPixelSize
@@ -1314,8 +1979,15 @@ PlasmaExtras.Representation {
                     property string iconSource: ""
                     property bool hasCircleBadge: false
                     property bool isActive: false
+                    property bool iconIsMask: true
                     property var clickHandler: null
                     property var iconClickHandler: null
+                    property int revealIndex: 0
+
+                    // Staggered "pop" entrance (M3 expressive): fade + scale from 86 %
+                    readonly property real enter: fullRep.reveal(0.16 + revealIndex * 0.03)
+                    opacity: enter
+                    scale: 0.86 + 0.14 * enter
 
                     readonly property int span: fullRep.getTileSpan(tileId)
                     readonly property bool isCompact: span === 1
@@ -1341,12 +2013,36 @@ PlasmaExtras.Representation {
                                                              : Kirigami.Theme.textColor)
 
                     // Contrast color for active icon badge
-                    readonly property color activeBadgeContentColor: Kirigami.Theme.highlightedTextColor
+                    readonly property color activeBadgeContentColor: tile.hasCircleBadge ? fullRep.onTertiaryColor : Kirigami.Theme.highlightedTextColor
 
                     property bool isBadgeHovered: false
                     property bool isBodyHovered: false
                     property bool isPressed: false
                     property bool isBadgePressed: false
+
+                    // M3 ripple from the click point, masked to the tile shape — layers exist only while it runs
+                    function playRipple(px, py) { ripple.cx = px; ripple.cy = py; rippleAnim.restart(); }
+                    Rectangle { id: rippleMask; anchors.fill: parent; radius: tile.radius; visible: false; layer.enabled: rippleAnim.running }
+                    Item {
+                        anchors.fill: parent
+                        visible: rippleAnim.running
+                        layer.enabled: rippleAnim.running
+                        layer.effect: MultiEffect { maskEnabled: true; maskSource: rippleMask; maskThresholdMin: 0.5; maskSpreadAtMin: 1.0 }
+                        Rectangle {
+                            id: ripple
+                            property real cx: 0
+                            property real cy: 0
+                            property real r: 0
+                            x: cx - r; y: cy - r; width: 2 * r; height: 2 * r; radius: r
+                            color: tile.contentColor
+                            opacity: 0
+                        }
+                    }
+                    ParallelAnimation {
+                        id: rippleAnim
+                        NumberAnimation { target: ripple; property: "r"; from: 0; to: Math.sqrt(tile.width * tile.width + tile.height * tile.height); duration: 450; easing.type: Easing.OutCubic }
+                        NumberAnimation { target: ripple; property: "opacity"; from: 0.24; to: 0; duration: 560; easing.type: Easing.InQuad }
+                    }
 
                     function isInBadge(mx, my) {
                         if (tile.isCompact || !tile.hasCircleBadge) return false;
@@ -1367,7 +2063,7 @@ PlasmaExtras.Representation {
                         height: width
                         source: tile.iconSource
                         color: tile.contentColor
-                        isMask: true
+                        isMask: tile.iconIsMask
                         Behavior on color { ColorAnimation { duration: Kirigami.Units.shortDuration } }
                     }
 
@@ -1394,7 +2090,7 @@ PlasmaExtras.Representation {
 
                             color: tile.hasCircleBadge
                                    ? (tile.isActive
-                                      ? fullRep.effectiveAccentColor
+                                      ? fullRep.tertiaryColor
                                       : Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.12))
                                    : "transparent"
 
@@ -1408,7 +2104,7 @@ PlasmaExtras.Representation {
                                 color: (tile.hasCircleBadge && tile.isActive)
                                        ? tile.activeBadgeContentColor
                                        : tile.contentColor
-                                isMask: true
+                                isMask: tile.iconIsMask
                                 Behavior on color { ColorAnimation { duration: Kirigami.Units.shortDuration } }
                             }
 
@@ -1462,6 +2158,7 @@ PlasmaExtras.Representation {
                         id: tileMouse
                         anchors.fill: parent
                         hoverEnabled: true
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton
                         onPositionChanged: (mouse) => {
                             var inBadge = tile.isInBadge(mouse.x, mouse.y);
                             tile.isBadgeHovered = inBadge;
@@ -1497,6 +2194,13 @@ PlasmaExtras.Representation {
                         }
 
                         onClicked: (mouse) => {
+                            // Right-click: jump straight into "Edit tiles" with this tile selected
+                            if (mouse.button === Qt.RightButton) {
+                                fullRep.openTileEditor(tile.tileId);
+                                return;
+                            }
+                            tile.playRipple(mouse.x, mouse.y);
+                            fullRep.playClick();
                             if (tile.isCompact) {
                                 if (tile.tileId === "wifi" || tile.tileId === "bluetooth") {
                                     if (tile.iconClickHandler) {
@@ -1536,11 +2240,14 @@ PlasmaExtras.Representation {
 
                     QuickTile {
                         required property string modelData
+                        required property int index
 
                         tileId: modelData
+                        revealIndex: index
                         title: fullRep.getTileTitle(modelData)
                         subtitle: fullRep.getTileSubtitle(modelData)
                         iconSource: fullRep.getTileIcon(modelData)
+                        iconIsMask: fullRep.tileIconIsMask(modelData)
                         hasCircleBadge: fullRep.tileHasCircleBadge(modelData)
                         isActive: fullRep.isTileActive(modelData)
 
@@ -1552,67 +2259,201 @@ PlasmaExtras.Representation {
                         }
                     }
                 }
+
+                // "+" tile: add tiles live, straight from the drawer
+                Rectangle {
+                    id: addTileButton
+                    readonly property real enter: fullRep.reveal(0.16 + fullRep.activeTiles.length * 0.03)
+                    opacity: enter
+                    scale: 0.86 + 0.14 * enter
+                    Layout.columnSpan: 1
+                    Layout.fillWidth: false
+                    Layout.preferredWidth: fullRep.snap(72.0)
+                    Layout.preferredHeight: fullRep.snap(50.4)
+                    // M3 shape morph: pill -> rounded square on hover/press
+                    radius: addMouse.pressed ? fullRep.snap(10) : (addMouse.containsMouse ? fullRep.snap(16) : Math.round(height / 2))
+                    Behavior on radius { NumberAnimation { duration: 400; easing.type: Easing.OutQuart } }
+                    color: "transparent"
+                    border.width: fullRep.snap(1.2)
+                    border.color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, addMouse.containsMouse ? 0.45 : 0.22)
+                    Behavior on border.color { ColorAnimation { duration: 300 } }
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: parent.radius
+                        color: Kirigami.Theme.textColor
+                        opacity: addMouse.pressed ? 0.16 : (addMouse.containsMouse ? 0.06 : 0)
+                    }
+
+                    Kirigami.Icon {
+                        anchors.centerIn: parent
+                        width: fullRep.snap(20.8)
+                        height: width
+                        source: Qt.resolvedUrl("icons/add.svg")
+                        isMask: true
+                        color: Kirigami.Theme.textColor
+                        opacity: 0.85
+                        rotation: addMouse.containsMouse ? 90 : 0
+                        Behavior on rotation { NumberAnimation { duration: 500; easing.type: Easing.OutQuart } }
+                    }
+
+                    MouseArea {
+                        id: addMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: fullRep.openTileEditor("")
+                    }
+                }
+            }
+        }
+
+        // PERF: sub-views are created on demand and destroyed when closed. They used to be
+        // instantiated (with their NetworkManager / BlueZ models) as soon as the top bar loaded.
+        // Entering view uses the M3 "shared axis X" transition (fade + slide from the right).
+        component SubViewLoader: Loader {
+            id: svl
+            // Inside the loaded component, "fullRep" resolves to the view's own (null) property,
+            // so views receive the drawer through this alias instead.
+            readonly property var qs: fullRep
+            property real enterT: 1.0
+            readonly property real enterEased: fullRep.m3ease(enterT)
+            anchors.fill: parent
+            anchors.leftMargin: fullRep.snap(14.4)   // 18px fizycznych
+            anchors.rightMargin: fullRep.snap(14.4)  // 18px fizycznych
+            anchors.topMargin: fullRep.snap(14.4)    // 18px fizycznych
+            anchors.bottomMargin: fullRep.snap(28.8) // 36px fizycznych
+            visible: active
+            opacity: Math.min(1, svl.enterT * 1.6)
+            transform: Translate { x: (1 - svl.enterEased) * fullRep.snap(56) }
+            onLoaded: {
+                if (fullRep.animationsEnabled && fullRep.popupShown) {
+                    svl.enterT = 0;
+                    svlAnim.restart();
+                }
+            }
+            NumberAnimation {
+                id: svlAnim
+                target: svl
+                property: "enterT"
+                from: 0
+                to: 1
+                duration: 560
             }
         }
 
         // Edit Tiles & Layout Mode
-        EditTilesView {
-            id: editTilesView
-            anchors.fill: parent
-            anchors.leftMargin: fullRep.snap(14.4)   // 18px fizycznych
-            anchors.rightMargin: fullRep.snap(14.4)  // 18px fizycznych
-            anchors.topMargin: fullRep.snap(14.4)    // 18px fizycznych
-            anchors.bottomMargin: fullRep.snap(28.8) // 36px fizycznych
-            visible: fullRep.isEditingTiles
-            fullRep: fullRep
-            onCloseRequested: {
-                fullRep.isEditingTiles = false;
+        SubViewLoader {
+            id: editTilesLoader
+            active: fullRep.isEditingTiles
+            sourceComponent: Component {
+                EditTilesView {
+                    fullRep: editTilesLoader.qs
+                    onCloseRequested: {
+                        editTilesLoader.qs.isEditingTiles = false;
+                    }
+                }
             }
         }
 
         // Wi-Fi Details & Basic Settings View
-        WifiDetailsView {
-            id: wifiDetailsView
-            anchors.fill: parent
-            anchors.leftMargin: fullRep.snap(14.4)   // 18px fizycznych
-            anchors.rightMargin: fullRep.snap(14.4)  // 18px fizycznych
-            anchors.topMargin: fullRep.snap(14.4)    // 18px fizycznych
-            anchors.bottomMargin: fullRep.snap(28.8) // 36px fizycznych
-            visible: (!fullRep.isEditingTiles && fullRep.activeSubView === "wifi")
-            fullRep: fullRep
-            onCloseRequested: {
-                fullRep.activeSubView = "";
+        SubViewLoader {
+            id: wifiLoader
+            active: !fullRep.isEditingTiles && fullRep.activeSubView === "wifi"
+            sourceComponent: Component {
+                WifiDetailsView {
+                    fullRep: wifiLoader.qs
+                    onCloseRequested: {
+                        wifiLoader.qs.activeSubView = "";
+                    }
+                }
             }
         }
 
         // Bluetooth Details & Basic Settings View
-        BluetoothDetailsView {
-            id: bluetoothDetailsView
-            anchors.fill: parent
-            anchors.leftMargin: fullRep.snap(14.4)   // 18px fizycznych
-            anchors.rightMargin: fullRep.snap(14.4)  // 18px fizycznych
-            anchors.topMargin: fullRep.snap(14.4)    // 18px fizycznych
-            anchors.bottomMargin: fullRep.snap(28.8) // 36px fizycznych
-            visible: (!fullRep.isEditingTiles && fullRep.activeSubView === "bluetooth")
-            fullRep: fullRep
-            onCloseRequested: {
-                fullRep.activeSubView = "";
+        SubViewLoader {
+            id: bluetoothLoader
+            active: !fullRep.isEditingTiles && fullRep.activeSubView === "bluetooth"
+            sourceComponent: Component {
+                BluetoothDetailsView {
+                    fullRep: bluetoothLoader.qs
+                    onCloseRequested: {
+                        bluetoothLoader.qs.activeSubView = "";
+                    }
+                }
             }
         }
 
         // Power Details & Basic Settings View
-        PowerDetailsView {
-            id: powerDetailsView
-            anchors.fill: parent
-            anchors.leftMargin: fullRep.snap(14.4)
-            anchors.rightMargin: fullRep.snap(14.4)
-            anchors.topMargin: fullRep.snap(14.4)
-            anchors.bottomMargin: fullRep.snap(28.8)
-            visible: (!fullRep.isEditingTiles && fullRep.activeSubView === "power")
-            appletRoot: fullRep.appletRoot
-            fullRep: fullRep
-            onCloseRequested: {
-                fullRep.activeSubView = "";
+        SubViewLoader {
+            id: powerLoader
+            active: !fullRep.isEditingTiles && fullRep.activeSubView === "power"
+            sourceComponent: Component {
+                PowerDetailsView {
+                    appletRoot: powerLoader.qs.appletRoot
+                    fullRep: powerLoader.qs
+                    onCloseRequested: {
+                        powerLoader.qs.activeSubView = "";
+                    }
+                }
+            }
+        }
+
+        // Per-app volume
+        SubViewLoader {
+            id: audioLoader
+            active: !fullRep.isEditingTiles && fullRep.activeSubView === "audio"
+            sourceComponent: Component {
+                AudioMixerView {
+                    onCloseRequested: audioLoader.qs.activeSubView = ""
+                }
+            }
+        }
+
+        // Display (scale / refresh rate)
+        SubViewLoader {
+            id: displayLoader
+            active: !fullRep.isEditingTiles && fullRep.activeSubView === "display"
+            sourceComponent: Component {
+                DisplayView { onCloseRequested: displayLoader.qs.activeSubView = "" }
+            }
+        }
+
+        // Do not disturb (durations + schedule)
+        SubViewLoader {
+            id: dndLoader
+            active: !fullRep.isEditingTiles && fullRep.activeSubView === "dnd"
+            sourceComponent: Component {
+                DndView {
+                    applet: dndLoader.qs.appletRoot
+                    tertiary: dndLoader.qs.tertiaryColor
+                    onTertiary: dndLoader.qs.onTertiaryColor
+                    onCloseRequested: dndLoader.qs.activeSubView = ""
+                }
+            }
+        }
+
+        // Removable storage
+        SubViewLoader {
+            id: storageLoader
+            active: !fullRep.isEditingTiles && fullRep.activeSubView === "storage"
+            sourceComponent: Component {
+                StorageView {
+                    onCloseRequested: storageLoader.qs.activeSubView = ""
+                    onOpened: storageLoader.qs.closePopup()
+                }
+            }
+        }
+
+        // Clipboard history
+        SubViewLoader {
+            id: clipboardLoader
+            active: !fullRep.isEditingTiles && fullRep.activeSubView === "clipboard"
+            sourceComponent: Component {
+                ClipboardView {
+                    onCloseRequested: clipboardLoader.qs.activeSubView = ""
+                    onPasted: { clipboardLoader.qs.activeSubView = ""; clipboardLoader.qs.closePopup(); }
+                }
             }
         }
 

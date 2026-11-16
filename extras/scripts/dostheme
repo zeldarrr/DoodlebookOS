@@ -39,6 +39,18 @@ find_wp() {
     return 1
 }
 
+# Only swap the wallpaper when a DoodlebookOS wallpaper is in use: a personal
+# wallpaper is kept (Material You then re-tints the theme from it).
+uses_doodlebook_wp() {
+    local rc="$HOME/.config/plasma-org.kde.plasma.desktop-appletsrc"
+    [[ -f "$rc" ]] || return 0
+    local imgs
+    imgs=$(grep -E '^Image=' "$rc" || true)
+    [[ -z "$imgs" ]] && return 0
+    ! grep -qv "wallpapers/DoodlebookOS" <<<"$imgs"
+}
+if uses_doodlebook_wp; then SWAP_WP=1; else SWAP_WP=0; fi
+
 if [[ "$MODE" == "dark" || "$MODE" == "Dark" ]]; then
     echo "[i] Switching to DoodlebookOS Dark..."
     if command -v plasma-apply-colorscheme &>/dev/null; then
@@ -52,7 +64,7 @@ if [[ "$MODE" == "dark" || "$MODE" == "Dark" ]]; then
         kwriteconfig6 --file kdeglobals --group General --key ColorScheme "DoodlebookOS_DARK"
     fi
     WP_DARK=$(find_wp "DoodlebookOS_Wallpaper_DARK")
-    if [[ -n "$WP_DARK" ]] && command -v plasma-apply-wallpaperimage &>/dev/null; then
+    if [[ "$SWAP_WP" == 1 && -n "$WP_DARK" ]] && command -v plasma-apply-wallpaperimage &>/dev/null; then
         plasma-apply-wallpaperimage "$WP_DARK" 2>/dev/null || true
     fi
 elif [[ "$MODE" == "light" || "$MODE" == "Light" ]]; then
@@ -68,12 +80,17 @@ elif [[ "$MODE" == "light" || "$MODE" == "Light" ]]; then
         kwriteconfig6 --file kdeglobals --group General --key ColorScheme "DoodlebookOS_LIGHT"
     fi
     WP_LIGHT=$(find_wp "DoodlebookOS_Wallpaper_LIGHT")
-    if [[ -n "$WP_LIGHT" ]] && command -v plasma-apply-wallpaperimage &>/dev/null; then
+    if [[ "$SWAP_WP" == 1 && -n "$WP_LIGHT" ]] && command -v plasma-apply-wallpaperimage &>/dev/null; then
         plasma-apply-wallpaperimage "$WP_LIGHT" 2>/dev/null || true
     fi
 else
     echo "Usage: $(basename "$0") [dark|light|toggle|status]"
     exit 1
+fi
+
+# Material You: re-tint the freshly applied scheme from the wallpaper (if enabled)
+if [[ -x "$HOME/.local/bin/doodlebookos-materialyou" ]]; then
+    "$HOME/.local/bin/doodlebookos-materialyou" auto --mode "${MODE,,}" 2>/dev/null || true
 fi
 
 if [[ -x "$HOME/.local/bin/doodlebookos-topbar-color" ]]; then

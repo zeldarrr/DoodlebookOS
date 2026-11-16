@@ -74,7 +74,17 @@ public:
     //@{
     QColor titleBarColor() const;
     QColor fontColor() const;
+    //* M3 error / onError, for the close button state layer
+    QColor errorColor() const;
+    QColor onErrorColor() const;
+    bool isDarkTitleBar() const;
     //@}
+
+    //* corner radius currently drawn (animated to 0 when maximized / tiled)
+    qreal effectiveRadius() const
+    {
+        return m_scaledCornerRadius * m_radiusFactor;
+    }
 
     //*@name maximization modes
     //@{
@@ -107,6 +117,7 @@ private Q_SLOTS:
     void updateTitleBar();
     void updateAnimationState();
     void updateScale();
+    void updateRadiusAnimation();
 
 private:
     //* return the rect in which caption will be drawn
@@ -119,6 +130,8 @@ private:
     void updateShadow();
     std::shared_ptr<KDecoration3::DecorationShadow> createShadowObject(const float strengthScale);
     void setScaledCornerRadius();
+    void applyBorderRadius();
+    bool wantsSquareCorners() const;
 
     //*@name border size
     //@{
@@ -152,6 +165,10 @@ private:
     bool m_arrowPressed = false;
     qreal m_arrowOpacity = 0.0;
     QVariantAnimation *m_arrowAnimation = nullptr;
+
+    //* maximize / tile corner morph
+    QVariantAnimation *m_radiusAnimation = nullptr;
+    qreal m_radiusFactor = 1.0;
 };
 
 bool Decoration::hasBorders() const

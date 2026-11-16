@@ -1,0 +1,14 @@
+{
+    "KPackageStructure": "KWin/WindowSwitcher",
+    "KPlugin": {
+        "Authors": [{ "Name": "DoodlebookOS" }],
+        "Description": "Material 3 window switcher: rounded live previews, tonal highlight",
+        "Description[fr]": "Sélecteur de fenêtres Material 3 : aperçus arrondis, surbrillance tonale",
+        "Id": "doodlebookos",
+        "License": "GPL",
+        "Name": "DoodlebookOS",
+        "Name[fr]": "DoodlebookOS"
+    },
+    "X-Plasma-API": "declarativeappletscript",
+    "X-Plasma-MainScript": "ui/main.qml"
+}

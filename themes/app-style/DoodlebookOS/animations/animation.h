@@ -26,6 +26,7 @@ public:
         : QPropertyAnimation(parent)
     {
         setDuration(duration);
+        setEasingCurve(QEasingCurve::OutCubic);
     }
 
     //* true if running

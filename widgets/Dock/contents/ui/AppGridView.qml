@@ -16,7 +16,7 @@ GridView {
     property bool movedWithWheel: false
 
     property bool showScrollBar: true
-    readonly property int columns: (typeof root !== "undefined" && root.plasmoidConfiguration && root.plasmoidConfiguration.numberColumns) ? root.plasmoidConfiguration.numberColumns : 6
+    readonly property int columns: root.columns
 
     focus: true
     clip: true
@@ -38,8 +38,14 @@ GridView {
 
     delegate: FavoriteItem {
         id: favitem
+        required property var model
+        required property int index
+        tileModel: model
+        tileIndex: index
+        staggerIndex: index - Math.floor(Math.max(0, grid.contentY - grid.originY - grid.headerHeight) / grid.cellHeight) * grid.columns
         triggerModel: grid.model
     }
+    readonly property real headerHeight: headerItem ? headerItem.height : 0
 
     move: null
     moveDisplaced: null
@@ -188,7 +194,7 @@ GridView {
         // Implements the keyboard navigation described in https://www.w3.org/TR/wai-aria-practices-1.2/#grid
         if (count > 1) {
             switch (event.key) {
-                case Qt.Key_Left: if (!atLeft && !searchBar.textField.activeFocus) {
+                case Qt.Key_Left: if (!atLeft && !searchBar.textField.activeFocus && !(event.modifiers & Qt.ControlModifier)) {
                     moveCurrentIndexLeft()
                     focusCurrentItem(event, Qt.BacktabFocusReason)
                 } break
@@ -200,14 +206,15 @@ GridView {
                     moveCurrentIndexUp()
                     focusCurrentItem(event, Qt.BacktabFocusReason)
                 } else {
-                    searchBar.textField.forceActiveFocus(Qt.BacktabFocusReason);
+                    if (main.chips.visible) main.chips.forceActiveFocus(Qt.BacktabFocusReason);
+                    else searchBar.textField.forceActiveFocus(Qt.BacktabFocusReason);
                     event.accepted = true;
                 } break
                 case Qt.Key_K: if (!atTop && event.modifiers & Qt.ControlModifier) {
                     moveCurrentIndexUp()
                     focusCurrentItem(event, Qt.BacktabFocusReason)
                 } break
-                case Qt.Key_Right: if (!atRight && !searchBar.textField.activeFocus) {
+                case Qt.Key_Right: if (!atRight && !searchBar.textField.activeFocus && !(event.modifiers & Qt.ControlModifier)) {
                     moveCurrentIndexRight()
                     focusCurrentItem(event, Qt.TabFocusReason)
                 } break
@@ -269,14 +276,15 @@ GridView {
             }
         }
 
-        if (!event.accepted && event.key !== Qt.Key_Escape && event.key !== Qt.Key_Return && event.key !== Qt.Key_Enter) {
+        if (!event.accepted && event.key !== Qt.Key_Escape && event.key !== Qt.Key_Return && event.key !== Qt.Key_Enter
+                && event.key !== Qt.Key_Tab && event.key !== Qt.Key_Backtab) {
             if (event.key === Qt.Key_Backspace) {
                 searchBar.textField.forceActiveFocus();
                 if (searchBar.textField.text.length > 0) {
                     searchBar.textField.text = searchBar.textField.text.slice(0, -1);
                 }
                 event.accepted = true;
-            } else if (event.text && event.text.length > 0 && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))) {
+            } else if (event.text && event.text.length > 0 && event.text.charCodeAt(0) >= 32 && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))) {
                 searchBar.textField.forceActiveFocus();
                 searchBar.textField.text += event.text;
                 event.accepted = true;

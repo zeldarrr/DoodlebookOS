@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# DoodlebookOS virtual-desktop shortcuts for AZERTY (and QWERTY) keyboards.
+#   on : Meta+<1..5 key>        → go to desktop 1..5   (AZERTY: Meta+& é " ' (, plus Meta+1..5)
+#        Meta+Shift+<1..5 key>  → send the active window to desktop 1..5
+#        (the unused "activate task manager entry 1..5" Meta+1..5 bindings are cleared)
+#   off: restores exactly the shortcuts saved by "on".
+set -u
+BAK="${XDG_STATE_HOME:-$HOME/.local/state}/doodlebookos/desktop-shortcuts.bak"
+mkdir -p "${BAK%/*}"
+META=268435456; SHIFT=33554432
+AZ=(38 201 34 39 40)          # & É " ' (   (Qt key codes of the AZERTY digit row)
+
+call() { gdbus call --session -d org.kde.kglobalaccel -o /kglobalaccel -m "org.kde.KGlobalAccel.$1" "${@:2}"; }
+get()  { call shortcutKeys "['$1','$2','','']" | sed -e 's/^(//' -e 's/,)$//'; }
+set_() { call setForeignShortcutKeys "['$1','$2','','']" "$3" >/dev/null; }
+
+actions() {
+  for n in 1 2 3 4 5; do
+    printf 'kwin\tSwitch to Desktop %s\nkwin\tWindow to Desktop %s\nplasmashell\tactivate task manager entry %s\n' "$n" "$n" "$n"
+  done
+}
+
+case "${1:-}" in
+  on)
+    if [[ ! -s "$BAK" ]]; then
+      actions | while IFS=$'\t' read -r c a; do printf '%s\t%s\t%s\n' "$c" "$a" "$(get "$c" "$a")"; done > "$BAK.tmp" \
+        && mv "$BAK.tmp" "$BAK"
+    fi
+    for n in 1 2 3 4 5; do
+      d=$((48 + n))                 # Qt::Key_1..5
+      fk=$((16777263 + n))          # Qt::Key_F1..F5
+      az=${AZ[n-1]}
+      sw="[([$((META + az))],), ([$((META + d))],), ([$((0x04000000 + fk))],)]"   # Meta+AZ, Meta+N, Ctrl+Fn
+      # Meta+Shift+<digit key>: KWin drops the consumed Shift → Meta+N on AZERTY; Meta+Shift+N on QWERTY
+      mv_="[([$((META + SHIFT + d))],), ([$((META + SHIFT + az))],)]"
+      set_ plasmashell "activate task manager entry $n" "@a(ai) []"
+      set_ kwin "Window to Desktop $n" "$mv_"
+      set_ kwin "Switch to Desktop $n" "$sw"
+    done
+    echo "on" ;;
+  off)
+    [[ -s "$BAK" ]] || { echo "nothing to restore"; exit 0; }
+    while IFS=$'\t' read -r c a v; do set_ "$c" "$a" "$v"; done < "$BAK"
+    rm -f "$BAK"; echo "restored" ;;
+  status)
+    for n in 1 2; do for a in "Switch to Desktop $n" "Window to Desktop $n"; do echo "$a: $(get kwin "$a")"; done; done ;;
+  *) echo "usage: doodlebookos-desktop-shortcuts on|off|status" >&2; exit 1 ;;
+esac

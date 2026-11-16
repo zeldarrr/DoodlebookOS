@@ -1,0 +1,178 @@
+#!/usr/bin/env bash
+# theme-switch — sauvegarder / restaurer des profils de thème KDE Plasma.
+#
+#   theme-switch save <nom>      enregistre l'état actuel du bureau comme profil <nom>
+#   theme-switch use <nom>       restaure le profil <nom> (puis relance Plasma/KWin)
+#   theme-switch list            liste les profils
+#   theme-switch delete <nom>    supprime un profil
+#   theme-switch undo            revient à l'état d'avant le dernier « use »
+#
+# Variables d'environnement (pour tests) :
+#   CONFIG_DIR    (défaut ~/.config)
+#   PROFILES_DIR  (défaut ~/.config/theme-profiles)
+#   NO_RESTART=1  ne touche pas à plasmashell/kwin/systemd
+
+set -euo pipefail
+
+CONFIG_DIR="${CONFIG_DIR:-$HOME/.config}"
+PROFILES_DIR="${PROFILES_DIR:-$CONFIG_DIR/theme-profiles}"
+NO_RESTART="${NO_RESTART:-0}"
+
+# Éléments (relatifs à CONFIG_DIR) qui définissent l'apparence + les panneaux
+ITEMS=(
+  plasmarc
+  kdeglobals
+  kwinrc
+  plasmashellrc
+  kglobalshortcutsrc
+  kcminputrc
+  klaunchrc
+  ksplashrc
+  breezerc
+  plasma-org.kde.plasma.desktop-appletsrc
+  kdedefaults
+  gtk-3.0
+  gtk-4.0
+  gtkrc
+  gtkrc-2.0
+  plasmaparc
+  doodlebookosrc
+  doodlebookos/icon-pack
+  doodlebookos/icon-shape
+  doodlebookos/shape.json
+)
+
+# Services utilisateur à rallumer/éteindre selon le profil (ex. démon de la barre du haut)
+SERVICES=(doodlebookos-topbar.path)   # (ancien démon doodlebookos-topbar.service remplacé par l'unité .path)
+
+die() { echo "[!] $*" >&2; exit 1; }
+
+valid_name() { [[ "$1" =~ ^[A-Za-z0-9_.-]+$ ]] || die "Nom invalide : « $1 » (lettres, chiffres, _ . - seulement)"; }
+
+snapshot() {   # snapshot <dossier-destination>
+  local dest="$1"
+  rm -rf "$dest"; mkdir -p "$dest/files"
+  : > "$dest/manifest"
+  for it in "${ITEMS[@]}"; do
+    if [[ -e "$CONFIG_DIR/$it" ]]; then
+      mkdir -p "$dest/files/$(dirname "$it")"
+      cp -a "$CONFIG_DIR/$it" "$dest/files/$it"
+      echo "$it" >> "$dest/manifest"
+    fi
+  done
+  : > "$dest/services"
+  if [[ "$NO_RESTART" != 1 ]] && command -v systemctl &>/dev/null; then
+    for s in "${SERVICES[@]}"; do
+      systemctl --user is-active --quiet "$s" 2>/dev/null && echo "$s" >> "$dest/services" || true
+    done
+  fi
+  date -Is > "$dest/saved-at"
+}
+
+# « reconfigure » ne (dé)charge pas les effets/scripts KWin ajoutés : on aligne l'état
+# chargé sur le kwinrc restauré (effet d'animation Material et script « Mode bureau »).
+sync_kwin_extras() {
+  local q en
+  q=$(command -v qdbus-qt6 || command -v qdbus6 || true)
+  [[ -n "$q" ]] || return 0
+  for eff in doodlebookos_motion:false scale:true overview:true; do
+    en=$(kreadconfig6 --file kwinrc --group Plugins --key "${eff%%:*}Enabled" --default "${eff##*:}" 2>/dev/null)
+    if [[ "$en" == true ]]; then
+      "$q" org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect "${eff%%:*}" &>/dev/null || true
+    else
+      "$q" org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect "${eff%%:*}" &>/dev/null || true
+    fi
+  done
+  "$q" org.kde.KWin /Effects org.kde.kwin.Effects.$( [[ "$(kreadconfig6 --file kwinrc --group Plugins --key screenedgeEnabled --default false 2>/dev/null)" == true ]] && echo loadEffect || echo unloadEffect ) screenedge &>/dev/null || true
+  local s
+  for s in doodlebookos_windowing doodlebookos_snap doodlebookos_corners doodlebookos_gamemode; do
+    en=$(kreadconfig6 --file kwinrc --group Plugins --key "${s}Enabled" --default false 2>/dev/null)
+    if [[ "$en" != true ]]; then
+      "$q" org.kde.KWin /Scripting org.kde.kwin.Scripting.unloadScript "$s" &>/dev/null || true
+      [[ "$s" == doodlebookos_gamemode ]] && "$HOME/.local/bin/doodlebookos-gamemode" reset &>/dev/null || true
+    fi
+  done
+  "$q" org.kde.KWin /Scripting org.kde.kwin.Scripting.start &>/dev/null || true
+}
+
+restore() {    # restore <dossier-source>
+  local src="$1"
+  [[ -d "$src/files" ]] || die "Profil introuvable ou vide : $src"
+
+  if [[ "$NO_RESTART" != 1 ]]; then
+    echo "[i] Arrêt de Plasma (il écrit sa config en quittant, donc on le coupe AVANT de restaurer)..."
+    for s in "${SERVICES[@]}"; do systemctl --user stop "$s" 2>/dev/null || true; done
+    systemctl --user stop plasma-plasmashell.service 2>/dev/null || kquitapp6 plasmashell 2>/dev/null || true
+    sleep 1
+  fi
+
+  for it in "${ITEMS[@]}"; do
+    rm -rf "${CONFIG_DIR:?}/$it"
+    if grep -qxF "$it" "$src/manifest"; then
+      mkdir -p "$CONFIG_DIR/$(dirname "$it")"
+      cp -a "$src/files/$it" "$CONFIG_DIR/$it"
+    fi
+  done
+
+  if [[ "$NO_RESTART" != 1 ]]; then
+    echo "[i] Relance de KWin et Plasma..."
+    busctl --user call org.kde.KWin /KWin org.kde.KWin reconfigure &>/dev/null || true
+    sync_kwin_extras
+    [[ -x "$HOME/.local/bin/doodlebookos-materialyou" ]] && "$HOME/.local/bin/doodlebookos-materialyou" sync &>/dev/null || true
+    systemctl --user start plasma-plasmashell.service 2>/dev/null || (nohup plasmashell --replace &>/dev/null &)
+    for s in "${SERVICES[@]}"; do
+      if grep -qxF "$s" "$src/services" 2>/dev/null || { [[ "$s" == doodlebookos-topbar.path ]] && grep -qxF doodlebookos-topbar.service "$src/services" 2>/dev/null; }; then
+        systemctl --user enable --now "$s" 2>/dev/null || true
+      else
+        systemctl --user disable "$s" 2>/dev/null || true   # ne démarrera plus au login
+      fi
+    done
+    command -v kbuildsycoca6 &>/dev/null && kbuildsycoca6 &>/dev/null || true
+  fi
+}
+
+cmd="${1:-}"
+case "$cmd" in
+  save)
+    [[ $# -eq 2 ]] || die "Usage : theme-switch save <nom>"; valid_name "$2"
+    [[ "$2" != "_undo" ]] || die "Nom réservé"
+    if [[ -e "$PROFILES_DIR/$2" ]]; then
+      read -r -p "Le profil « $2 » existe déjà. L'écraser ? [o/N] " a
+      [[ "$a" =~ ^[oOyY]$ ]] || die "Annulé."
+    fi
+    snapshot "$PROFILES_DIR/$2"
+    echo "[✓] Profil « $2 » enregistré ($(wc -l < "$PROFILES_DIR/$2/manifest") éléments)."
+    ;;
+  use)
+    [[ $# -eq 2 ]] || die "Usage : theme-switch use <nom>"; valid_name "$2"
+    [[ -d "$PROFILES_DIR/$2" ]] || die "Profil « $2 » inconnu. Voir : theme-switch list"
+    snapshot "$PROFILES_DIR/_undo"
+    restore "$PROFILES_DIR/$2"
+    echo "[✓] Profil « $2 » appliqué. (Annuler : theme-switch undo)"
+    echo "    Relancez les applications déjà ouvertes pour qu'elles prennent le style/les couleurs."
+    ;;
+  undo)
+    [[ -d "$PROFILES_DIR/_undo" ]] || die "Rien à annuler."
+    cp -a "$PROFILES_DIR/_undo" "$PROFILES_DIR/_undo.tmp"
+    restore "$PROFILES_DIR/_undo.tmp"
+    rm -rf "$PROFILES_DIR/_undo.tmp"
+    echo "[✓] État précédent restauré."
+    ;;
+  list)
+    [[ -d "$PROFILES_DIR" ]] || { echo "(aucun profil)"; exit 0; }
+    for d in "$PROFILES_DIR"/*/; do
+      [[ -d "$d" ]] || continue
+      n="$(basename "$d")"; [[ "$n" == _undo ]] && continue
+      echo "- $n  (enregistré le $(cut -c1-16 "$d/saved-at" 2>/dev/null))"
+    done
+    ;;
+  delete)
+    [[ $# -eq 2 ]] || die "Usage : theme-switch delete <nom>"; valid_name "$2"
+    [[ -d "$PROFILES_DIR/$2" ]] || die "Profil inconnu."
+    rm -rf "${PROFILES_DIR:?}/$2"; echo "[✓] Profil « $2 » supprimé."
+    ;;
+  *)
+    sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'
+    exit 1
+    ;;
+esac
