@@ -41,7 +41,17 @@
 - La décoration des fenêtres et le style des applis sont précompilés pour Plasma 6.8 (x86_64).
   Sur une autre version, l'installeur les compile si `cmake`, `ninja`, `g++` et les paquets de
   développement KDE sont présents (voir `install.sh`), sinon il garde Breeze pour ces deux parties.
-- Options : `--yes` (sans questions), `--no-gui` (texte), `--keep-wallpaper`.
+- Options : `--yes` (sans questions), `--no-gui` (texte), `--keep-wallpaper`, `--no-auto-update`.
+
+**Mises à jour automatiques** : une fois par jour (jamais en mode jeu ni sur connexion limitée),
+`doodlebookos-update` regarde la dernière Release ; si elle est plus récente, il la télécharge, vérifie
+sa **signature** (`ssh-keygen -Y verify`, clé publique dans `setup/update.json`) et l'installe à la
+**prochaine connexion**, avant le démarrage du bureau. Seuls les fichiers du thème changent : barres,
+widgets placés, fond d'écran et réglages restent intacts.
+`doodlebookos-update now` (tout de suite), `doodlebookos-update check`, `doodlebookos-update auto off`.
+
+**Publier une version** (PC de l'auteur, clé `~/.local/share/doodlebookos-release/signing-key`) :
+`setup/release.sh v0.9.0-fork.N "notes"` (exporte l'apparence, construit, signe, tague, publie).
 
 **Fabriquer l'installeur** (sur le PC dont on veut copier l'apparence) :
 `python3 setup/capture-profile.py` exporte la disposition et les réglages dans `setup/profile/`

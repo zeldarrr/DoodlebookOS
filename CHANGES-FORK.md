@@ -10,6 +10,8 @@ d'avis de modification au sens de la GPL-3.0 (§ 5a).
   `setup/make-installer.sh`), sauvegarde automatique du bureau (`theme-switch`), profil exporté
   (`setup/profile/`, sans données personnelles), modules C++ précompilés vérifiés avant usage
   (version de Plasma + `ldd -r`), sinon compilés si les outils sont là.
+- Mises à jour automatiques signées (`doodlebookos-update`, minuteur quotidien, installation à la
+  connexion suivante, `setup/release.sh` pour publier).
 - Faux liens (fichiers texte) de l'archive remplacés par de vrais liens symboliques (curseurs,
   icônes de dossiers, fonds d'écran `.png`).
 

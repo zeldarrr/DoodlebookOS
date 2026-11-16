@@ -3,9 +3,12 @@
 # Builds dist/DoodlebookOS-Installer.run: one self-extracting file (run-header.sh + tar.xz of the repo,
 # the precompiled decoration/style modules of THIS machine and the third-party icon assets).
 #
-#   setup/make-installer.sh [--capture] [--desktop]
+#   setup/make-installer.sh [--capture] [--desktop] [--version vX.Y.Z]
 #     --capture   export this desktop's look first (setup/capture-profile.py)
 #     --desktop   also copy the result to the desktop folder
+#     --version   version written into the installer (default: git describe)
+# With the release key (~/.local/share/doodlebookos-release/signing-key) the file is signed:
+# dist/DoodlebookOS-Installer.run.sig, checked by doodlebookos-update before installing.
 set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="$REPO/dist/DoodlebookOS-Installer.run"
@@ -13,12 +16,21 @@ STAGE="$(mktemp -d "${TMPDIR:-/tmp}/doodlebookos-pack.XXXXXX")"
 trap 'rm -rf "$STAGE"' EXIT
 D="$STAGE/DoodlebookOS"
 
-for a in "$@"; do [[ "$a" == --capture ]] && python3 "$REPO/setup/capture-profile.py"; done
+VERSION=""
+args=("$@")
+for i in "${!args[@]}"; do
+    [[ "${args[$i]}" == --capture ]] && python3 "$REPO/setup/capture-profile.py"
+    [[ "${args[$i]}" == --version ]] && VERSION="${args[$((i + 1))]:-}"
+done
+[[ -n "$VERSION" ]] || VERSION="$(git -C "$REPO" describe --tags --always 2>/dev/null || echo dev)"
+KEY="$HOME/.local/share/doodlebookos-release/signing-key"
 
 echo "[i] Copie du dépôt…"
 mkdir -p "$D"
 tar -C "$REPO" --exclude=./.git --exclude=./dist --exclude=./.github --exclude='__pycache__' \
     --exclude='*.pyc' --exclude=build -cf - . | tar -C "$D" -xf -
+echo "$VERSION" > "$D/VERSION"
+echo "    version $VERSION"
 
 echo "[i] Modules C++ précompilés…"
 mkdir -p "$D/bundle/prebuilt"
@@ -57,6 +69,12 @@ mkdir -p "$(dirname "$OUT")"
 chmod +x "$OUT.tmp"
 mv -f "$OUT.tmp" "$OUT"
 echo "[✓] $OUT ($(du -h "$OUT" | cut -f1))"
+rm -f "$OUT.sig"
+if [[ -f "$KEY" ]]; then
+    ssh-keygen -q -Y sign -f "$KEY" -n doodlebookos-update "$OUT" && echo "[✓] signé : $OUT.sig"
+else
+    echo "[i] pas de clé de publication ($KEY) : installeur non signé, refusé par doodlebookos-update"
+fi
 
 for a in "$@"; do
     if [[ "$a" == --desktop ]]; then

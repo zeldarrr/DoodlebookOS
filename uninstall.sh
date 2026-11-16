@@ -16,11 +16,16 @@ echo -e "${C_CYAN}${C_BOLD}==> Uninstalling DoodlebookOS...${C_RESET}"
 # 1. Stop Daemons & Revert Environment
 if command -v systemctl &>/dev/null; then
     systemctl --user disable --now doodlebookos-topbar.path 2>/dev/null || true
+    systemctl --user disable --now doodlebookos-update.timer doodlebookos-m3icons.path 2>/dev/null || true
+    systemctl --user disable doodlebookos-update-apply.service 2>/dev/null || true
     systemctl --user stop doodlebookos-topbar.service 2>/dev/null || true
     systemctl --user disable doodlebookos-topbar.service 2>/dev/null || true
     [ -x "$HOME/.local/bin/doodlebookos-gamemode" ] && "$HOME/.local/bin/doodlebookos-gamemode" reset 2>/dev/null || true
     [ -x "$HOME/.local/bin/doodlebookos-desktop-shortcuts" ] && "$HOME/.local/bin/doodlebookos-desktop-shortcuts" off 2>/dev/null || true
 fi
+rm -f "$HOME"/.config/systemd/user/doodlebookos-update{.service,.timer,-apply.service} \
+      "$HOME"/.config/systemd/user/doodlebookos-m3icons.{path,service} "$HOME/.local/bin/doodlebookos-update"
+rm -rf "$HOME/.local/state/doodlebookos/pending"
 rm -f "$HOME/.config/systemd/user/doodlebookos-topbar.service" \
       "$HOME/.config/systemd/user/doodlebookos-topbar.path" \
       "$HOME/.config/systemd/user/doodlebookos-gamemode@.service"

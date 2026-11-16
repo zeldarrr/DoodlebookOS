@@ -1,0 +1,5 @@
+{
+ "repo": "zeldarrr/DoodlebookOS",
+ "asset": "DoodlebookOS-Installer.run",
+ "signers": ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH29i41a00dErGmWWNwjzo4S+l2nRSYlSdC4X+VJjFDg"]
+}

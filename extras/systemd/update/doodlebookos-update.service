@@ -1,0 +1,9 @@
+[Unit]
+Description=DoodlebookOS: look for an update (downloaded now, installed at the next login)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/doodlebookos-update --auto
+Nice=19
+IOSchedulingClass=idle

@@ -1,0 +1,14 @@
+[Unit]
+Description=DoodlebookOS: install a downloaded update before the desktop starts
+ConditionPathExists=%h/.local/state/doodlebookos/pending/DoodlebookOS-Installer.run
+Before=plasma-plasmashell.service plasma-kwin_wayland.service plasma-kwin_x11.service
+
+[Service]
+Type=oneshot
+# nothing is shown: KDE tools run without a display
+Environment=QT_QPA_PLATFORM=offscreen
+ExecStart=%h/.local/bin/doodlebookos-update apply
+TimeoutStartSec=180
+
+[Install]
+WantedBy=plasma-core.target

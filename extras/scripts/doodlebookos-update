@@ -1,0 +1,237 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""
+doodlebookos-update — mises à jour de DoodlebookOS depuis les Releases GitHub.
+
+  doodlebookos-update             vérifie et télécharge ; installé à la prochaine connexion
+  doodlebookos-update now         vérifie, installe tout de suite et relance le bureau
+  doodlebookos-update check       affiche la version installée et la dernière
+  doodlebookos-update auto on|off|status    vérification quotidienne automatique
+
+La mise à jour ne remplace que les fichiers du thème (widgets, scripts, icônes, modules) :
+barres, widgets placés, fond d'écran et réglages restent comme ils sont. Chaque fichier
+téléchargé doit porter la signature de la clé de publication (ssh-keygen -Y verify).
+"""
+import fcntl
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import urllib.request
+
+HOME = os.path.expanduser("~")
+CONF = os.path.join(HOME, ".local", "share", "doodlebookos", "update.json")
+STATE_DIR = os.path.join(HOME, ".local", "state", "doodlebookos")
+INSTALLED = os.path.join(STATE_DIR, "installed.json")
+PENDING = os.path.join(STATE_DIR, "pending")
+LOG = os.path.join(STATE_DIR, "update.log")
+UA = {"User-Agent": "DoodlebookOS-updater", "Accept": "application/vnd.github+json"}
+NAMESPACE = "doodlebookos-update"
+
+
+def log(msg):
+    os.makedirs(STATE_DIR, exist_ok=True)
+    with open(LOG, "a", encoding="utf-8") as f:
+        f.write(msg.rstrip() + "\n")
+
+
+def say(msg, quiet=False):
+    log(msg)
+    if not quiet:
+        print(msg, flush=True)
+
+
+def load(path, default):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return default
+
+
+def save(path, data):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f)
+    os.replace(tmp, path)
+
+
+def vkey(v):
+    return tuple(int(x) for x in re.findall(r"\d+", v or ""))
+
+
+def notify(text):
+    if shutil.which("notify-send"):
+        subprocess.run(["notify-send", "-a", "DoodlebookOS", "-i", "system-software-update", "DoodlebookOS", text],
+                       capture_output=True, timeout=10)
+
+
+def metered():
+    """NetworkManager: 1 = yes, 3 = guessed yes."""
+    if not shutil.which("gdbus"):
+        return False
+    r = subprocess.run(["gdbus", "call", "--system", "--dest", "org.freedesktop.NetworkManager",
+                        "--object-path", "/org/freedesktop/NetworkManager", "--method",
+                        "org.freedesktop.DBus.Properties.Get", "org.freedesktop.NetworkManager", "Metered"],
+                       capture_output=True, text=True, timeout=10)
+    m = re.search(r"uint32 (\d+)", r.stdout)
+    return bool(m) and m.group(1) in ("1", "3")
+
+
+def get_json(url):
+    with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=30) as r:
+        return json.load(r)
+
+
+def download(url, dest):
+    with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA["User-Agent"]}), timeout=120) as r, \
+            open(dest, "wb") as f:
+        shutil.copyfileobj(r, f, 1 << 20)
+
+
+def verify(conf, path, sig):
+    signers = conf.get("signers") or []
+    if not signers:
+        return True                               # unsigned channel (local test builds)
+    if not shutil.which("ssh-keygen"):
+        raise RuntimeError("ssh-keygen manquant (paquet openssh) : signature impossible à vérifier")
+    with tempfile.NamedTemporaryFile("w", suffix=".allowed", delete=False) as f:
+        for s in signers:
+            f.write(f'doodlebookos namespaces="{NAMESPACE}" {s}\n')
+        allowed = f.name
+    try:
+        with open(path, "rb") as data:
+            r = subprocess.run(["ssh-keygen", "-Y", "verify", "-f", allowed, "-I", "doodlebookos", "-n", NAMESPACE,
+                                "-s", sig], stdin=data, capture_output=True, timeout=120)
+    finally:
+        os.unlink(allowed)
+    return r.returncode == 0
+
+
+def latest(conf):
+    rel = get_json(f"https://api.github.com/repos/{conf['repo']}/releases/latest")
+    assets = {a["name"]: a["browser_download_url"] for a in rel.get("assets", [])}
+    return rel.get("tag_name", ""), assets
+
+
+def fetch(quiet):
+    """Download the newest release into PENDING if it is newer. Returns its version or None."""
+    conf = load(CONF, {})
+    if not conf.get("repo"):
+        raise RuntimeError(f"configuration absente : {CONF}")
+    inst = load(INSTALLED, {})
+    cur = inst.get("version", "")
+    tag, assets = latest(conf)
+    pend = load(os.path.join(PENDING, "pending.json"), {})
+    if not tag or vkey(tag) <= vkey(cur):
+        say(f"À jour ({cur or '?'}).", quiet)
+        return None
+    if pend.get("version") == tag and os.path.exists(os.path.join(PENDING, conf["asset"])):
+        say(f"{tag} déjà téléchargée, installée à la prochaine connexion.", quiet)
+        return tag
+    if inst.get("failedVersion") == tag and quiet:
+        return None                               # this version already failed here: wait for the next one
+    name = conf["asset"]
+    if name not in assets or (conf.get("signers") and name + ".sig" not in assets):
+        raise RuntimeError(f"release {tag} incomplète (fichiers {name} / {name}.sig)")
+    os.makedirs(PENDING, exist_ok=True)
+    tmp = tempfile.mkdtemp(dir=PENDING)
+    try:
+        say(f"Téléchargement de {tag}…", quiet)
+        download(assets[name], os.path.join(tmp, name))
+        if conf.get("signers"):
+            download(assets[name + ".sig"], os.path.join(tmp, name + ".sig"))
+        if not verify(conf, os.path.join(tmp, name), os.path.join(tmp, name + ".sig")):
+            raise RuntimeError(f"signature invalide pour {tag} : fichier rejeté")
+        os.chmod(os.path.join(tmp, name), 0o755)
+        os.replace(os.path.join(tmp, name), os.path.join(PENDING, name))
+        save(os.path.join(PENDING, "pending.json"), {"version": tag})
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    say(f"{tag} prête.", quiet)
+    return tag
+
+
+def apply(restart):
+    conf = load(CONF, {})
+    run = os.path.join(PENDING, conf.get("asset", "DoodlebookOS-Installer.run"))
+    pend = load(os.path.join(PENDING, "pending.json"), {})
+    if not os.path.exists(run):
+        return False
+    if vkey(pend.get("version")) <= vkey(load(INSTALLED, {}).get("version", "")):
+        shutil.rmtree(PENDING, ignore_errors=True)    # already installed (e.g. by hand): never downgrade
+        return False
+    env = dict(os.environ)
+    if not (env.get("WAYLAND_DISPLAY") or env.get("DISPLAY")):
+        env["QT_QPA_PLATFORM"] = "offscreen"
+    r = subprocess.run(["bash", run, "--update", "--yes", "--no-gui"], capture_output=True, text=True, env=env, timeout=900)
+    log(r.stdout[-4000:] + r.stderr[-4000:])
+    inst = load(INSTALLED, {})
+    if r.returncode != 0:
+        inst["failedVersion"] = pend.get("version", "")
+        save(INSTALLED, inst)
+        notify(f"La mise à jour {pend.get('version', '')} a échoué (journal : {LOG}).")
+    shutil.rmtree(PENDING, ignore_errors=True)
+    if r.returncode == 0 and restart:
+        subprocess.run(["systemctl", "--user", "restart", "plasma-plasmashell.service"], capture_output=True, timeout=60)
+        q = shutil.which("qdbus-qt6") or shutil.which("qdbus6") or shutil.which("qdbus")
+        if q:
+            subprocess.run([q, "org.kde.KWin", "/KWin", "reconfigure"], capture_output=True, timeout=30)
+    return r.returncode == 0
+
+
+def auto(arg):
+    unit = "doodlebookos-update.timer"
+    if arg in ("on", "off"):
+        subprocess.run(["systemctl", "--user", "enable" if arg == "on" else "disable", "--now", unit], check=False)
+    r = subprocess.run(["systemctl", "--user", "is-enabled", unit], capture_output=True, text=True)
+    print("Mises à jour automatiques : " + ("activées" if r.stdout.strip() == "enabled" else "désactivées"))
+
+
+def main(argv):
+    os.makedirs(STATE_DIR, exist_ok=True)
+    lock = open(os.path.join(STATE_DIR, "update.lock"), "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        print("Une mise à jour est déjà en cours.")
+        return 0
+    cmd = argv[1] if len(argv) > 1 else ""
+    try:
+        if cmd == "--auto":
+            if metered() or os.path.exists(f"/run/user/{os.getuid()}/doodlebookos-gamemode"):
+                log("vérification reportée (connexion limitée ou mode jeu)")
+                return 0
+            if fetch(quiet=True):
+                notify(f"Mise à jour {load(os.path.join(PENDING, 'pending.json'), {}).get('version', '')} prête : "
+                       "installée à la prochaine connexion.")
+        elif cmd == "apply":
+            apply(restart=False)
+        elif cmd == "now":
+            fetch(quiet=False)
+            if apply(restart=True):
+                print("[✓] Mise à jour installée.")
+        elif cmd == "check":
+            inst = load(INSTALLED, {})
+            tag, _ = latest(load(CONF, {}))
+            print(f"Installée : {inst.get('version', '?')}\nDernière  : {tag}")
+        elif cmd == "auto":
+            auto(argv[2] if len(argv) > 2 else "status")
+        elif cmd in ("", "fetch"):
+            if fetch(quiet=False):
+                print("Installée à la prochaine connexion (ou tout de suite : doodlebookos-update now).")
+        else:
+            print(__doc__.strip())
+            return 1
+    except Exception as e:  # noqa: BLE001 — network / GitHub errors end here, never in a traceback
+        say(f"[!] {e}", quiet=(cmd == "--auto"))
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

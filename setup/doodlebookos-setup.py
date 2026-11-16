@@ -25,6 +25,11 @@ import time
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BUNDLE = os.path.join(ROOT, "bundle")
 PROFILE = os.path.join(ROOT, "setup", "profile")
+try:
+    with open(os.path.join(ROOT, "VERSION"), encoding="utf-8") as _f:
+        VERSION = _f.read().strip()          # written by make-installer.sh (release tag)
+except OSError:
+    VERSION = "dev"
 HOME = os.path.expanduser("~")
 CFG = os.environ.get("XDG_CONFIG_HOME") or os.path.join(HOME, ".config")
 SHARE = os.path.join(HOME, ".local", "share")
@@ -326,6 +331,10 @@ def install_files():
     if has_python_module("dbus") and has_python_module("gi.repository.GLib"):
         copyfile(os.path.join(bridge, "doodlebook-krunner-bridge.py"), os.path.join(BIN, "doodlebook-krunner-bridge.py"), 0o755)
         copyfile(os.path.join(bridge, "systemd", "plasma-krunner.service"), os.path.join(UNITS, "plasma-krunner.service"))
+    # updates: daily check (timer), install at the next login before the desktop starts
+    for f in glob.glob(os.path.join(ex, "systemd", "update", "*")):
+        copyfile(f, os.path.join(UNITS, os.path.basename(f)))
+    copyfile(os.path.join(ROOT, "setup", "update.json"), os.path.join(SHARE, "doodlebookos", "update.json"))
     # uninstaller kept next to the data
     copyfile(os.path.join(ROOT, "uninstall.sh"), os.path.join(SHARE, "doodlebookos", "uninstall.sh"), 0o755)
     if which("kbuildsycoca6"):
@@ -597,6 +606,9 @@ def services(pack):
     if not which("systemctl"):
         return
     run(["systemctl", "--user", "daemon-reload"])
+    run(["systemctl", "--user", "enable", "doodlebookos-update-apply.service"])
+    if "--no-auto-update" not in ARGS:
+        run(["systemctl", "--user", "enable", "--now", "doodlebookos-update.timer"])
     run(["systemctl", "--user", "enable", "--now", "doodlebookos-topbar.path"])
     if pack == "material":
         run(["systemctl", "--user", "enable", "--now", "doodlebookos-m3icons.path"])
@@ -613,6 +625,54 @@ def azerty_shortcuts(settings):
         run([os.path.join(BIN, "doodlebookos-desktop-shortcuts"), "on"])
 
 
+def update_main(pv, settings):
+    """Files only: panels, placed widgets, wallpaper and the user's own settings stay untouched.
+    Run by doodlebookos-update (at login, before the desktop starts, or on demand)."""
+    if not (os.environ.get("WAYLAND_DISPLAY") or os.environ.get("DISPLAY")):
+        os.environ["QT_QPA_PLATFORM"] = "offscreen"     # KDE tools work without a screen
+    path = os.path.join(STATE, "installed.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            inst = json.load(f)
+    except (OSError, ValueError):
+        inst = {}
+    log(f"mise à jour {inst.get('version', '?')} -> {VERSION}")
+    try:
+        install_files()
+        plugin_env()
+        deco, style = native_parts(pv)
+        # settings added by the new version only (keys this PC has never had)
+        for file, group, key, value in settings.get("kconfig", []):
+            if file == "kwinrc" and group == "org.kde.kdecoration2" and key in ("library", "theme") and not deco:
+                continue
+            if file == "kdeglobals" and key == "widgetStyle" and not style:
+                continue
+            if kread(file, group, key, "__doodlebookos_absent__") == "__doodlebookos_absent__":
+                kwrite(file, group, key, value)
+        if which("systemctl"):
+            run(["systemctl", "--user", "daemon-reload"])
+            run(["systemctl", "--user", "enable", "doodlebookos-update-apply.service"])
+        try:
+            with open(os.path.join(CFG, "doodlebookos", "materialyou.json"), encoding="utf-8") as f:
+                my_on = bool(json.load(f).get("enabled"))
+        except (OSError, ValueError):
+            my_on = False
+        if my_on:
+            run([os.path.join(BIN, "doodlebookos-materialyou"), "icons"], timeout=900)
+        if not shell_running():
+            shutil.rmtree(os.path.join(HOME, ".cache", "plasmashell", "qmlcache"), ignore_errors=True)
+    except Exception as e:  # noqa: BLE001
+        log(f"ERREUR mise à jour: {e!r}")
+        return 1
+    inst.update(version=VERSION, updated=datetime.datetime.now().strftime("%Y%m%d-%H%M%S"),
+                decoration=deco or inst.get("decoration", False), style=style or inst.get("style", False))
+    inst.pop("failedVersion", None)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(inst, f)
+    log("mise à jour terminée")
+    return 0
+
+
 # ───────────────────────────── main ─────────────────────────────
 def main():
     log(f"\n##### {datetime.datetime.now().isoformat(timespec='seconds')} — {ROOT}")
@@ -621,6 +681,8 @@ def main():
         settings = json.load(f)
     with open(os.path.join(PROFILE, "layout.json"), encoding="utf-8") as f:
         layout = json.load(f)
+    if "--update" in ARGS:
+        return update_main(pv, settings)
     live = shell_running()
     if not ui.ask("<b>Installer DoodlebookOS</b> (thème Material 3 Expressive pour KDE Plasma) ?<br><br>"
                   "• Barres, dock, widgets, couleurs du fond d'écran, icônes, curseurs, effets.<br>"
@@ -664,7 +726,7 @@ def main():
         kwin_refresh()
         ui.step("Terminé")
         with open(os.path.join(STATE, "installed.json"), "w", encoding="utf-8") as f:
-            json.dump({"date": ts, "backup": saved, "decoration": deco, "style": style}, f)
+            json.dump({"version": VERSION, "date": ts, "backup": saved, "decoration": deco, "style": style}, f)
     except Exception as e:  # noqa: BLE001 — show any failure to the user, details in the log
         log(f"ERREUR: {e!r}")
         if live and not shell_running():

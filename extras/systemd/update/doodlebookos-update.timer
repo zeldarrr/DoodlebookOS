@@ -1,0 +1,11 @@
+[Unit]
+Description=DoodlebookOS: daily update check
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=2h
+Persistent=true
+OnStartupSec=10min
+
+[Install]
+WantedBy=timers.target
