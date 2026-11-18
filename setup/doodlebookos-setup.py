@@ -294,9 +294,10 @@ def install_files():
     ex = os.path.join(ROOT, "extras")
     copytree(os.path.join(ex, "cursors", "DoodlebookOS-Cursors"), os.path.join(SHARE, "icons", "DoodlebookOS-Cursors"))
     copytree(os.path.join(ex, "icons", "DoodlebookOS"), os.path.join(SHARE, "icons", "DoodlebookOS"))
-    for f in glob.glob(os.path.join(ex, "fonts", "GoogleSansFlex", "*")):
+    # Google Sans Flex (interface) and Google Sans Code (monospace), both OFL
+    for f in glob.glob(os.path.join(ex, "fonts", "*", "*")):
         if os.path.isfile(f):
-            copyfile(f, os.path.join(SHARE, "fonts", "GoogleSansFlex", os.path.basename(f)))
+            copyfile(f, os.path.join(SHARE, "fonts", os.path.basename(os.path.dirname(f)), os.path.basename(f)))
     for f in glob.glob(os.path.join(ex, "wallpapers", "*")):
         if os.path.isfile(f) and not os.path.islink(f):
             copyfile(f, os.path.join(SHARE, "wallpapers", "DoodlebookOS", os.path.basename(f)))

@@ -132,7 +132,7 @@ rm -rf "$HOME/.local/share/plasma/look-and-feel/org.doodlebookos.desktop"
 rm -rf "$HOME/.local/share/icons/DoodlebookOS" \
        "$HOME/.local/share/icons/DoodlebookOS-Cursors" \
        "$HOME/.icons/DoodlebookOS-Cursors"
-rm -rf "$HOME/.local/share/fonts/GoogleSansFlex"
+rm -rf "$HOME/.local/share/fonts/GoogleSansFlex" "$HOME/.local/share/fonts/GoogleSansCode"
 rm -rf "$HOME/.local/share/wallpapers/DoodlebookOS"
 rm -f "$HOME/.local/share/kstyle/themes/doodlebookos.themerc"
 
