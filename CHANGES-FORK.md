@@ -27,6 +27,29 @@ d'avis de modification au sens de la GPL-3.0 (§ 5a).
   Tela-circle ; 16 **formes Material 3 Expressive** (`doodlebookos-icons shape …`), repli d'icônes
   corrigé (`mirror_fallbacks`).
 - Packs au choix : `doodlebookos-icons material|tela-circle|colloid`.
+- **« Fond d'écran et style »** (appli `doodlebookos-style`, comme sur Android) : fond d'écran,
+  Material You, **styles de palette** d'Android (Tonal Spot, Vibrant, Expressive, Fruit Salad,
+  Rainbow, Content, Neutral, Monochrome), **contraste** standard / moyen / élevé, clair/sombre et
+  forme des icônes, avec aperçu ; en ligne de commande : `doodlebookos-materialyou variant|contrast`.
+- **Applis tierces** aux couleurs du fond : accent de Zen, thème « DoodlebookOS Material You » pour
+  VS Code / VSCodium et pour Kate / KWrite (à choisir une fois, suit ensuite le fond), Flatpak
+  autorisés à lire les couleurs GTK/KDE et les icônes.
+
+## Écrans système
+- **Démarrage** : indicateur de chargement M3 Expressive (forme qui se transforme).
+- **Verrouillage** (fond `org.doodlebookos.lockscreen`) : grande horloge sur deux lignes en
+  Google Sans Flex qui « respire » au réveil, minutes qui roulent, date et météo ; le champ de mot
+  de passe de Plasma passe devant, l'horloge se floute derrière.
+- **Menu d'extinction** façon Android : grandes tuiles tonales (verrouiller, veille, déconnexion,
+  redémarrer, éteindre) qui changent de forme au survol, clavier complet.
+- **Écran de connexion SDDM** M3 Expressive, optionnel (`doodlebookos-setup.py --sddm`, droits admin
+  demandés) : horloge, avatar, champ pilule, secousse sur mauvais mot de passe, puces de session.
+- **Animation de charge** au branchement : onde aux couleurs du fond et niveau qui apparaît sur un
+  ressort.
+- **Capture d'écran façon Android** (Impr. écran, `doodlebookos-screenshot`) : la capture rétrécit
+  dans le coin, carte « Modifier » / fermer / glisser ; Spectacle passe sur Ctrl+Impr. écran.
+- **Thème sonore** original et discret (`themes/sounds`, 38 sons synthétisés, repli sur Ocean) ;
+  **Google Sans Code** fournie pour le texte à chasse fixe.
 
 ## Bureau et widgets
 - **Dock / lanceur** : index et recherche tolérante, dossiers, badges de notifications, résultats
@@ -54,7 +77,10 @@ d'avis de modification au sens de la GPL-3.0 (§ 5a).
 - Décoration : boutons M3 Expressive, coins animés, ombre réglable (`ShadowOpacity`,
   `ShadowSpread` dans `doodlebookosrc`).
 - Style Qt : rayons 12/16, animations, sélection tonale, coins arrondis des vues, barres de
-  défilement discrètes, champs intégrés sans fond. Se compile aussi sans extra-cmake-modules.
+  défilement discrètes, champs intégrés sans fond, **menus groupés M3 Expressive** (cartes
+  arrondies séparées par des espaces, plus de traits). Se compile aussi sans extra-cmake-modules.
+- **Fenêtres façon Android** : une appli lancée depuis le dock ou le lanceur grandit depuis
+  l'icône cliquée ; elle se referme et se réduit dans son icône du dock.
 - **Sélecteur de fichiers** (celui des navigateurs, via xdg-desktop-portal-kde) : emplacements et
   fil d'Ariane en pilules tonales, liste de fichiers sur une surface arrondie (la propriété
   `_breeze_borders_sides` que KIO remet après l'affichage ne l'aplatit plus), curseur de zoom sans
@@ -86,3 +112,5 @@ d'avis de modification au sens de la GPL-3.0 (§ 5a).
 - `theme-switch` (profils de thème, retour arrière), `doodlebookos-gamemode`,
   `doodlebookos-focus`, `doodlebookos-desktop-shortcuts` (AZERTY), priorité audio des
   appels vocaux (`extras/systemd/voice-priority`).
+- Mesures : `setup/slowmo-test.py` (animations au ralenti photographiées, vitesse toujours
+  remise) et `setup/perf-check.py` (CPU au repos par processus, puissance sur batterie).
