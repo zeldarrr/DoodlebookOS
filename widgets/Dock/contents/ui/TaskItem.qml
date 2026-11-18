@@ -174,6 +174,22 @@ Item {
         }
     }
 
+    // KWin needs each window's icon position: minimize into it (Squash), open from / close back
+    // to it (doodlebookos_motion). Published once the item has settled, never per frame.
+    function publishGeometry() {
+        if (!isWindow || !tasksModel || typeof tasksModel.requestPublishDelegateGeometry !== "function") return;
+        var idx = getModelIndex();
+        if (!idx) return;
+        var p = iconContainer.mapToGlobal(0, 0);
+        tasksModel.requestPublishDelegateGeometry(idx, Qt.rect(Math.round(p.x), Math.round(p.y),
+                                                               Math.round(iconContainer.width), Math.round(iconContainer.height)), iconContainer);
+    }
+    Timer { id: publishTimer; interval: 400; onTriggered: taskItem.publishGeometry() }
+    onXChanged: publishTimer.restart()
+    onWidthChanged: publishTimer.restart()
+    onIsWindowChanged: publishTimer.restart()
+    Component.onCompleted: publishTimer.restart()
+
     function getModelIndex() {
         if (tasksModel && typeof tasksModel.makeModelIndex === "function") {
             try {

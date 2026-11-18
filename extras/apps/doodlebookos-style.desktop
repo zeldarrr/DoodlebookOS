@@ -8,4 +8,3 @@ Exec=doodlebookos-style
 Icon=preferences-desktop-wallpaper
 Categories=Settings;DesktopSettings;Qt;KDE;
 Keywords=wallpaper;material you;colors;theme;dark;contrast;icons;fond;couleurs;thème;
-StartupWMClass=qml
