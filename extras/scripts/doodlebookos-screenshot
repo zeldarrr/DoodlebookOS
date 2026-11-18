@@ -4,14 +4,17 @@
 # et y reste quelques secondes (clic : ouvrir ; « Modifier » : annoter dans Spectacle).
 # L'image est enregistrée dans le dossier de Spectacle et copiée dans le presse-papiers.
 #   doodlebookos-screenshot [screen|region|window]
-#   doodlebookos-screenshot shortcut on|off|status   Impr. écran → cette capture
-#                                                    (la fenêtre de Spectacle passe sur Ctrl+Impr. écran)
+#   doodlebookos-screenshot shortcut on|off|status   Impr. écran → cette capture, Meta+Maj+S → une zone
+#                                                    (touche « capture » de beaucoup de portables) ;
+#                                                    la fenêtre de Spectacle passe sur Ctrl+Impr. écran
 # Rien ne tourne entre deux captures.
 set -u
 APP="${XDG_DATA_HOME:-$HOME/.local/share}/doodlebookos/apps/screenshot/Thumb.qml"
 BAK="${XDG_STATE_HOME:-$HOME/.local/state}/doodlebookos/screenshot-shortcut.bak"
 OURS="doodlebookos-screenshot.desktop"
+ZONE="doodlebookos-screenshot-region.desktop"
 PRINT=16777225; CTRL=67108864        # Qt::Key_Print, Qt::ControlModifier
+META_SHIFT_S=301989971               # Meta+Shift+S
 
 kga() { gdbus call --session -d org.kde.kglobalaccel -o /kglobalaccel -m "org.kde.KGlobalAccel.$1" "${@:2}"; }
 keys() { kga shortcutKeys "['$1','$2','','']" | sed -e 's/^(//' -e 's/,)$//'; }
@@ -21,23 +24,22 @@ if [[ "${1:-}" == shortcut ]]; then
     on)
       mkdir -p "${BAK%/*}"
       [[ -s "$BAK" ]] || keys org.kde.spectacle.desktop _launch > "$BAK"
-      # Spectacle keeps its other keys (Meta+Shift+S…): only Print moves to Ctrl+Print
-      cur="$(keys org.kde.spectacle.desktop _launch)"
-      if [[ "$cur" == *"[$PRINT, 0, 0, 0]"* ]]; then
-        kga setForeignShortcutKeys "['org.kde.spectacle.desktop','_launch','','']" \
-          "${cur//\[$PRINT, 0, 0, 0\]/[$((CTRL + PRINT)), 0, 0, 0]}" >/dev/null
-      fi
+      # Spectacle's window: Ctrl+Print (Print and Meta+Shift+S come to us)
+      kga setForeignShortcutKeys "['org.kde.spectacle.desktop','_launch','','']" "[([$((CTRL + PRINT))],)]" >/dev/null
       kga doRegister "['$OURS','_launch','Capture d’écran','Capture d’écran']" >/dev/null
       kga setForeignShortcutKeys "['$OURS','_launch','','']" "[([$PRINT],)]" >/dev/null
+      kga doRegister "['$ZONE','_launch','Capture d’une zone','Capture d’une zone']" >/dev/null
+      kga setForeignShortcutKeys "['$ZONE','_launch','','']" "[([$META_SHIFT_S],)]" >/dev/null
       echo on ;;
     off)
       kga setForeignShortcutKeys "['$OURS','_launch','','']" "@a(ai) []" >/dev/null 2>&1
+      kga setForeignShortcutKeys "['$ZONE','_launch','','']" "@a(ai) []" >/dev/null 2>&1
       if [[ -s "$BAK" ]]; then
         kga setForeignShortcutKeys "['org.kde.spectacle.desktop','_launch','','']" "$(cat "$BAK")" >/dev/null
         rm -f "$BAK"
       fi
       echo off ;;
-    status) echo "capture: $(keys "$OURS" _launch)  spectacle: $(keys org.kde.spectacle.desktop _launch)" ;;
+    status) echo "capture: $(keys "$OURS" _launch)  zone: $(keys "$ZONE" _launch)  spectacle: $(keys org.kde.spectacle.desktop _launch)" ;;
     *) echo "usage: doodlebookos-screenshot shortcut on|off|status" >&2; exit 1 ;;
   esac
   exit 0

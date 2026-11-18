@@ -606,7 +606,8 @@ PlasmaExtras.Representation {
             case "screenshot":
                 // Collapse the drawer first so it is not part of the capture (Android behaviour)
                 closePopup();
-                executable.exec("sleep 0.25; spectacle -r");
+                // DoodlebookOS's Android-style capture (thumbnail in the corner), else Spectacle
+                executable.exec("sleep 0.25; s=\"$HOME/.local/bin/doodlebookos-screenshot\"; if [ -x \"$s\" ]; then \"$s\" region; else spectacle -r; fi");
                 break;
             case "quickshare":
                 closePopup();

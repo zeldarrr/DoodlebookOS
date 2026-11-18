@@ -79,7 +79,9 @@ if [ "$(kreadconfig6 --file kscreenlockerrc --group Greeter --key WallpaperPlugi
     kwriteconfig6 --file kscreenlockerrc --group Greeter --group LnF --group General --key alwaysShowClock --delete
 fi
 rm -rf "$HOME/.local/share/plasma/wallpapers/org.doodlebookos.lockscreen"
-rm -rf "$HOME/.local/share/doodlebookos/apps"
+rm -rf "$HOME/.local/share/doodlebookos/apps" "$HOME/.local/share/doodlebookos/qml"
+rm -f "$HOME/.local/lib64/plugins/kf6/kirigami/platform/org.doodlebookos.desktop.so" \
+      "$HOME/.local/lib/plugins/kf6/kirigami/platform/org.doodlebookos.desktop.so"
 # app themes generated from Material You (Kate, VS Code / VSCodium); Zen got its accent back with « off »
 rm -f "$HOME/.local/share/org.kde.syntax-highlighting/themes/doodlebookos-materialyou.theme"
 rm -rf "$HOME/.vscode-oss/extensions/doodlebookos.material-you-1.0.0" "$HOME/.vscode/extensions/doodlebookos.material-you-1.0.0"
@@ -108,6 +110,7 @@ fi
 rm -f "$HOME/.local/state/doodlebookos/screenshot-shortcut.bak"
 rm -f "$HOME/.local/share/applications/doodlebookos-style.desktop" "$HOME/.local/bin/doodlebookos-style"
 rm -f "$HOME/.local/share/applications/doodlebookos-screenshot.desktop" "$HOME/.local/bin/doodlebookos-screenshot"
+rm -f "$HOME/.local/share/applications/doodlebookos-screenshot-region.desktop"
 rm -rf "$HOME/.local/share/sounds/doodlebookos"
 if [ "$(kreadconfig6 --file kdeglobals --group Sounds --key Theme 2>/dev/null)" = doodlebookos ]; then
     kwriteconfig6 --file kdeglobals --group Sounds --key Theme --delete
