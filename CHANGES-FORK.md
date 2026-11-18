@@ -46,7 +46,8 @@ d'avis de modification au sens de la GPL-3.0 (§ 5a).
   demandés) : horloge, avatar, champ pilule, secousse sur mauvais mot de passe, puces de session.
 - **Animation de charge** au branchement : onde aux couleurs du fond et niveau qui apparaît sur un
   ressort.
-- **Capture d'écran façon Android** (Impr. écran, `doodlebookos-screenshot`) : la capture rétrécit
+- **Capture d'écran façon Android** (Impr. écran ; Meta+Maj+S, touche « capture » des portables
+  et tuile des Réglages rapides pour une zone ; `doodlebookos-screenshot`) : la capture rétrécit
   dans le coin, carte « Modifier » / fermer / glisser ; Spectacle passe sur Ctrl+Impr. écran.
 - **Thème sonore** original et discret (`themes/sounds`, 38 sons synthétisés, repli sur Ocean) ;
   **Google Sans Code** fournie pour le texte à chasse fixe.
@@ -78,7 +79,9 @@ d'avis de modification au sens de la GPL-3.0 (§ 5a).
   `ShadowSpread` dans `doodlebookosrc`).
 - Style Qt : rayons 12/16, animations, sélection tonale, coins arrondis des vues, barres de
   défilement discrètes, champs intégrés sans fond, **menus groupés M3 Expressive** (cartes
-  arrondies séparées par des espaces, plus de traits). Se compile aussi sans extra-cmake-modules.
+  arrondies séparées par des espaces, plus de traits), **interrupteurs M3 en vraie taille**
+  (piste contourée visible quand ils sont coupés), vraies cases à cocher M3 dans les menus et les
+  titres de groupes, boutons radio M3. Se compile aussi sans extra-cmake-modules.
 - **Fenêtres façon Android** : une appli lancée depuis le dock ou le lanceur grandit depuis
   l'icône cliquée ; elle se referme et se réduit dans son icône du dock.
 - **Sélecteur de fichiers** (celui des navigateurs, via xdg-desktop-portal-kde) : emplacements et
@@ -92,7 +95,8 @@ d'avis de modification au sens de la GPL-3.0 (§ 5a).
   (réglages rapides, notifications, agenda, menus du tray, lanceur, Phone Hub) se déploient depuis
   la barre qui les porte et depuis le bouton cliqué, sur un ressort (léger dépassement), puis se
   replient plus vite à la fermeture ; menus des applis ouverts depuis le coin le plus proche du
-  pointeur ; bulles en fondu. Transformations GPU uniquement, coupées en économie d'énergie.
+  pointeur ; bulles en fondu. Le flou reste pendant toute l'animation (force 4 : 2 passes).
+  Transformations GPU uniquement, coupées en économie d'énergie.
 - **Ressorts M3 Expressive** dans les widgets (`motion.js` : ressorts amortis de
   `MotionScheme.expressive()` d'Android, calculés à partir d'un seul minuteur par popup) : le
   contenu se pose par rangées du haut vers le bas (plus de « pop » tuile par tuile), sous-pages en
