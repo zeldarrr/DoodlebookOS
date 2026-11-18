@@ -1217,6 +1217,7 @@ PlasmoidItem {
         popupDirection: Qt.BottomEdge
         margin: 1
         removeBorderStrategy: PlasmaCore.AppletPopup.Never
+        animated: false     // no KWin slide: doodlebookos_popups unfolds it from its button (M3)
         hideOnWindowDeactivate: true
         backgroundHints: PlasmaCore.AppletPopup.StandardBackground
         width: notifFullView ? notifFullView.implicitWidth : root.snap(338.4)
@@ -1256,6 +1257,7 @@ PlasmoidItem {
         popupDirection: Qt.BottomEdge
         margin: 1
         removeBorderStrategy: PlasmaCore.AppletPopup.Never
+        animated: false     // no KWin slide: doodlebookos_popups unfolds it from its button (M3)
         hideOnWindowDeactivate: true
         backgroundHints: PlasmaCore.AppletPopup.StandardBackground
         width: qsFullView ? qsFullView.implicitWidth : root.snap(338.4)

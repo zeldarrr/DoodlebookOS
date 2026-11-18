@@ -6,6 +6,7 @@ import QtQuick.Effects
 import org.kde.plasma.components as PlasmaComponents3
 import org.kde.kirigami as Kirigami
 import "i18n.js" as I18n
+import "../motion.js" as Motion
 
 Item {
     id: expandedRoot
@@ -73,9 +74,14 @@ Item {
         Qt.callLater(expandedRoot.removeNativePlasmaFrame);
     }
 
-    // Material 3 entrance: container grows from the panel edge (emphasized decelerate)
-    property real revealT: 1.0
-    NumberAnimation { id: revealAnim; target: expandedRoot; property: "revealT"; from: 0; to: 1; duration: Kirigami.Units.longDuration > 1 ? 420 : 0; easing.type: Easing.OutQuart }
+    // M3 Expressive entrance: KWin (doodlebookos_popups) unfolds the card out of the media pill
+    // on a spring; inside, the artwork and the controls settle just behind it.
+    property real revealMs: 100000
+    NumberAnimation {
+        id: revealAnim
+        target: expandedRoot; property: "revealMs"; from: 0; to: 700
+        duration: Kirigami.Units.longDuration > 1 ? 700 * Motion.speed(Kirigami.Units.longDuration) : 0
+    }
     function playReveal() {
         if (expandedRoot.Window.window && expandedRoot.Window.window.visible) revealAnim.restart();
     }
@@ -99,9 +105,6 @@ Item {
     Item {
         id: card
         anchors.fill: parent
-        transformOrigin: Item.Bottom
-        scale: 0.9 + 0.1 * expandedRoot.revealT
-        opacity: Math.min(1, expandedRoot.revealT * 1.8)
         anchors.topMargin: (Window.window && typeof Window.window["topPadding"] === "number") ? -Window.window["topPadding"] : 0
         anchors.bottomMargin: (Window.window && typeof Window.window["bottomPadding"] === "number") ? -Window.window["bottomPadding"] : 0
         anchors.leftMargin: (Window.window && typeof Window.window["leftPadding"] === "number") ? -Window.window["leftPadding"] : 0
@@ -149,6 +152,8 @@ Item {
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
                 cache: true
+                // artwork settles from a slight zoom inside the rounded mask (no overshoot)
+                scale: 1 + 0.08 * (1 - Motion.slowEffects(expandedRoot.revealMs))
             }
 
             Rectangle {
@@ -162,9 +167,12 @@ Item {
         }
 
         ColumnLayout {
+            id: controlsCol
             anchors.fill: parent
             anchors.margins: expandedRoot.snap(12.8)
             spacing: Kirigami.Units.smallSpacing * 1.5
+            opacity: Motion.effects(expandedRoot.revealMs - 60)
+            transform: Translate { y: (1 - Motion.defaultSpatial(expandedRoot.revealMs - 30)) * -12 }
 
             // Top Row: Application icon in top-left corner
             RowLayout {

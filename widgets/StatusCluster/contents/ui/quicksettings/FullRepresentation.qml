@@ -15,6 +15,7 @@ import org.kde.plasma.plasma5support as Plasma5Support
 import QtQuick.Effects
 import org.kde.plasma.private.sessions as Sessions
 import "i18n.js" as I18n
+import "../motion.js" as Motion
 
 PlasmaExtras.Representation {
     id: fullRep
@@ -275,37 +276,33 @@ PlasmaExtras.Representation {
         }
     }
 
-    // ---------- Material 3 motion: staggered reveal when the drawer opens ----------
+    // ---------- Material 3 Expressive motion (Android 16 Quick Settings) ----------
+    // KWin unfolds the panel out of the pill (doodlebookos_popups); inside, the rows settle
+    // from the top one after the other on M3 springs — no per-tile "pop". One linear driver
+    // (time since opening, nominal ms) feeds a few bindings: nothing runs once it has settled.
     readonly property bool animationsEnabled: Kirigami.Units.longDuration > 1
-    property real revealT: 1.0
+    property real revealMs: 100000
     NumberAnimation {
         id: revealAnim
         target: fullRep
-        property: "revealT"
+        property: "revealMs"
         from: 0
-        to: 1
-        duration: Kirigami.Units.longDuration > 1 ? 480 : 0
+        to: 800
+        duration: 800 * Motion.speed(Kirigami.Units.longDuration)
         easing.type: Easing.Linear
     }
-
-    // Emphasized-decelerate approximation (M3 "enter" curve)
-    function m3ease(x) {
-        var c = Math.max(0, Math.min(1, x));
-        return 1 - Math.pow(1 - c, 4);
-    }
-
-    // Progress of an element whose entrance starts at `delay` (0..0.5) of the timeline
-    function reveal(delay) {
-        return m3ease((revealT - Math.min(0.5, delay)) / 0.5);
-    }
+    readonly property real rowStep: 28            // ms between two rows
+    // row 0 = header, 1–3 = sliders, 4… = tile rows
+    function rowOpacity(row) { return Motion.effects(revealMs - 30 - row * rowStep); }
+    function rowShift(row) { return (1 - Motion.defaultSpatial(revealMs - row * rowStep)) * -snap(18); }
 
     function playReveal() {
+        revealAnim.stop();
         if (!animationsEnabled) {
-            revealT = 1.0;
+            revealMs = 100000;
             return;
         }
-        revealAnim.stop();
-        revealT = 0;
+        revealMs = 0;
         revealAnim.start();
     }
 
@@ -327,7 +324,7 @@ PlasmaExtras.Representation {
         powerMenuOpen = false;
         isEditingTiles = false;
         activeSubView = "";
-        revealT = 1.0;
+        revealMs = 100000;
     }
 
     onActiveSubViewChanged: {
@@ -1038,9 +1035,8 @@ PlasmaExtras.Representation {
             // 1. Top Header Row
             RowLayout {
                 id: headerRow
-                readonly property real enter: fullRep.reveal(0.0)
-                opacity: enter
-                transform: Translate { y: (1 - headerRow.enter) * -fullRep.snap(10) }
+                opacity: fullRep.rowOpacity(0)
+                transform: Translate { y: fullRep.rowShift(0) }
                 Layout.fillWidth: true
                 Layout.preferredHeight: fullRep.snap(29.6) // dokładnie 37px fizycznych (29.6 dp)
                 Layout.bottomMargin: fullRep.snap(14.4) - fullRep.snap(3.6) - mainCol.spacing // dokładnie 18px fizycznych od dolnej krawędzi boxów do toru suwaka jasności (na linii testowej)
@@ -1174,9 +1170,8 @@ PlasmaExtras.Representation {
                 // Row 1: Brightness Slider + Moon Button
                 RowLayout {
                     id: brightnessRow
-                    readonly property real enter: fullRep.reveal(0.06)
-                    opacity: enter
-                    transform: Translate { y: (1 - brightnessRow.enter) * fullRep.snap(14) }
+                    opacity: fullRep.rowOpacity(1)
+                    transform: Translate { y: fullRep.rowShift(1) }
                     Layout.fillWidth: true
                     spacing: fullRep.snap(9.6) // 12px fizycznych
 
@@ -1372,9 +1367,8 @@ PlasmaExtras.Representation {
                 // Row 2: Volume Slider + Equalizer Button
                 RowLayout {
                     id: volumeRow
-                    readonly property real enter: fullRep.reveal(0.10)
-                    opacity: enter
-                    transform: Translate { y: (1 - volumeRow.enter) * fullRep.snap(14) }
+                    opacity: fullRep.rowOpacity(2)
+                    transform: Translate { y: fullRep.rowShift(2) }
                     Layout.fillWidth: true
                     spacing: fullRep.snap(9.6) // 12px fizycznych
 
@@ -1591,9 +1585,8 @@ PlasmaExtras.Representation {
                 RowLayout {
                     id: powerRow
                     visible: fullRep.powerProfiles.length > 1
-                    readonly property real enter: fullRep.reveal(0.14)
-                    opacity: enter
-                    transform: Translate { y: (1 - powerRow.enter) * fullRep.snap(14) }
+                    opacity: fullRep.rowOpacity(3)
+                    transform: Translate { y: fullRep.rowShift(3) }
                     Layout.fillWidth: true
                     spacing: fullRep.snap(9.6)
 
@@ -1984,10 +1977,10 @@ PlasmaExtras.Representation {
                     property var iconClickHandler: null
                     property int revealIndex: 0
 
-                    // Staggered "pop" entrance (M3 expressive): fade + scale from 86 %
-                    readonly property real enter: fullRep.reveal(0.16 + revealIndex * 0.03)
-                    opacity: enter
-                    scale: 0.86 + 0.14 * enter
+                    // settles with its row (rows cascade from the top, like Android's QS)
+                    readonly property int revealRow: 4 + Math.round(y / (height + tilesGrid.rowSpacing))
+                    opacity: fullRep.rowOpacity(revealRow)
+                    transform: Translate { y: fullRep.rowShift(tile.revealRow) }
 
                     readonly property int span: fullRep.getTileSpan(tileId)
                     readonly property bool isCompact: span === 1
@@ -2263,9 +2256,9 @@ PlasmaExtras.Representation {
                 // "+" tile: add tiles live, straight from the drawer
                 Rectangle {
                     id: addTileButton
-                    readonly property real enter: fullRep.reveal(0.16 + fullRep.activeTiles.length * 0.03)
-                    opacity: enter
-                    scale: 0.86 + 0.14 * enter
+                    readonly property int revealRow: 4 + Math.round(y / (height + tilesGrid.rowSpacing))
+                    opacity: fullRep.rowOpacity(revealRow)
+                    transform: Translate { y: fullRep.rowShift(addTileButton.revealRow) }
                     Layout.columnSpan: 1
                     Layout.fillWidth: false
                     Layout.preferredWidth: fullRep.snap(72.0)
@@ -2310,35 +2303,35 @@ PlasmaExtras.Representation {
 
         // PERF: sub-views are created on demand and destroyed when closed. They used to be
         // instantiated (with their NetworkManager / BlueZ models) as soon as the top bar loaded.
-        // Entering view uses the M3 "shared axis X" transition (fade + slide from the right).
+        // Entering view uses the M3 "shared axis X" transition: slides in from the right on the
+        // default spatial spring while it fades in on the effects spring.
         component SubViewLoader: Loader {
             id: svl
             // Inside the loaded component, "fullRep" resolves to the view's own (null) property,
             // so views receive the drawer through this alias instead.
             readonly property var qs: fullRep
-            property real enterT: 1.0
-            readonly property real enterEased: fullRep.m3ease(enterT)
+            property real enterMs: 100000
             anchors.fill: parent
             anchors.leftMargin: fullRep.snap(14.4)   // 18px fizycznych
             anchors.rightMargin: fullRep.snap(14.4)  // 18px fizycznych
             anchors.topMargin: fullRep.snap(14.4)    // 18px fizycznych
             anchors.bottomMargin: fullRep.snap(28.8) // 36px fizycznych
             visible: active
-            opacity: Math.min(1, svl.enterT * 1.6)
-            transform: Translate { x: (1 - svl.enterEased) * fullRep.snap(56) }
+            opacity: Motion.effects(svl.enterMs - 20)
+            transform: Translate { x: (1 - Motion.defaultSpatial(svl.enterMs)) * fullRep.snap(48) }
             onLoaded: {
                 if (fullRep.animationsEnabled && fullRep.popupShown) {
-                    svl.enterT = 0;
+                    svl.enterMs = 0;
                     svlAnim.restart();
                 }
             }
             NumberAnimation {
                 id: svlAnim
                 target: svl
-                property: "enterT"
+                property: "enterMs"
                 from: 0
-                to: 1
-                duration: Kirigami.Units.longDuration > 1 ? 560 : 0
+                to: 600
+                duration: 600 * Motion.speed(Kirigami.Units.longDuration)
             }
         }
 

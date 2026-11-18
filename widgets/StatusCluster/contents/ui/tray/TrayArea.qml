@@ -299,6 +299,7 @@ Item {
         popupDirection: Qt.BottomEdge
         margin: 1
         removeBorderStrategy: PlasmaCore.AppletPopup.Never
+        animated: false     // no KWin slide: doodlebookos_popups unfolds it from the icon (M3)
         hideOnWindowDeactivate: true
         backgroundHints: PlasmaCore.AppletPopup.StandardBackground
         width: menuContent.implicitWidth

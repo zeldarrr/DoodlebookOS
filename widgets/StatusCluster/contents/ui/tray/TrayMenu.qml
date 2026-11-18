@@ -6,7 +6,8 @@
  *
  *  - entries split at separators into tonal groups with small gaps (M3 Expressive "gap" menu)
  *  - selected toggles get a filled container + check, rows morph pill → rounded square on press
- *  - motion: rows cascade in under KWin's popup slide, submenus slide on the X axis
+ *  - motion: KWin unfolds the popup from the icon; inside, the header and the groups settle on
+ *    M3 Expressive springs, submenus use the shared X axis (spring slide + fade)
  *  - keyboard: ↑/↓ (Tab), Entrée/Espace, → opens a submenu, ←/Retour arrière goes back, Échap
  * Everything stops (durations 0) when Plasma animations are disabled.
  */
@@ -14,6 +15,7 @@
 import QtQuick
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
+import "../motion.js" as Motion
 
 FocusScope {
     id: menu
@@ -33,9 +35,6 @@ FocusScope {
     readonly property color onAccent: Kirigami.Theme.highlightedTextColor
     readonly property string appFont: "Google Sans Flex"
     function tint(c, a) { return Qt.rgba(c.r, c.g, c.b, a); }
-
-    // M3 "emphasized decelerate" easing
-    readonly property var emphasizedDecelerate: [0.05, 0.7, 0.1, 1.0, 1, 1]
 
     readonly property real rowHeight: 40
     readonly property real groupPad: 4
@@ -88,39 +87,44 @@ FocusScope {
         }
     }
 
-    // ───── motion ─────
-    property real t: 1                         // row cascade, 0 → 1
-    property real slide: 0                     // submenu shared axis X: ±1 → 0
+    // ───── motion (springs: ../motion.js; one linear driver each, time in nominal ms) ─────
+    property real enterMs: 100000              // since the popup opened
+    property real slideMs: 100000              // since entering / leaving a submenu
+    property int slideDir: 0                   // 1 = into a submenu, -1 = back
+    readonly property real slide: slideDir * (1 - Motion.defaultSpatial(slideMs))   // ±1 → 0
     NumberAnimation {
         id: enterAnim
-        target: menu; property: "t"; from: 0; to: 1
-        duration: menu.anim ? 450 : 0
+        target: menu; property: "enterMs"; from: 0; to: 600
+        duration: 600 * Motion.speed(Kirigami.Units.longDuration)
     }
     NumberAnimation {
         id: slideAnim
-        target: menu; property: "slide"; to: 0
-        duration: menu.anim ? 320 : 0
-        easing.type: Easing.BezierSpline; easing.bezierCurve: menu.emphasizedDecelerate
+        target: menu; property: "slideMs"; from: 0; to: 600
+        duration: 600 * Motion.speed(Kirigami.Units.longDuration)
     }
     // dir: 0 = popup opened, 1 = into a submenu, -1 = back to the parent level
     function playEnter(dir) {
         current = -1;
         keyboardNav = false;
-        if (dir === 0 || !anim) {
-            slide = 0;
-            enterAnim.restart();
+        enterAnim.stop();
+        slideAnim.stop();
+        if (!anim) {
+            enterMs = slideMs = 100000;
+        } else if (dir === 0) {
+            slideMs = 100000;
+            enterMs = 0;
+            enterAnim.start();
         } else {
-            t = 1;
-            slide = dir;
-            slideAnim.restart();
+            enterMs = 100000;
+            slideDir = dir;
+            slideMs = 0;
+            slideAnim.start();
         }
         forceActiveFocus();
     }
-    function reveal(i) {
-        // row i starts a little after the previous one (cascade), decelerates into place
-        var p = Math.max(0, Math.min(1, (t - Math.min(i, 9) * 0.045) / 0.55));
-        return 1 - Math.pow(1 - p, 4);
-    }
+    // header (0) and groups (1, 2…) settle from the top, 24 ms apart
+    function enterOpacity(order) { return Motion.effects(enterMs - 20 - Math.min(order, 6) * 24); }
+    function enterShift(order) { return (1 - Motion.defaultSpatial(enterMs - Math.min(order, 6) * 24)) * -10; }
 
     Keys.onPressed: event => {
         switch (event.key) {
@@ -154,7 +158,7 @@ FocusScope {
         event.accepted = true;
     }
 
-    // KWin already slides the popup out of the top bar; the content follows with a short cascade
+    // KWin unfolds the popup out of the icon; the content settles on springs just behind it
     Item {
         id: content
         width: parent.width
@@ -166,14 +170,14 @@ FocusScope {
             y: 6
             width: menu.width
             spacing: menu.groupGap
-            opacity: 1 - Math.abs(menu.slide) * 0.9
-            transform: Translate { x: menu.slide * 28 }
+            opacity: Motion.effects(menu.slideMs - 10)
+            transform: Translate { x: menu.slide * 32 }
 
             // ───── header: app (root) or submenu title with a back button ─────
             Item {
                 width: parent.width
                 height: 50
-                opacity: menu.reveal(0)
+                opacity: menu.enterOpacity(0)
 
                 Rectangle {
                     id: lead
@@ -270,9 +274,8 @@ FocusScope {
                     height: groupCol.implicitHeight + menu.groupPad * 2
                     radius: 18
                     color: menu.tint(menu.fg, 0.05)
-                    readonly property real enter: menu.reveal(modelData.length ? modelData[0].flat + 1 : 1)
-                    opacity: enter
-                    transform: Translate { y: (1 - group.enter) * -10 }
+                    opacity: menu.enterOpacity(group.index + 1)
+                    transform: Translate { y: menu.enterShift(group.index + 1) }
 
                     Column {
                         id: groupCol
@@ -293,7 +296,7 @@ FocusScope {
                                 readonly property bool kbCurrent: menu.keyboardNav && menu.current === modelData.flat
                                 width: groupCol.width
                                 height: menu.rowHeight
-                                opacity: (enabledRow ? 1 : 0.38) * (0.4 + 0.6 * menu.reveal(modelData.flat + 1))
+                                opacity: enabledRow ? 1 : 0.38
 
                                 // selected container (checked toggles) — M3 Expressive filled selection
                                 Rectangle {

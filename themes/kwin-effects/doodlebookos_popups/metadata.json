@@ -1,0 +1,21 @@
+{
+    "KPackageStructure": "KWin/Effect",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "DoodlebookOS"
+            }
+        ],
+        "Category": "Appearance",
+        "Description": "Material 3 Expressive popups: panels unfold from the button that opened them with a spring, menus grow from the pointer, tooltips fade (replaces Fading popups)",
+        "Description[fr]": "Popups Material 3 Expressive : les panneaux se déploient depuis le bouton qui les ouvre avec un ressort, les menus grandissent depuis le pointeur, les bulles apparaissent en fondu (remplace « Popups en fondu »)",
+        "EnabledByDefault": false,
+        "Icon": "preferences-system-windows-effect-fadingpopups",
+        "Id": "doodlebookos_popups",
+        "License": "GPL",
+        "Name": "DoodlebookOS Popups",
+        "Name[fr]": "Popups DoodlebookOS"
+    },
+    "X-KDE-Ordering": 60,
+    "X-Plasma-API": "javascript"
+}

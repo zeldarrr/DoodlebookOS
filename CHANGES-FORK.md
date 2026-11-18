@@ -62,6 +62,15 @@ d'avis de modification au sens de la GPL-3.0 (§ 5a).
   dossiers d'abord, aperçus, icônes 32 px, panneau 196 px).
 - Scripts / effets KWin : animations Material (`doodlebookos_motion`), coins d'écran arrondis,
   mode jeu automatique, mode concentration, sélecteur de fenêtres.
+- **Popups M3 Expressive** (`doodlebookos_popups`, remplace « Popups en fondu ») : les panneaux
+  (réglages rapides, notifications, agenda, menus du tray, lanceur, Phone Hub) se déploient depuis
+  la barre qui les porte et depuis le bouton cliqué, sur un ressort (léger dépassement), puis se
+  replient plus vite à la fermeture ; menus des applis ouverts depuis le coin le plus proche du
+  pointeur ; bulles en fondu. Transformations GPU uniquement, coupées en économie d'énergie.
+- **Ressorts M3 Expressive** dans les widgets (`motion.js` : ressorts amortis de
+  `MotionScheme.expressive()` d'Android, calculés à partir d'un seul minuteur par popup) : le
+  contenu se pose par rangées du haut vers le bas (plus de « pop » tuile par tuile), sous-pages en
+  axe partagé X, pochette du média qui se pose, cartes du presse-papiers animées une seule fois.
 
 ## Économie d'énergie
 - `doodlebookos-powersave` (service utilisateur, sans sondage) : en profil « Économie d'énergie »

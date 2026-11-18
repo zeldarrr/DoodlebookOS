@@ -59,7 +59,18 @@ if command -v kwriteconfig6 &>/dev/null; then
     kwriteconfig6 --file kdeglobals --group KDE --key widgetStyle "Breeze"
     kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key library "org.kde.breeze"
     kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key theme "Breeze"
+    # KWin's own popup and window animations come back
+    kwriteconfig6 --file kwinrc --group Plugins --key doodlebookos_popupsEnabled false
+    kwriteconfig6 --file kwinrc --group Plugins --key fadingpopupsEnabled true
+    kwriteconfig6 --file kwinrc --group Plugins --key doodlebookos_motionEnabled false
+    kwriteconfig6 --file kwinrc --group Plugins --key scaleEnabled true
+    q=$(command -v qdbus6 || command -v qdbus-qt6 || true)
+    if [ -n "$q" ]; then
+        for e in doodlebookos_popups doodlebookos_motion; do "$q" org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect "$e" &>/dev/null || true; done
+        for e in fadingpopups scale; do "$q" org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect "$e" &>/dev/null || true; done
+    fi
 fi
+rm -rf "$HOME/.local/share/kwin/effects/doodlebookos_popups" "$HOME/.local/share/kwin/effects/doodlebookos_motion"
 
 # 3. Remove Installed Themes, Icons, Cursors, Wallpapers, Fonts & C++ Plugins
 rm -rf "$HOME/.local/share/plasma/desktoptheme/DoodlebookOS_Dark" \

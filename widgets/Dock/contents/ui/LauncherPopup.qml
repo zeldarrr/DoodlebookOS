@@ -8,6 +8,7 @@ import org.kde.plasma.plasmoid
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.core as PlasmaCore
+import "motion.js" as Motion
 
 PlasmaCore.Dialog {
     id: root
@@ -182,16 +183,18 @@ PlasmaCore.Dialog {
 
         Timer { id: closeTimer; interval: 170; onTriggered: root.close() }
 
-        // M3 entrance, kept short so Super still feels instant: the page rises out of the dock and
-        // settles with the "emphasized decelerate" curve (most of the travel happens in the first
-        // frames). Cheap: opacity + one transform on a single item, no layer, no re-layout.
-        property real revealT: 1.0
+        // M3 Expressive entrance, short so Super still feels instant: KWin (doodlebookos_popups)
+        // unfolds the window out of the dock button; the page rises inside it on the default
+        // spatial spring (tiny overshoot) while it fades in on the effects spring — the same
+        // springs as every DoodlebookOS popup (motion.js). Cheap: opacity + one transform on a
+        // single item, no layer, no re-layout; nothing runs once settled.
+        property real revealMs: 100000
         NumberAnimation {
             id: launcherRevealAnim
-            target: launcherBox; property: "revealT"; from: 0; to: 1
-            duration: Kirigami.Units.longDuration > 1 ? 280 : 0
-            easing.type: Easing.BezierSpline; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1, 1]
+            target: launcherBox; property: "revealMs"; from: 0; to: 600
+            duration: Kirigami.Units.longDuration > 1 ? 600 * Motion.speed(Kirigami.Units.longDuration) : 0
         }
+        readonly property real rise: Motion.defaultSpatial(revealMs)
 
         Rectangle {
             id: launcherCard
@@ -216,16 +219,8 @@ PlasmaCore.Dialog {
                     anchors.fill: parent
                     anchors.margins: root.containerInnerPadding
                     anchors.bottomMargin: Math.round(root.containerInnerPadding * 0.6)
-                    opacity: 0.35 + 0.65 * launcherBox.revealT
-                    transform: [
-                        Scale {
-                            origin.x: main.width / 2
-                            origin.y: main.height
-                            xScale: 0.97 + 0.03 * launcherBox.revealT
-                            yScale: xScale
-                        },
-                        Translate { y: (1 - launcherBox.revealT) * 28 }
-                    ]
+                    opacity: 0.2 + 0.8 * Motion.effects(launcherBox.revealMs - 20)
+                    transform: Translate { y: (1 - launcherBox.rise) * 24 }
                 }
 
                 FolderOverlay {

@@ -75,7 +75,7 @@ sync_kwin_extras() {
   local q en
   q=$(command -v qdbus-qt6 || command -v qdbus6 || true)
   [[ -n "$q" ]] || return 0
-  for eff in doodlebookos_motion:false scale:true overview:true; do
+  for eff in doodlebookos_motion:false scale:true doodlebookos_popups:false fadingpopups:true overview:true; do
     en=$(kreadconfig6 --file kwinrc --group Plugins --key "${eff%%:*}Enabled" --default "${eff##*:}" 2>/dev/null)
     if [[ "$en" == true ]]; then
       "$q" org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect "${eff%%:*}" &>/dev/null || true

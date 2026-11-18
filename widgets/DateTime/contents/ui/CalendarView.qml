@@ -18,6 +18,7 @@ import org.kde.plasma.workspace.calendar as PlasmaCalendar
 import org.kde.plasma.extras as PlasmaExtras
 import org.kde.kirigami as Kirigami
 import "calendar" as CustomCalendar
+import "motion.js" as Motion
 
 // Pure Single-Column Month View (No agenda, no additional clocks)
 PlasmaExtras.Representation {
@@ -65,6 +66,13 @@ PlasmaExtras.Representation {
         target: calendar.Window ? calendar.Window.window : null
         property: "margin"
         value: 1
+    }
+    // no KWin slide: doodlebookos_popups unfolds the popup out of the clock (M3 Expressive)
+    Binding {
+        when: calendar.Window && calendar.Window.window !== null && calendar.Window.window.hasOwnProperty("animated")
+        target: calendar.Window ? calendar.Window.window : null
+        property: "animated"
+        value: false
     }
     Binding {
         when: calendar.Window && calendar.Window.window !== null
@@ -133,9 +141,14 @@ PlasmaExtras.Representation {
         }
     }
 
-    // Material 3 entrance (emphasized decelerate)
-    property real revealT: 1.0
-    NumberAnimation { id: revealAnim; target: calendar; property: "revealT"; from: 0; to: 1; duration: Kirigami.Units.longDuration > 1 ? 420 : 0; easing.type: Easing.OutQuart }
+    // M3 Expressive entrance: KWin (doodlebookos_popups) unfolds the popup out of the clock on a
+    // spring; the month settles just behind it (effects spring for opacity, default spatial for y)
+    property real revealMs: 100000
+    NumberAnimation {
+        id: revealAnim
+        target: calendar; property: "revealMs"; from: 0; to: 700
+        duration: Kirigami.Units.longDuration > 1 ? 700 * Motion.speed(Kirigami.Units.longDuration) : 0
+    }
 
     Connections {
         target: calendar.Window ? calendar.Window.window : null
@@ -153,8 +166,8 @@ PlasmaExtras.Representation {
     FocusScope {
         id: monthViewWrapper
         anchors.fill: parent
-        opacity: calendar.revealT
-        transform: Translate { y: (1 - calendar.revealT) * 16 }
+        opacity: Motion.effects(calendar.revealMs - 30)
+        transform: Translate { y: (1 - Motion.defaultSpatial(calendar.revealMs)) * -14 }
 
         CustomCalendar.MonthView {
             id: monthView

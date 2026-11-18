@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.plasma5support as Plasma5Support
 import "i18n.js" as I18n
+import "../motion.js" as Motion
 
 Item {
     id: clipView
@@ -21,6 +22,24 @@ Item {
     function run(args, tag) { ds.connectSource("python3 " + shq(helper) + " " + args + " # " + tag + "-" + Date.now()); }
 
     property var items: []
+
+    // cards settle from the top on M3 springs the first time the list fills (one driver for
+    // the whole list: cards created later while scrolling are simply there)
+    property real enterMs: 100000
+    property bool entered: false
+    NumberAnimation {
+        id: cardsEnter
+        target: clipView; property: "enterMs"; from: 0; to: 700
+        duration: 700 * Motion.speed(Kirigami.Units.longDuration)
+    }
+    onItemsChanged: {
+        if (entered || items.length === 0) return;
+        entered = true;
+        if (Kirigami.Units.longDuration > 1) {
+            enterMs = 0;
+            cardsEnter.start();
+        }
+    }
     property bool loaded: false
     property int copiedIndex: -1
 
@@ -92,16 +111,9 @@ Item {
                 color: copied ? clipView.accent : (cardMa.containsMouse ? clipView.tint(0.11) : clipView.tint(0.06))
                 Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 } }
                 Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 260 : 0; easing.type: Easing.OutCubic } }
-                // staggered entrance, only for the first visible cards
-                opacity: 0
-                transform: Translate { id: tr; y: 14 }
-                Component.onCompleted: enter.start()
-                ParallelAnimation {
-                    id: enter
-                    PauseAnimation { duration: Math.min(card.index, 8) * 35 }
-                    NumberAnimation { target: card; property: "opacity"; to: 1; duration: Kirigami.Units.longDuration > 1 ? 260 : 0; easing.type: Easing.OutCubic }
-                    NumberAnimation { target: tr; property: "y"; to: 0; duration: Kirigami.Units.longDuration > 1 ? 380 : 0; easing.type: Easing.OutQuart }
-                }
+                readonly property real enterAt: Math.min(card.index, 8) * 28
+                opacity: Motion.effects(clipView.enterMs - 30 - enterAt)
+                transform: Translate { y: (1 - Motion.defaultSpatial(clipView.enterMs - card.enterAt)) * 16 }
 
                 Text {
                     id: body

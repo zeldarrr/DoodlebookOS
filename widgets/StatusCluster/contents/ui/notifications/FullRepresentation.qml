@@ -19,6 +19,7 @@ import org.kde.kcmutils as KCMUtils
 import org.kde.notificationmanager as NotificationManager
 
 import "i18n.js" as I18n
+import "../motion.js" as Motion
 
 PlasmaExtras.Representation {
     id: fullRepresentationRoot
@@ -107,13 +108,17 @@ PlasmaExtras.Representation {
 
     property int timeTick: 0
 
-    // Material 3 staggered entrance (linear driver + emphasized-decelerate per item)
-    property real revealT: 1.0
-    NumberAnimation { id: revealAnim; target: fullRepresentationRoot; property: "revealT"; from: 0; to: 1; duration: Kirigami.Units.longDuration > 1 ? 520 : 0; easing.type: Easing.Linear }
-    function enterAt(delay) {
-        var p = Math.max(0, Math.min(1, (revealT - delay) / 0.45));
-        return 1 - Math.pow(1 - p, 4);
+    // M3 Expressive entrance: KWin unfolds the panel from the bell, the cards settle from the
+    // top on springs (opacity: effects spring, position: default spatial spring), 32 ms apart.
+    // One linear driver, time in nominal ms; nothing runs once settled.
+    property real revealMs: 100000
+    NumberAnimation {
+        id: revealAnim
+        target: fullRepresentationRoot; property: "revealMs"; from: 0; to: 800
+        duration: Kirigami.Units.longDuration > 1 ? 800 * Motion.speed(Kirigami.Units.longDuration) : 0
     }
+    function enterOpacity(order) { return Motion.effects(revealMs - 30 - order * 32); }
+    function enterShift(order) { return (1 - Motion.defaultSpatial(revealMs - order * 32)) * -18; }
 
     Timer {
         id: relativeTimeTimer
@@ -214,9 +219,9 @@ PlasmaExtras.Representation {
                 id: delegateRoot
                 width: historyList.width
                 implicitHeight: delegateCol.implicitHeight
-                readonly property real m3Enter: fullRepresentationRoot.enterAt(Math.min(delegateRoot.index, 7) * 0.06)
-                opacity: m3Enter
-                transform: Translate { y: (1 - delegateRoot.m3Enter) * 18 }
+                readonly property int enterOrder: Math.min(delegateRoot.index, 7)
+                opacity: fullRepresentationRoot.enterOpacity(enterOrder)
+                transform: Translate { y: fullRepresentationRoot.enterShift(delegateRoot.enterOrder) }
 
                 required property int index
                 required property var model
@@ -786,7 +791,7 @@ PlasmaExtras.Representation {
         // 3. Bottom Action Bar
         RowLayout {
             id: bottomBar
-            opacity: fullRepresentationRoot.enterAt(0.2)
+            opacity: fullRepresentationRoot.enterOpacity(4)
             anchors {
                 left: parent.left
                 right: parent.right

@@ -13,6 +13,7 @@ import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.plasma5support as Plasma5Support
 import org.kde.kdeconnect as KDEConnect
 import "i18n.js" as I18n
+import "motion.js" as Motion
 
 // Phone Hub (ChromeOS / Android desktop style) on top of KDE Connect:
 //  - header with device, battery, mobile signal, reachability and device switcher
@@ -343,12 +344,16 @@ PlasmaCore.Dialog {
     }
 
     // ───────────────────────── Motion ─────────────────────────
-    property real revealT: 1.0
-    NumberAnimation on revealT { id: revealAnim; running: false; from: 0; to: 1; duration: Kirigami.Units.longDuration > 1 ? 560 : 0; easing.type: Easing.Linear }
-    function enterAt(delay) {
-        var p = Math.max(0, Math.min(1, (revealT - delay) / 0.42));
-        return 1 - Math.pow(1 - p, 4); // M3 emphasized-decelerate approximation
+    // Opening: sections and tile rows rise into place one after the other on M3 Expressive
+    // springs (motion.js) — opacity on the effects spring, position on the default spatial one.
+    // `delay` keeps the old timeline units (fraction of 400 ms).
+    property real revealMs: 100000
+    NumberAnimation on revealMs {
+        id: revealAnim; running: false; from: 0; to: 800
+        duration: Kirigami.Units.longDuration > 1 ? 800 * Motion.speed(Kirigami.Units.longDuration) : 0
     }
+    function enterAt(delay) { return Motion.effects(revealMs - 30 - delay * 400); }
+    function enterMove(delay) { return Motion.defaultSpatial(revealMs - delay * 400); }
 
     // ───────────────────────── Popup plumbing ─────────────────────────
     function updatePosition() {
@@ -412,7 +417,7 @@ PlasmaCore.Dialog {
     onVisibleChanged: {
         if (visible) {
             updatePosition();
-            revealT = 0;
+            revealMs = Kirigami.Units.longDuration > 1 ? 0 : 100000;
             revealAnim.restart();
             refreshPhotos();
             if (mpris) {
@@ -575,7 +580,7 @@ PlasmaCore.Dialog {
                 Layout.fillWidth: true
                 spacing: 12
                 opacity: root.enterAt(0)
-                transform: Translate { y: (1 - root.enterAt(0)) * 10 }
+                transform: Translate { y: (1 - root.enterMove(0)) * 10 }
 
                 Rectangle {
                     Layout.preferredWidth: 46
@@ -855,6 +860,7 @@ PlasmaCore.Dialog {
                         }
 
                         PhoneHubActionTile {
+                            id: actionTile
                             anchors.fill: parent
                             title: root.tileTitle(slot.tileId)
                             subtitle: root.tileSubtitle(slot.tileId)
@@ -863,10 +869,15 @@ PlasmaCore.Dialog {
                             activeColor: slot.tileId === "ring" ? Kirigami.Theme.negativeTextColor : container.accent
                             available: root.catalogEntry(slot.tileId) ? root.pluginAvailable(root.catalogEntry(slot.tileId).plugin) : false
                             editMode: root.editMode
+                            // opening: the tiles rise with their row (no per-tile pop);
+                            // adding / removing a tile keeps its scale in / out
+                            readonly property bool addOrRemove: slot.tileId === root.removingTile || slot.tileId === root.lastAddedTile
+                            readonly property real rowDelay: 0.08 + Math.floor(slot.index / 2) * 0.07
                             enter: slot.tileId === root.removingTile ? (1 - root.ease4(root.removeT))
                                  : (slot.tileId === root.lastAddedTile ? root.ease4(root.addT)
-                                 : root.enterAt(0.08 + slot.index * 0.04))
-                            scale: slot.dragging ? 1.05 : (0.6 + 0.4 * enter) * (1 - root.editShrink)
+                                 : root.enterAt(rowDelay))
+                            scale: slot.dragging ? 1.05 : (addOrRemove ? 0.6 + 0.4 * enter : 1) * (1 - root.editShrink)
+                            transform: Translate { y: actionTile.addOrRemove ? 0 : (1 - root.enterMove(actionTile.rowDelay)) * 14 }
                             onClicked: root.runTile(slot.tileId)
                             onRemoveRequested: root.removeTile(slot.tileId)
                         }
@@ -973,7 +984,7 @@ PlasmaCore.Dialog {
                 Layout.preferredHeight: 76
                 visible: root.hasMedia && !root.editMode
                 opacity: Math.min(root.enterAt(0.16), root.modeEnter(0.08))
-                transform: Translate { y: (1 - root.enterAt(0.16)) * 14 }
+                transform: Translate { y: (1 - root.enterMove(0.16)) * 14 }
                 radius: 24
                 color: container.accentA(0.14)
 
@@ -1069,7 +1080,7 @@ PlasmaCore.Dialog {
                 spacing: 8
                 visible: root.photosAvailable && !root.editMode
                 opacity: Math.min(root.enterAt(0.2), root.modeEnter(0.1))
-                transform: Translate { y: (1 - root.enterAt(0.2)) * 14 }
+                transform: Translate { y: (1 - root.enterMove(0.2)) * 14 }
 
                 RowLayout {
                     Layout.fillWidth: true

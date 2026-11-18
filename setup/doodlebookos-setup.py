@@ -683,7 +683,8 @@ def kwin_refresh():
     if not QDBUS and not which("gdbus"):
         return
     dbus("org.kde.KWin", "/KWin", "org.kde.KWin.reconfigure")
-    for eff in ("doodlebookos_motion", "blur", "squash", "maximize", "fadingpopups", "slidingpopups", "screenedge", "scale"):
+    for eff in ("doodlebookos_motion", "doodlebookos_popups", "blur", "squash", "maximize", "fadingpopups",
+                "slidingpopups", "screenedge", "scale"):
         on = kread("kwinrc", "Plugins", eff + "Enabled", "false") == "true"
         dbus("org.kde.KWin", "/Effects", "org.kde.kwin.Effects." + ("loadEffect" if on else "unloadEffect"), eff)
     dbus("org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.start")
