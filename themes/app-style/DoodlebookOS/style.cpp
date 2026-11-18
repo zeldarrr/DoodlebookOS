@@ -3808,10 +3808,9 @@ QSize Style::menuItemSizeFromContents(const QStyleOption *option, const QSize &c
 
     case QStyleOptionMenuItem::Separator: {
         // contentsSize for separators in QMenuPrivate::updateActionRects() is {2,2}
-        // We choose to override that.
-        // Have at least 1px for separator line.
+        // We choose to override that. In a menu it is the gap between two group cards.
         int w = 1;
-        int h = 1;
+        int h = 2;
 
         // If the menu item is a section, add width for text
         // and make height the same as other menu items, plus extra top padding.
@@ -6178,6 +6177,65 @@ bool Style::drawMenuBarItemControl(const QStyleOption *option, QPainter *painter
 }
 
 //___________________________________________________________________________________
+namespace
+{
+// Material 3 Expressive grouped menus: separators split a menu into tonal cards. For one item:
+// is the menu grouped at all, and is the item the first / last of its group?
+struct MenuGroupPosition {
+    bool grouped = false;
+    bool first = false;
+    bool last = false;
+};
+
+MenuGroupPosition menuGroupPosition(const QWidget *widget, const QRect &rect)
+{
+    MenuGroupPosition pos;
+    const auto menu = qobject_cast<const QMenu *>(widget);
+    if (!menu) {
+        return pos;
+    }
+    QList<QAction *> visible;
+    bool hasSeparator = false;
+    for (auto action : menu->actions()) {
+        if (action->isVisible()) {
+            visible.append(action);
+            hasSeparator = hasSeparator || action->isSeparator();
+        }
+    }
+    if (!hasSeparator) {
+        return pos;
+    }
+    const auto self = menu->actionAt(rect.center());
+    const int i = self ? int(visible.indexOf(self)) : -1;
+    if (i < 0) {
+        return pos;
+    }
+    pos.grouped = true;
+    pos.first = i == 0 || visible.at(i - 1)->isSeparator();
+    pos.last = i == visible.size() - 1 || visible.at(i + 1)->isSeparator();
+    return pos;
+}
+
+// a rectangle with only the chosen corners rounded
+QPainterPath partlyRoundedRect(const QRectF &r, qreal radius, bool top, bool bottom)
+{
+    const qreal t = top ? radius : 0.0;
+    const qreal b = bottom ? radius : 0.0;
+    QPainterPath path;
+    path.moveTo(r.left() + t, r.top());
+    path.lineTo(r.right() - t, r.top());
+    if (t > 0) path.arcTo(QRectF(r.right() - 2 * t, r.top(), 2 * t, 2 * t), 90, -90);
+    path.lineTo(r.right(), r.bottom() - b);
+    if (b > 0) path.arcTo(QRectF(r.right() - 2 * b, r.bottom() - 2 * b, 2 * b, 2 * b), 0, -90);
+    path.lineTo(r.left() + b, r.bottom());
+    if (b > 0) path.arcTo(QRectF(r.left(), r.bottom() - 2 * b, 2 * b, 2 * b), -90, -90);
+    path.lineTo(r.left(), r.top() + t);
+    if (t > 0) path.arcTo(QRectF(r.left(), r.top(), 2 * t, 2 * t), 180, -90);
+    path.closeSubpath();
+    return path;
+}
+}
+
 bool Style::drawMenuItemControl(const QStyleOption *option, QPainter *painter, const QWidget *widget) const
 {
     // cast option and check
@@ -6203,10 +6261,16 @@ bool Style::drawMenuItemControl(const QStyleOption *option, QPainter *painter, c
     const bool reverseLayout = option->direction == Qt::RightToLeft;
     const bool useStrongFocus = StyleConfigData::menuItemDrawStrongFocus();
 
+    // M3 Expressive: in a grouped menu each group is a tonal card, a separator is the gap
+    const auto group = menuGroupPosition(widget, rect);
+
     // deal with separators
     if (menuItemOption->menuItemType == QStyleOptionMenuItem::Separator) {
         auto contentsRect = rect.adjusted(Metrics::MenuItem_MarginWidth, 0,
                                          -Metrics::MenuItem_MarginWidth, 0);
+        if (qobject_cast<const QMenu *>(widget) && menuItemOption->text.isEmpty()) {
+            return true;                        // just the gap between two cards
+        }
         QColor separatorColor;
         if (StyleConfigData::menuOpacity() < 100) {
             separatorColor = _helper->alphaColor(palette.color(QPalette::WindowText), _helper->frameIntensityBias());
@@ -6229,6 +6293,9 @@ bool Style::drawMenuItemControl(const QStyleOption *option, QPainter *painter, c
             // Not using painter->setOpacity() because it disables text antialiasing.
             painter->setPen(_helper->alphaColor(labelColor, 0.7));
             painter->drawText(textRect, flags, menuItemOption->text);
+            if (qobject_cast<const QMenu *>(widget)) {
+                return true;                    // a section title heads the next card, no line
+            }
             // Make spacing between label and line the same as
             // the margin from the label to the left menu outline.
             // This is intentionally not factored into CT_MenuItem
@@ -6245,6 +6312,20 @@ bool Style::drawMenuItemControl(const QStyleOption *option, QPainter *painter, c
 
         _helper->renderSeparator(painter, contentsRect, separatorColor);
         return true;
+    }
+
+    // the item's slice of its group card
+    if (group.grouped) {
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        auto cardColor = KColorUtils::mix(_helper->frameBackgroundColor(palette), palette.color(QPalette::WindowText), 0.07);
+        if (StyleConfigData::menuOpacity() < 100) {
+            cardColor.setAlphaF(StyleConfigData::menuOpacity() / 100.0);
+        }
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(cardColor);
+        painter->drawPath(partlyRoundedRect(QRectF(rect), Metrics::Menu_FrameRadius - Metrics::MenuItem_HighlightGap, group.first, group.last));
+        painter->restore();
     }
 
     // render hover and focus
