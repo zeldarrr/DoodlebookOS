@@ -287,6 +287,9 @@ def install_files():
              os.path.join(SHARE, "plasma", "look-and-feel", "org.doodlebookos.desktop"))
     for f in glob.glob(os.path.join(ROOT, "themes", "color-schemes", "*.colors")):
         copyfile(f, os.path.join(SHARE, "color-schemes", os.path.basename(f)))
+    # sound theme (original, discreet; themes/sounds/generate.py)
+    if os.path.isdir(os.path.join(ROOT, "themes", "sounds", "DoodlebookOS")):
+        copytree(os.path.join(ROOT, "themes", "sounds", "DoodlebookOS"), os.path.join(SHARE, "sounds", "doodlebookos"))
     # cursors, icons, fonts, wallpapers
     ex = os.path.join(ROOT, "extras")
     copytree(os.path.join(ex, "cursors", "DoodlebookOS-Cursors"), os.path.join(SHARE, "icons", "DoodlebookOS-Cursors"))

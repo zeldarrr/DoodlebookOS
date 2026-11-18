@@ -108,6 +108,10 @@ fi
 rm -f "$HOME/.local/state/doodlebookos/screenshot-shortcut.bak"
 rm -f "$HOME/.local/share/applications/doodlebookos-style.desktop" "$HOME/.local/bin/doodlebookos-style"
 rm -f "$HOME/.local/share/applications/doodlebookos-screenshot.desktop" "$HOME/.local/bin/doodlebookos-screenshot"
+rm -rf "$HOME/.local/share/sounds/doodlebookos"
+if [ "$(kreadconfig6 --file kdeglobals --group Sounds --key Theme 2>/dev/null)" = doodlebookos ]; then
+    kwriteconfig6 --file kdeglobals --group Sounds --key Theme --delete
+fi
 
 # login screen (optional, installed as root): the distribution's theme comes back
 if [ -e /etc/sddm.conf.d/zz-doodlebookos.conf ] || [ -d /usr/share/sddm/themes/doodlebookos ]; then

@@ -29,6 +29,7 @@ SPEC = {
         "KDE": ["AnimationDurationFactor", "LookAndFeelPackage", "SingleClick", "ShowIconsInMenuItems",
                 "ShowIconsOnPushButtons", "contrast", "frameContrast", "widgetStyle"],
         "WM": ["activeFont"],
+        "Sounds": ["Theme"],
     },
     "kwinrc": {
         "Plugins": "*", "org.kde.kdecoration2": "*", "Effect-*": "*", "ElectricBorders": "*",

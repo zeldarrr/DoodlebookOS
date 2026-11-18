@@ -1,0 +1,9 @@
+[Sound Theme]
+Name=DoodlebookOS
+Comment=Discreet, Android-like system sounds (original)
+Comment[fr]=Sons système discrets, façon Android (originaux)
+Inherits=ocean,freedesktop
+Directories=stereo
+
+[stereo]
+OutputProfile=stereo
