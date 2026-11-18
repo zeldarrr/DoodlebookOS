@@ -555,6 +555,33 @@ PlasmoidItem {
         id: batteryModel
     }
 
+    // Android charging animation when the charger is plugged in (built on demand, then freed)
+    property bool wasPluggedIn: Boolean(batteryModel.pluggedIn)
+    Connections {
+        target: batteryModel
+        function onPluggedInChanged() {
+            var plugged = Boolean(batteryModel.pluggedIn);
+            if (plugged && !root.wasPluggedIn && root.hasInternalBattery) {
+                chargingDelay.restart();       // lets power saving restore the animation speed first
+            }
+            root.wasPluggedIn = plugged;
+        }
+    }
+    Timer {
+        id: chargingDelay
+        interval: 450
+        onTriggered: {
+            if (Kirigami.Units.longDuration <= 1 || root.gameMode) return;   // animations off / gaming
+            chargingLoader.active = true;
+            if (chargingLoader.item) chargingLoader.item.play(batteryModel.percent);
+        }
+    }
+    Loader {
+        id: chargingLoader
+        active: false
+        sourceComponent: ChargingAnimation { onFinished: chargingLoader.active = false }
+    }
+
     readonly property url currentBatteryIcon: {
         var bm = batteryModel;
         if (!bm) {
