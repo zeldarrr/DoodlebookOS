@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# DoodlebookOS — « Fond d'écran et style » (comme sur Android) : fond, couleurs Material You,
+# style de palette, contraste, clair/sombre, forme des icônes.
+APP="${XDG_DATA_HOME:-$HOME/.local/share}/doodlebookos/apps/style/Main.qml"
+export QT_QUICK_CONTROLS_STYLE="${QT_QUICK_CONTROLS_STYLE:-org.kde.desktop}"
+for q in qml6 /usr/lib/qt6/bin/qml /usr/lib64/qt6/bin/qml /usr/lib/x86_64-linux-gnu/qt6/bin/qml; do
+  if command -v "$q" >/dev/null 2>&1; then
+    # widget app type: the KDE controls style (and DoodlebookOS's app style) need a QApplication
+    exec "$q" -a widget "$APP" "$@"
+  fi
+done
+echo "doodlebookos-style : runtime QML de Qt 6 introuvable (paquet qt6-declarative)" >&2
+exit 1

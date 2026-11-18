@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Wallpaper & style
+Name[fr]=Fond d'écran et style
+Comment=Wallpaper, Material You colours, palette style, contrast and icon shape
+Comment[fr]=Fond d'écran, couleurs Material You, style de palette, contraste et forme des icônes
+Exec=doodlebookos-style
+Icon=preferences-desktop-wallpaper
+Categories=Settings;DesktopSettings;Qt;KDE;
+Keywords=wallpaper;material you;colors;theme;dark;contrast;icons;fond;couleurs;thème;
+StartupWMClass=qml

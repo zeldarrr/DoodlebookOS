@@ -77,6 +77,8 @@ if [ "$(kreadconfig6 --file kscreenlockerrc --group Greeter --key WallpaperPlugi
     kwriteconfig6 --file kscreenlockerrc --group Greeter --group LnF --group General --key alwaysShowClock --delete
 fi
 rm -rf "$HOME/.local/share/plasma/wallpapers/org.doodlebookos.lockscreen"
+rm -rf "$HOME/.local/share/doodlebookos/apps"
+rm -f "$HOME/.local/share/applications/doodlebookos-style.desktop" "$HOME/.local/bin/doodlebookos-style"
 
 # login screen (optional, installed as root): the distribution's theme comes back
 if [ -e /etc/sddm.conf.d/zz-doodlebookos.conf ] || [ -d /usr/share/sddm/themes/doodlebookos ]; then

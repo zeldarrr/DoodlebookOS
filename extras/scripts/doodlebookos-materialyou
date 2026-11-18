@@ -15,6 +15,8 @@ Usage:
   doodlebookos-materialyou preview                    # print the extracted palette
   doodlebookos-materialyou sync                       # align Konsole/lock screen/icons with the active theme
   doodlebookos-materialyou icons                      # rebuild the icons only (after doodlebookos-icons)
+  doodlebookos-materialyou variant tonal_spot|vibrant|expressive|fruit_salad|rainbow|content|neutral|monochrome
+  doodlebookos-materialyou contrast standard|medium|high   # Android's palette styles and contrast levels
 Icons: with Colloid or Tela-circle installed (doodlebookos-colloid-install / doodlebookos-telacircle-install),\nfolders are tinted with the wallpaper colour; pick the pack with doodlebookos-icons.
 """
 import configparser
@@ -372,24 +374,112 @@ def parse_rgb(v):
 
 KEEP_KEYS = ("ForegroundNegative", "ForegroundNeutral", "ForegroundPositive")
 
+# ───────────────────────── palette style: Android's scheme variants + contrast ─────────────────────────
+# ~/.config/doodlebookos/style.json: {"variant": "tonal_spot", "contrast": "standard"}
+STYLE_FILE = os.path.join(CONF_DIR, "style.json")
+VARIANTS = ("tonal_spot", "vibrant", "expressive", "fruit_salad", "rainbow", "content", "neutral", "monochrome")
+CONTRASTS = {"standard": 0.0, "medium": 0.5, "high": 1.0}
 
-def retint(rgb, key, src_hue):
+
+def load_style():
+    try:
+        with open(STYLE_FILE, encoding="utf-8") as f:
+            d = json.load(f)
+    except (OSError, ValueError):
+        d = {}
+    v = d.get("variant") if d.get("variant") in VARIANTS else "tonal_spot"
+    c = d.get("contrast") if d.get("contrast") in CONTRASTS else "standard"
+    return v, c
+
+
+def save_style(variant=None, contrast=None):
+    v, c = load_style()
+    d = {"variant": variant or v, "contrast": contrast or c}
+    os.makedirs(CONF_DIR, exist_ok=True)
+    with open(STYLE_FILE + ".tmp", "w", encoding="utf-8") as f:
+        json.dump(d, f)
+    os.replace(STYLE_FILE + ".tmp", STYLE_FILE)
+
+
+def _rotate(h, hues, rotations):
+    for i in range(len(hues) - 1):
+        if hues[i] <= h < hues[i + 1]:
+            return (h + rotations[i]) % 360.0
+    return h
+
+
+def palettes(src, variant=None):
+    """Key palettes (hue, chroma) of Material Color Utilities' DynamicScheme variants."""
+    h, c = src[0] % 360.0, src[1]
+    v = variant or load_style()[0]
+    if v == "vibrant":
+        hues = (0, 41, 61, 101, 131, 181, 251, 301, 360)
+        return {"primary": (h, 200.0), "secondary": (_rotate(h, hues, (18, 15, 10, 12, 15, 18, 15, 12, 12)), 24.0),
+                "tertiary": (_rotate(h, hues, (35, 30, 20, 25, 30, 35, 30, 25, 25)), 32.0),
+                "neutral": (h, 10.0), "neutralVariant": (h, 12.0)}
+    if v == "expressive":
+        hues = (0, 21, 51, 121, 151, 191, 271, 321, 360)
+        return {"primary": ((h + 240.0) % 360.0, 40.0),
+                "secondary": (_rotate(h, hues, (45, 95, 45, 20, 45, 90, 45, 45, 45)), 24.0),
+                "tertiary": (_rotate(h, hues, (120, 120, 20, 45, 20, 15, 20, 120, 120)), 32.0),
+                "neutral": ((h + 15.0) % 360.0, 8.0), "neutralVariant": ((h + 15.0) % 360.0, 12.0)}
+    if v == "fruit_salad":
+        return {"primary": ((h - 50.0) % 360.0, 48.0), "secondary": ((h - 50.0) % 360.0, 36.0),
+                "tertiary": (h, 36.0), "neutral": (h, 10.0), "neutralVariant": (h, 16.0)}
+    if v == "rainbow":
+        return {"primary": (h, 48.0), "secondary": (h, 16.0), "tertiary": ((h + 60.0) % 360.0, 24.0),
+                "neutral": (h, 0.0), "neutralVariant": (h, 0.0)}
+    if v == "content":
+        return {"primary": (h, max(c, 24.0)), "secondary": (h, max(c - 32.0, c * 0.5)),
+                "tertiary": ((h + 60.0) % 360.0, max(c * 0.6, 24.0)),
+                "neutral": (h, c / 8.0), "neutralVariant": (h, c / 8.0 + 4.0)}
+    if v == "neutral":
+        return {"primary": (h, 12.0), "secondary": (h, 8.0), "tertiary": (h, 16.0),
+                "neutral": (h, 2.0), "neutralVariant": (h, 2.0)}
+    if v == "monochrome":
+        return {k: (h, 0.0) for k in ("primary", "secondary", "tertiary", "neutral", "neutralVariant")}
+    return {"primary": (h, 36.0), "secondary": (h, 16.0), "tertiary": ((h + 60.0) % 360.0, 24.0),
+            "neutral": (h, 6.0), "neutralVariant": (h, 8.0)}            # tonal_spot (Android default)
+
+
+def contrast_tone(key, t, dark, k):
+    """M3 contrast levels: text moves towards black/white, backgrounds away from it."""
+    if k <= 0:
+        return t
+    if key.startswith("Foreground") or key == "activeForeground":
+        f = 0.85 if key in ("ForegroundNormal", "activeForeground") else 0.45   # secondary text stays secondary
+        return t + (100.0 - t) * k * f if dark else t * (1.0 - k * f)
+    if key.startswith("Background") or key.endswith("Background"):
+        return t * (1.0 - 0.35 * k) if dark else t + (100.0 - t) * 0.35 * k
+    return t
+
+
+def retint(rgb, key, src, dark=True, pal=None, k=0.0):
     h, c, t = hct_of(rgb)
     if key in KEEP_KEYS:
         return rgb
+    pal = pal or palettes(src)
+    t = contrast_tone(key, t, dark, k)
     if key == "ForegroundVisited":
-        return hct_to_rgb(src_hue + 60.0, max(24.0, c * 0.8), t)        # tertiary
+        th, tc = pal["tertiary"]
+        return hct_to_rgb(th, max(tc, c * 0.8) if tc > 0 else 0.0, t)              # tertiary
     if c >= 16.0 and 35.0 <= t <= 95.0:
-        return hct_to_rgb(src_hue, max(36.0, min(c, 48.0)), t)          # accents -> primary (Tonal Spot)
-    return hct_to_rgb(src_hue, min(max(c, 4.0), 20.0), t)               # surfaces keep their own chroma
+        ph, pc = pal["primary"]
+        return hct_to_rgb(ph, max(pc, min(c, 48.0)) if pc >= 24.0 else pc, t)     # accents -> primary
+    nh, nc = pal["neutral"]
+    # surfaces keep their own chroma, scaled like the variant's neutral palette (Tonal Spot: 6)
+    return hct_to_rgb(nh, min(max(c, 4.0), 20.0) * (nc / 6.0), t)
 
 
 def build_scheme(mode, src, out_name):
     template = os.path.join(SCHEMES, TEMPLATES[mode] + ".colors")
     if not os.path.exists(template):
         raise SystemExit(f"Template introuvable : {template}")
+    variant, contrast = load_style()
+    pal, k = palettes(src, variant), CONTRASTS[contrast]
     lines_out = [f"# Generated by doodlebookos-materialyou from {TEMPLATES[mode]}",
-                 f"# Source colour: hue {src[0]:.1f}, chroma {src[1]:.1f}, tone {src[2]:.1f}", ""]
+                 f"# Source colour: hue {src[0]:.1f}, chroma {src[1]:.1f}, tone {src[2]:.1f}",
+                 f"# Style: {variant}, contrast {contrast}", ""]
     group = ""
     with open(template, encoding="utf-8") as f:
         for raw in f:
@@ -412,7 +502,7 @@ def build_scheme(mode, src, out_name):
                 continue
             rgb = parse_rgb(val) if (group.startswith("Colors:") or group == "WM") else None
             if rgb and val.count(",") == 2:
-                nr = retint(rgb, key, src[0])
+                nr = retint(rgb, key, src, mode == "dark", pal, k)
                 lines_out.append(f"{key}={nr[0]},{nr[1]},{nr[2]}")
             else:
                 lines_out.append(line)
@@ -461,15 +551,26 @@ def write_palette(src, mode, enabled=True):
     data = {"enabled": enabled}
     if enabled and src:
         dark = mode == "dark"
-        h = src[0]
+        variant, contrast = load_style()
+        pal = palettes(src, variant)
+        ph, pc = pal["primary"]
+        pc = max(src[1], pc) if variant == "tonal_spot" else pc
+        th, tc = pal["tertiary"]
+        sh, sc = pal["secondary"]
         data.update({
             "mode": mode,
-            "primary": hx(hct_to_rgb(h, max(src[1], 36.0), 80.0 if dark else 40.0)),
-            "onPrimary": hx(hct_to_rgb(h, max(src[1], 36.0), 20.0 if dark else 100.0)),
-            "tertiary": hx(hct_to_rgb(h + 60.0, 24.0, 80.0 if dark else 40.0)),
-            "onTertiary": hx(hct_to_rgb(h + 60.0, 24.0, 20.0 if dark else 100.0)),
-            "tertiaryContainer": hx(hct_to_rgb(h + 60.0, 24.0, 30.0 if dark else 90.0)),
-            "onTertiaryContainer": hx(hct_to_rgb(h + 60.0, 24.0, 90.0 if dark else 10.0)),
+            "variant": variant,
+            "contrast": contrast,
+            "primary": hx(hct_to_rgb(ph, pc, 80.0 if dark else 40.0)),
+            "onPrimary": hx(hct_to_rgb(ph, pc, 20.0 if dark else 100.0)),
+            "primaryContainer": hx(hct_to_rgb(ph, pc, 30.0 if dark else 90.0)),
+            "onPrimaryContainer": hx(hct_to_rgb(ph, pc, 90.0 if dark else 10.0)),
+            "secondaryContainer": hx(hct_to_rgb(sh, sc, 30.0 if dark else 90.0)),
+            "onSecondaryContainer": hx(hct_to_rgb(sh, sc, 90.0 if dark else 10.0)),
+            "tertiary": hx(hct_to_rgb(th, tc, 80.0 if dark else 40.0)),
+            "onTertiary": hx(hct_to_rgb(th, tc, 20.0 if dark else 100.0)),
+            "tertiaryContainer": hx(hct_to_rgb(th, tc, 30.0 if dark else 90.0)),
+            "onTertiaryContainer": hx(hct_to_rgb(th, tc, 90.0 if dark else 10.0)),
         })
         if icon_pack() == "material":                # same colours as the generated app icons
             icons = m3_icon_palette(src, mode)
@@ -583,8 +684,9 @@ M3ICONS = os.path.join(HOME, ".local", "bin", "doodlebookos-m3icons")
 
 def m3_icon_palette(src, mode):
     """Android 13+ themed-icon roles from the source colour (Material "Tonal Spot" hues/chromas)."""
-    h = src[0]
-    hx = lambda hue, chroma, tone: "#%02x%02x%02x" % hct_to_rgb(hue % 360.0, chroma, tone)
+    h, pc = palettes(src)["primary"]
+    cs = 1.0 if pc >= 36.0 else pc / 36.0          # Neutral / Monochrome variants: greyer icons
+    hx = lambda hue, chroma, tone: "#%02x%02x%02x" % hct_to_rgb(hue % 360.0, chroma * cs, tone)
     dark = mode == "dark"
     fam = {"primary": (h, 36.0), "secondary": (h, 20.0), "tertiary": (h + 60.0, 32.0)}
     return {
@@ -837,6 +939,34 @@ def main(argv):
         if (icon_pack() == "material" and st.get("enabled") and doodlebook_scheme_active() and st.get("source")):
             apply_icons(st, tuple(st["source"]), mode or st.get("mode") or current_mode(), False)
             save_state(st)
+    elif cmd in ("variant", "contrast"):
+        # palette style (Android "Wallpaper & style"): variant name or contrast level, then regenerate
+        val = argv[2] if len(argv) > 2 else ""
+        allowed = VARIANTS if cmd == "variant" else tuple(CONTRASTS)
+        if val not in allowed:
+            print(f"{cmd} : " + " | ".join(allowed) + f"  (actuel : {load_style()[0 if cmd == 'variant' else 1]})")
+            return 1 if val else 0
+        save_style(**{cmd: val})
+        if st.get("enabled") and doodlebook_scheme_active():
+            generate_and_apply(mode or current_mode(), force=True)
+        print(f"[✓] {cmd} : {val}")
+    elif cmd == "swatches":
+        # for the "Wallpaper & style" app: each variant's colours for the current wallpaper
+        m = mode or st.get("mode") or current_mode()
+        dark = m == "dark"
+        src = tuple(st["source"]) if st.get("source") else None
+        if not src:
+            wp = current_wallpaper()
+            src = source_from_image(wp) if wp else (265.0, 36.0, 50.0)
+        hx = lambda hue, chroma, tone: "#%02x%02x%02x" % hct_to_rgb(hue % 360.0, chroma, tone)
+        out = {}
+        for v in VARIANTS:
+            pal = palettes(src, v)
+            out[v] = [hx(*pal["primary"], 80.0 if dark else 40.0), hx(*pal["secondary"], 70.0 if dark else 60.0),
+                      hx(*pal["tertiary"], 70.0 if dark else 60.0), hx(*pal["neutral"], 20.0 if dark else 92.0)]
+        variant, contrast = load_style()
+        print(json.dumps({"enabled": bool(st.get("enabled")), "mode": m, "variant": variant, "contrast": contrast,
+                          "wallpaper": st.get("wallpaper") or current_wallpaper() or "", "variants": out}))
     elif cmd == "status":
         print("on" if st.get("enabled") else "off")
     elif cmd == "preview":
