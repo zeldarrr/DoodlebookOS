@@ -23,7 +23,7 @@ slidingpopupsEnabled=true
 blurEnabled=true
 
 [kwinrc][Effect-blur]
-BlurStrength=5
+BlurStrength=4
 NoiseStrength=0
 
 [kwinrc][Effect-overview]

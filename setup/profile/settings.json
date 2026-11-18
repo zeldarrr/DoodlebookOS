@@ -21,7 +21,7 @@
   ["kdeglobals", "KDE", "widgetStyle", "DoodlebookOS"],
   ["kdeglobals", "WM", "activeFont", "Google Sans Flex,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,,0,0"],
   ["kwinrc", "EdgeBarrier", "CornerBarrier", "false"],
-  ["kwinrc", "Effect-blur", "BlurStrength", "5"],
+  ["kwinrc", "Effect-blur", "BlurStrength", "4"],
   ["kwinrc", "Effect-blur", "NoiseStrength", "0"],
   ["kwinrc", "Effect-blur", "Saturation", "100"],
   ["kwinrc", "Effect-overview", "BorderActivate", "7"],

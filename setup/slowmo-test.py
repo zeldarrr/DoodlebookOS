@@ -120,9 +120,8 @@ def scene_popup(out, plugin, name):
         print(f"  (widget {plugin} absent, scène sautée)")
         return None
     files = burst(out, name, 5)
-    activate(plugin)            # close it again
-    time.sleep(1.5)
-    files += burst(out, name + "-close", 3)
+    activate(plugin)            # close it again: photograph the fold right away
+    files += burst(out, name + "-close", 3, gap=0.02)
     return sheet(out, name, files)
 
 

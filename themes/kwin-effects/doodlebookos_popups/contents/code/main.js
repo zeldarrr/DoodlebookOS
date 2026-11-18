@@ -100,7 +100,20 @@ class DoodlebookPopups {
         effects.windowAdded.connect(this.slotWindowAdded.bind(this));
         effects.windowClosed.connect(this.slotWindowClosed.bind(this));
         effects.windowDataChanged.connect(this.slotWindowDataChanged.bind(this));
+        effect.animationEnded.connect(DoodlebookPopups.unforceBlur);
         this.loadConfig();
+    }
+
+    // KWin drops the blur behind a window while it is scaled or moved, so a panel would turn
+    // see-through as it unfolds / folds away: keep the blur (and contrast) during our animations
+    static forceBlur(w) {
+        w.setData(Effect.WindowForceBackgroundContrastRole, true);
+        w.setData(Effect.WindowForceBlurRole, true);
+    }
+
+    static unforceBlur(w) {
+        w.setData(Effect.WindowForceBackgroundContrastRole, null);
+        w.setData(Effect.WindowForceBlurRole, null);
     }
 
     loadConfig() {
@@ -255,6 +268,7 @@ class DoodlebookPopups {
         if (duration <= 0 || !effect.grab(w, Effect.WindowAddedGrabRole)) {
             return;
         }
+        DoodlebookPopups.forceBlur(w);
         w.dbPopupIn = animate({ window: w, duration: duration, animations: anims });
     }
 
@@ -286,6 +300,7 @@ class DoodlebookPopups {
         if (duration <= 0 || !effect.grab(w, Effect.WindowClosedGrabRole)) {
             return;
         }
+        DoodlebookPopups.forceBlur(w);
         w.dbPopupOut = animate({ window: w, duration: duration, animations: anims });
     }
 
