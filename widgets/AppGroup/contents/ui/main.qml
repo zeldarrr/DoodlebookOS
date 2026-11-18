@@ -225,7 +225,7 @@ PlasmoidItem {
             id: desktopFolderContainer
             anchors.fill: parent
             opacity: folderPopup.visible ? 0.0 : 1.0
-            Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
+            Behavior on opacity { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 120 : 0; easing.type: Easing.OutQuad } }
 
             Item {
                 id: folderDisc
@@ -236,7 +236,7 @@ PlasmoidItem {
                 anchors.horizontalCenter: parent.horizontalCenter
 
                 scale: folderTap.pressed ? 0.94 : (folderPopup.visible ? 0.95 : 1.0)
-                Behavior on scale { NumberAnimation { duration: folderTap.pressed ? 80 : 130; easing.type: Easing.OutQuad } }
+                Behavior on scale { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? (folderTap.pressed ? 80 : 130) : 0; easing.type: Easing.OutQuad } }
 
                 // Circular translucent backing adapting to Plasma theme (dark/light)
                 Rectangle {
@@ -249,13 +249,13 @@ PlasmoidItem {
                         return Qt.rgba(bg.r, bg.g, bg.b, alpha);
                     }
                     Behavior on color {
-                        ColorAnimation { duration: 150 }
+                        ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 }
                     }
 
                     scale: folderTap.pressed ? 0.94 : (folderHover.hovered ? 1.08 : 1.0)
                     transformOrigin: Item.Center
                     Behavior on scale {
-                        NumberAnimation { duration: folderTap.pressed ? 80 : 150; easing.type: Easing.OutQuad }
+                        NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? (folderTap.pressed ? 80 : 150) : 0; easing.type: Easing.OutQuad }
                     }
                 }
 

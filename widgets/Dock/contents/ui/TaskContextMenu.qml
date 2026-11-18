@@ -116,10 +116,10 @@ PlasmaCore.Dialog {
         transformOrigin: Item.Bottom
 
         Behavior on scale {
-            NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.1 }
+            NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 160 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.1 }
         }
         Behavior on opacity {
-            NumberAnimation { duration: 140; easing.type: Easing.OutQuad }
+            NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 140 : 0; easing.type: Easing.OutQuad }
         }
 
         // Soft drop shadow
@@ -211,24 +211,23 @@ PlasmaCore.Dialog {
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
-                            if (contextMenuDialog.tasksModel) {
-                                var targetUrl = (contextMenuDialog.launcherUrl || "").toString();
-                                if (!targetUrl && contextMenuDialog.appId) {
-                                    var id = contextMenuDialog.appId.toString();
-                                    if (!id.endsWith(".desktop")) {
-                                        id += ".desktop";
-                                    }
-                                    targetUrl = "applications:" + id;
+                            // read everything first: removing the launcher destroys the task
+                            // delegate that owns this menu, so close before touching the model
+                            var model = contextMenuDialog.tasksModel;
+                            var unpin = contextMenuDialog.isLauncher || contextMenuDialog.hasLauncher;
+                            var targetUrl = (contextMenuDialog.launcherUrl || "").toString();
+                            if (!targetUrl && contextMenuDialog.appId) {
+                                var id = contextMenuDialog.appId.toString();
+                                if (!id.endsWith(".desktop")) {
+                                    id += ".desktop";
                                 }
-                                if (targetUrl) {
-                                    if (contextMenuDialog.isLauncher || contextMenuDialog.hasLauncher) {
-                                        contextMenuDialog.tasksModel.requestRemoveLauncher(targetUrl);
-                                    } else {
-                                        contextMenuDialog.tasksModel.requestAddLauncher(targetUrl);
-                                    }
-                                }
+                                targetUrl = "applications:" + id;
                             }
                             contextMenuDialog.close();
+                            if (model && targetUrl) {
+                                if (unpin) model.requestRemoveLauncher(targetUrl);
+                                else model.requestAddLauncher(targetUrl);
+                            }
                         }
                     }
                 }
@@ -340,10 +339,10 @@ PlasmaCore.Dialog {
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
-                            if (contextMenuDialog.tasksModel && contextMenuDialog.modelIndex) {
-                                contextMenuDialog.tasksModel.requestClose(contextMenuDialog.modelIndex);
-                            }
+                            var model = contextMenuDialog.tasksModel;
+                            var idx = contextMenuDialog.modelIndex;
                             contextMenuDialog.close();
+                            if (model && idx) model.requestClose(idx);
                         }
                     }
                 }

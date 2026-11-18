@@ -41,7 +41,7 @@ Item {
         anchors.fill: parent
         radius: 32
         color: card.cardColor
-        Behavior on color { ColorAnimation { duration: 300 } }
+        Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 300 : 0 } }
 
         // cover
         Rectangle {
@@ -141,7 +141,7 @@ Item {
                     height: 44
                     radius: ma.pressed ? 12 : height / 2
                     color: filled ? card.accent : (ma.containsMouse ? pal.stateHover : "transparent")
-                    Behavior on radius { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                    Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 160 : 0; easing.type: Easing.OutCubic } }
                     Kirigami.Icon {
                         anchors.centerIn: parent
                         width: 22
@@ -161,7 +161,7 @@ Item {
                     height: 44
                     radius: playMa.pressed ? 10 : (card.playing ? 14 : height / 2)
                     color: card.accent
-                    Behavior on radius { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.4 } }
+                    Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 220 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.4 } }
                     Kirigami.Icon {
                         anchors.centerIn: parent
                         width: 24

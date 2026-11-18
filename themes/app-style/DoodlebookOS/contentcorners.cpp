@@ -174,6 +174,13 @@ void ContentCorners::unregisterWidget(QWidget *widget)
     updateFramed(area, false);
 }
 
+void ContentCorners::refresh(QWidget *widget)
+{
+    if (_areas.contains(widget)) {
+        schedule(static_cast<QAbstractScrollArea *>(widget));
+    }
+}
+
 bool ContentCorners::contentEligible(QAbstractScrollArea *area) const
 {
     if (!area->isVisible() || area->frameShape() != QFrame::NoFrame || area->viewport()->backgroundRole() != QPalette::Base

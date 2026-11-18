@@ -1,0 +1,248 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""DoodlebookOS power saver — the desktop follows the "Power saver" profile.
+
+    doodlebookos-powersave watch     (user service: follows the power profile, no polling)
+    doodlebookos-powersave sync      apply or restore according to the current profile
+    doodlebookos-powersave restore   put the saved values back now (used by the uninstaller)
+    doodlebookos-powersave status
+
+When the profile becomes "power-saver" (Quick Settings tile, Plasma battery applet, or PowerDevil
+switching by itself on battery), the GPU work that never stops is cut:
+  * KWin blur (and the contrast behind panels / popups): off — Plasma then uses the theme's base
+    backgrounds, which are opaque in DoodlebookOS (no see-through popups, menus or tooltips);
+  * every animation set to "instant" (global animation speed = 0): KWin effects, Plasma, Qt and
+    Kirigami applications, window decoration and the DoodlebookOS widgets, which also stop their
+    looping animations (scrolling titles, media wave, tray "breathing", edit-mode wiggle).
+Leaving power saver restores exactly what was there before. A value the user changed meanwhile is
+left alone. State: ~/.local/state/doodlebookos/powersave.json (survives a crash or a reboot: the
+next start restores or re-applies according to the profile).
+"""
+import json
+import os
+import shutil
+import subprocess
+import sys
+
+STATE = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"),
+                     "doodlebookos", "powersave.json")
+ABSENT = "__doodlebookos_absent__"
+
+# (file, group, key, value while saving power)
+SETTINGS = (
+    ("kdeglobals", "KDE", "AnimationDurationFactor", "0"),
+    ("kwinrc", "Plugins", "blurEnabled", "false"),
+)
+
+PPD = (("org.freedesktop.UPower.PowerProfiles", "/org/freedesktop/UPower/PowerProfiles"),
+       ("net.hadess.PowerProfiles", "/net/hadess/PowerProfiles"))
+
+
+def log(msg):
+    print(msg, flush=True)
+
+
+def kread(file, group, key):
+    try:
+        r = subprocess.run(["kreadconfig6", "--file", file, "--group", group, "--key", key,
+                            "--default", ABSENT], capture_output=True, text=True, timeout=20)
+    except (OSError, subprocess.TimeoutExpired):
+        return ABSENT
+    return r.stdout.rstrip("\n")
+
+
+def kwrite(file, group, key, value):
+    cmd = ["kwriteconfig6", "--notify", "--file", file, "--group", group, "--key", key]
+    cmd += ["--delete"] if value is None or value == ABSENT else [value]
+    subprocess.run(cmd, capture_output=True, timeout=20)
+
+
+def load_state():
+    try:
+        with open(STATE, encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_state(data):
+    if not data:
+        try:
+            os.remove(STATE)
+        except FileNotFoundError:
+            pass
+        return
+    os.makedirs(os.path.dirname(STATE), exist_ok=True)
+    tmp = STATE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f)
+    os.replace(tmp, STATE)
+
+
+# ───────────────────────── D-Bus (Gio when available, gdbus otherwise) ─────────────────────────
+try:
+    import gi
+    gi.require_version("Gio", "2.0")
+    from gi.repository import Gio, GLib
+except (ImportError, ValueError):
+    Gio = GLib = None
+
+
+def session_call(service, path, iface, method, sig=None, args=()):
+    if Gio:
+        try:
+            bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+            bus.call_sync(service, path, iface, method, GLib.Variant(sig, tuple(args)) if sig else None,
+                          None, Gio.DBusCallFlags.NONE, 10000, None)
+        except GLib.Error:
+            pass
+        return
+    if shutil.which("gdbus"):
+        subprocess.run(["gdbus", "call", "--session", "--dest", service, "--object-path", path,
+                        "--method", f"{iface}.{method}", *[str(a) for a in args]],
+                       capture_output=True, timeout=20)
+
+
+def notify_qt_apps():
+    """KGlobalSettings "SettingsChanged": the DoodlebookOS Qt style reloads its animation settings."""
+    if Gio:
+        try:
+            bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+            bus.emit_signal(None, "/KGlobalSettings", "org.kde.KGlobalSettings", "notifyChange",
+                            GLib.Variant("(ii)", (3, 0)))
+        except GLib.Error:
+            pass
+    elif shutil.which("gdbus"):
+        subprocess.run(["gdbus", "emit", "--session", "--object-path", "/KGlobalSettings",
+                        "--signal", "org.kde.KGlobalSettings.notifyChange", "3", "0"],
+                       capture_output=True, timeout=20)
+
+
+def refresh(changed_files):
+    if "kwinrc" in changed_files:
+        session_call("org.kde.KWin", "/KWin", "org.kde.KWin", "reconfigure")
+        blur = kread("kwinrc", "Plugins", "blurEnabled") != "false"
+        session_call("org.kde.KWin", "/Effects", "org.kde.kwin.Effects",
+                     "loadEffect" if blur else "unloadEffect", "(s)", ("blur",))
+    if "kdeglobals" in changed_files:
+        notify_qt_apps()   # Plasma, Kirigami and KWin follow kdeglobals by themselves (--notify)
+
+
+# ───────────────────────── apply / restore ─────────────────────────
+def apply():
+    state = load_state()
+    changed = set()
+    for file, group, key, value in SETTINGS:
+        cur = kread(file, group, key)
+        if cur == value:
+            continue
+        state[f"{file}|{group}|{key}"] = {"old": cur, "new": value}
+        kwrite(file, group, key, value)
+        changed.add(file)
+    save_state(state)
+    if changed:
+        refresh(changed)
+        log("économie d'énergie : flou et animations coupés")
+
+
+def restore():
+    state = load_state()
+    changed = set()
+    for ident, rec in state.items():
+        try:
+            file, group, key = ident.split("|", 2)
+        except ValueError:
+            continue
+        if kread(file, group, key) != rec.get("new"):
+            continue                                  # changed by the user meanwhile: keep it
+        kwrite(file, group, key, rec.get("old", ABSENT))
+        changed.add(file)
+    save_state({})
+    if changed:
+        refresh(changed)
+        log("économie d'énergie terminée : flou et animations restaurés")
+
+
+def current_profile():
+    if Gio:
+        try:
+            bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+        except GLib.Error:
+            bus = None
+        for name, path in PPD if bus else ():
+            try:
+                r = bus.call_sync(name, path, "org.freedesktop.DBus.Properties", "Get",
+                                  GLib.Variant("(ss)", (name, "ActiveProfile")), GLib.VariantType("(v)"),
+                                  Gio.DBusCallFlags.NONE, 5000, None)
+                return r.unpack()[0]
+            except GLib.Error:
+                continue
+        return ""
+    if shutil.which("powerprofilesctl"):
+        r = subprocess.run(["powerprofilesctl", "get"], capture_output=True, text=True, timeout=20)
+        return r.stdout.strip()
+    return ""
+
+
+def sync():
+    if current_profile() == "power-saver":
+        apply()
+    else:
+        restore()
+
+
+def watch():
+    sync()
+    if not Gio:
+        log("PyGObject absent : pas de suivi en direct (seulement au démarrage de la session)")
+        return 0
+    bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+    last = {"profile": current_profile()}
+
+    def on_change(_conn, _sender, _path, _iface, _signal, params):
+        iface, changed, _invalidated = params.unpack()
+        if "ActiveProfile" not in changed:
+            return
+        prof = changed["ActiveProfile"]
+        if prof == last["profile"]:
+            return
+        last["profile"] = prof
+        log(f"profil d'énergie : {prof}")
+        sync()
+
+    for name, path in PPD:
+        bus.signal_subscribe(None, "org.freedesktop.DBus.Properties", "PropertiesChanged", path, name,
+                             Gio.DBusSignalFlags.NONE, on_change)
+
+    def on_owner(_conn, _name, _owner):   # daemon (re)started: catch up
+        GLib.idle_add(lambda: (sync(), False)[1])
+    for name, _path in PPD:
+        Gio.bus_watch_name_on_connection(bus, name, Gio.BusNameWatcherFlags.NONE, on_owner, None)
+
+    GLib.MainLoop().run()
+    return 0
+
+
+def main():
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "status"
+    if cmd == "watch":
+        return watch()
+    if cmd == "sync":
+        sync()
+    elif cmd == "restore":
+        restore()
+    elif cmd == "status":
+        state = load_state()
+        print(f"profil : {current_profile() or '?'}")
+        print("économie appliquée : " + ("oui" if state else "non"))
+        for ident, rec in state.items():
+            print(f"  {ident} : {rec.get('old')} -> {rec.get('new')}")
+    else:
+        print("usage: doodlebookos-powersave watch|sync|restore|status", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

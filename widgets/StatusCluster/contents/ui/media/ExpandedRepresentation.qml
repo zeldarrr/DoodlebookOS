@@ -75,7 +75,7 @@ Item {
 
     // Material 3 entrance: container grows from the panel edge (emphasized decelerate)
     property real revealT: 1.0
-    NumberAnimation { id: revealAnim; target: expandedRoot; property: "revealT"; from: 0; to: 1; duration: 420; easing.type: Easing.OutQuart }
+    NumberAnimation { id: revealAnim; target: expandedRoot; property: "revealT"; from: 0; to: 1; duration: Kirigami.Units.longDuration > 1 ? 420 : 0; easing.type: Easing.OutQuart }
     function playReveal() {
         if (expandedRoot.Window.window && expandedRoot.Window.window.visible) revealAnim.restart();
     }

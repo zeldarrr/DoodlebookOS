@@ -39,10 +39,10 @@ FocusScope {
         border.width: activeFocus ? 1.5 : 0
         border.color: bar.accent
         activeFocusOnTab: true
-        Behavior on radius { NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
-        Behavior on color { ColorAnimation { duration: 120 } }
+        Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 240 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
+        Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 120 : 0 } }
         scale: btnMa.pressed ? 0.92 : 1
-        Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 2 } }
+        Behavior on scale { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 160 : 0; easing.type: Easing.OutBack; easing.overshoot: 2 } }
         Keys.onReturnPressed: activated()
         Keys.onEnterPressed: activated()
         Keys.onSpacePressed: activated()
@@ -60,7 +60,7 @@ FocusScope {
         spacing: 4
         visible: opacity > 0
         opacity: root.editMode ? 0 : 1
-        Behavior on opacity { NumberAnimation { duration: 160 } }
+        Behavior on opacity { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 160 : 0 } }
 
         // avatar + name
         Rectangle {
@@ -121,7 +121,7 @@ FocusScope {
         spacing: 10
         visible: opacity > 0
         opacity: root.editMode ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 160 } }
+        Behavior on opacity { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 160 : 0 } }
 
         Text {
             Layout.fillWidth: true
@@ -143,7 +143,7 @@ FocusScope {
                 activeFocusOnTab: true
                 border.width: activeFocus ? 2 : 0
                 border.color: bar.fg
-                Behavior on color { ColorAnimation { duration: 180 } }
+                Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 180 : 0 } }
                 function toggle() { Plasmoid.configuration.launcherFullscreen = !on; }
                 Keys.onSpacePressed: toggle()
                 Keys.onReturnPressed: toggle()
@@ -152,8 +152,8 @@ FocusScope {
                     anchors.verticalCenter: parent.verticalCenter
                     x: fsSwitch.on ? parent.width - width - 4 : 8
                     color: fsSwitch.on ? bar.onAccent : bar.tint(0.7)
-                    Behavior on x { NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.4 } }
-                    Behavior on width { NumberAnimation { duration: 180 } }
+                    Behavior on x { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 240 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.4 } }
+                    Behavior on width { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 180 : 0 } }
                 }
                 MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: fsSwitch.toggle() }
             }
@@ -174,7 +174,7 @@ FocusScope {
             activeFocusOnTab: true
             border.width: activeFocus ? 2 : 0
             border.color: bar.fg
-            Behavior on radius { NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
+            Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 240 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
             Keys.onReturnPressed: root.editMode = false
             Keys.onSpacePressed: root.editMode = false
             Text { id: doneLabel; anchors.centerIn: parent; text: bar.i18n("Done"); font.family: "Google Sans Flex"; font.pixelSize: 14; font.weight: Font.DemiBold; color: bar.onAccent }

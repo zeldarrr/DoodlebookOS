@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-// Apps page: pinned apps + folders, recent files, then every app A–Z, filtered by the category
-// chips. Full-screen mode shows the apps as swipeable pages.
+// Apps page: pinned apps + folders, recent files, then every app A–Z.
+// Full-screen mode shows the apps as swipeable pages.
 import QtQuick
 import org.kde.plasma.plasmoid
 import QtQuick.Controls
@@ -27,8 +27,7 @@ Item {
     property QtObject rawRecentDocsModel: null
     property bool showHiddenLocal: false
     readonly property bool showHiddenApps: showHiddenLocal || (main.bottomBar && main.bottomBar.showHidden)
-    readonly property string category: main.category
-    readonly property bool showHeader: category === "all"
+    readonly property bool showHeader: true
 
     property var hiddenApps: []
     property var hiddenSet: ({})
@@ -101,7 +100,6 @@ Item {
         target: appIndex
         function onRevisionChanged() { combinedRoot.invalidateAll(); }
     }
-    onCategoryChanged: invalidateAll()
 
     function syncModels() {
         rawRecentAppsModel = rootModel.modelForRow(0);
@@ -137,7 +135,6 @@ Item {
             var id = appIndex.rowIds[sourceRow] || "";
             var name = combinedRoot.hiddenApps.length ? sourceModel.data(sourceModel.index(sourceRow, 0, sourceParent), Qt.DisplayRole) : "";
             if (combinedRoot.isHidden(id, name)) return false;
-            if (combinedRoot.category !== "all") return appIndex.category(id) === combinedRoot.category;
             return !appIndex.folderOfId[id];          // apps living in a folder are shown in it
         }
     }
@@ -312,7 +309,7 @@ Item {
                         radius: toggleMouse.pressed ? 12 : 18
                         color: combinedRoot.showHiddenApps ? Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.22)
                                                            : (toggleMouse.containsMouse ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.10) : "transparent")
-                        Behavior on radius { NumberAnimation { duration: 200; easing.type: Easing.OutBack } }
+                        Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 200 : 0; easing.type: Easing.OutBack } }
                         Row {
                             id: eyeRow
                             anchors.centerIn: parent
@@ -409,7 +406,7 @@ Item {
                         else if (event.key === Qt.Key_Left && !ctrl) selectIndex(c - 1);
                         else if (event.key === Qt.Key_Down) selectIndex(paged.current < 0 ? 0 : c + cols);
                         else if (event.key === Qt.Key_Up) {
-                            if (c % paged.perPage < cols) { main.chips.forceActiveFocus(); paged.current = -1; }
+                            if (c % paged.perPage < cols) { main.searchBar.textField.forceActiveFocus(); paged.current = -1; }
                             else selectIndex(c - cols);
                         }
                         else if (event.key === Qt.Key_PageDown) selectIndex((currentIndex + 1) * paged.perPage);
@@ -473,8 +470,8 @@ Item {
                             height: 8
                             radius: 4
                             color: on ? Kirigami.Theme.highlightColor : Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.3)
-                            Behavior on width { NumberAnimation { duration: 280; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
-                            Behavior on color { ColorAnimation { duration: 180 } }
+                            Behavior on width { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 280 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
+                            Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 180 : 0 } }
                             MouseArea { anchors.fill: parent; anchors.margins: -4; cursorShape: Qt.PointingHandCursor; onClicked: pager.currentIndex = parent.index }
                         }
                     }

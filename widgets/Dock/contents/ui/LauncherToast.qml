@@ -20,8 +20,8 @@ Rectangle {
     opacity: shown ? 1 : 0
     visible: opacity > 0
     scale: shown ? 1 : 0.85
-    Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-    Behavior on scale { NumberAnimation { duration: 260; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
+    Behavior on opacity { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 180 : 0; easing.type: Easing.OutCubic } }
+    Behavior on scale { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 260 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
 
     Timer { id: hideTimer; interval: 2800; onTriggered: toast.shown = false }
 

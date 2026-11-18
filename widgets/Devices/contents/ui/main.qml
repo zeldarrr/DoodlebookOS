@@ -166,15 +166,15 @@ PlasmoidItem {
                     width: content.implicitWidth + root.pillHeight * 0.62
                     height: root.pillHeight
                     scale: ma.pressed ? 0.9 : 1
-                    Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 2 } }
+                    Behavior on scale { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 200 : 0; easing.type: Easing.OutBack; easing.overshoot: 2 } }
 
                     Rectangle {
                         anchors.fill: parent
                         radius: ma.pressed ? height * 0.3 : height / 2
                         color: chip.isLow ? Qt.rgba(0.95, 0.72, 0.71, ma.containsMouse ? 0.30 : 0.18)
                                           : root.tint(ma.containsMouse ? 0.22 : 0.10)
-                        Behavior on color { ColorAnimation { duration: 180 } }
-                        Behavior on radius { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
+                        Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 180 : 0 } }
+                        Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 220 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
                     }
                     Row {
                         id: content

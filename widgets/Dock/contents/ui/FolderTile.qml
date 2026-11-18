@@ -31,12 +31,12 @@ Item {
         border.width: drop.containsDrag ? 2 : 0
         border.color: tile.accent
         scale: (drop.containsDrag ? 1.12 : (ma.pressed ? 0.9 : (ma.containsMouse ? 1.05 : 1)))
-        Behavior on radius { NumberAnimation { duration: 260; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
-        Behavior on scale { NumberAnimation { duration: 260; easing.type: Easing.OutBack; easing.overshoot: 2 } }
-        Behavior on color { ColorAnimation { duration: 140 } }
+        Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 260 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
+        Behavior on scale { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 260 : 0; easing.type: Easing.OutBack; easing.overshoot: 2 } }
+        Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 140 : 0 } }
 
         SequentialAnimation on rotation {
-            running: root.editMode && tile.visible
+            running: root.editMode && tile.visible && Kirigami.Units.longDuration > 1
             loops: Animation.Infinite
             NumberAnimation { to: 2; duration: 150; easing.type: Easing.InOutSine }
             NumberAnimation { to: -2; duration: 150; easing.type: Easing.InOutSine }

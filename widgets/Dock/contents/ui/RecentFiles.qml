@@ -34,10 +34,10 @@ ListView {
         height: 64
         radius: ma.pressed ? 14 : 18
         color: ma.containsMouse ? strip.tint(0.12) : strip.tint(0.06)
-        Behavior on radius { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
-        Behavior on color { ColorAnimation { duration: 120 } }
+        Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 220 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
+        Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 120 : 0 } }
         scale: ma.pressed ? 0.96 : 1
-        Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack; easing.overshoot: 2 } }
+        Behavior on scale { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 180 : 0; easing.type: Easing.OutBack; easing.overshoot: 2 } }
 
         readonly property string fileUrl: model.url ? String(model.url) : ""
         readonly property bool isImage: /\.(png|jpe?g|webp|gif|bmp|avif)$/i.test(fileUrl)

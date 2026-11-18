@@ -134,14 +134,14 @@ Item {
 
   // launch: icon zooms out and fades while the popup closes
   property real launchT: 0
-  NumberAnimation { id: launchAnim; target: favItem; property: "launchT"; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic }
+  NumberAnimation { id: launchAnim; target: favItem; property: "launchT"; from: 0; to: 1; duration: Kirigami.Units.longDuration > 1 ? 220 : 0; easing.type: Easing.OutCubic }
 
   // refusal nudge (click in edit mode)
   SequentialAnimation {
     id: nudge
-    NumberAnimation { target: appicon; property: "rotation"; to: 6; duration: 50 }
-    NumberAnimation { target: appicon; property: "rotation"; to: -6; duration: 80 }
-    NumberAnimation { target: appicon; property: "rotation"; to: 0; duration: 120; easing.type: Easing.OutBack }
+    NumberAnimation { target: appicon; property: "rotation"; to: 6; duration: Kirigami.Units.longDuration > 1 ? 50 : 0 }
+    NumberAnimation { target: appicon; property: "rotation"; to: -6; duration: Kirigami.Units.longDuration > 1 ? 80 : 0 }
+    NumberAnimation { target: appicon; property: "rotation"; to: 0; duration: Kirigami.Units.longDuration > 1 ? 120 : 0; easing.type: Easing.OutBack }
   }
 
   // ───────────── visuals ─────────────
@@ -161,10 +161,10 @@ Item {
     border.color: favItem.accent
     opacity: (favItem.isHovered || favItem.isCurrent || ma.pressed || dropCenter) ? 1 : 0
     scale: opacity > 0 ? 1 : 0.7
-    Behavior on opacity { NumberAnimation { duration: 140 } }
-    Behavior on scale { NumberAnimation { duration: 260; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
-    Behavior on radius { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.4 } }
-    Behavior on width { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
+    Behavior on opacity { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 140 : 0 } }
+    Behavior on scale { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 260 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
+    Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 220 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.4 } }
+    Behavior on width { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 220 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
   }
 
   // pinned reordering: insertion bar on the left/right edge
@@ -189,11 +189,11 @@ Item {
     scale: hoverScale * (1 + 0.32 * favItem.launchT)
     opacity: 1 - favItem.launchT
     transformOrigin: Item.Center
-    Behavior on scale { enabled: !launchAnim.running; NumberAnimation { duration: 260; easing.type: Easing.OutBack; easing.overshoot: 2.0 } }
+    Behavior on scale { enabled: !launchAnim.running; NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 260 : 0; easing.type: Easing.OutBack; easing.overshoot: 2.0 } }
 
     // edit-mode wiggle
     SequentialAnimation on rotation {
-      running: root.editMode && favItem.visible && favItem.appId.length > 0
+      running: root.editMode && favItem.visible && favItem.appId.length > 0 && Kirigami.Units.longDuration > 1
       loops: Animation.Infinite
       PauseAnimation { duration: (Math.max(0, favItem.tileIndex) % 4) * 45 }
       NumberAnimation { to: 2.2; duration: 140; easing.type: Easing.InOutSine }
@@ -224,7 +224,7 @@ Item {
       border.width: 2
       border.color: Kirigami.Theme.backgroundColor
       scale: visible ? 1 : 0
-      Behavior on scale { NumberAnimation { duration: 280; easing.type: Easing.OutBack; easing.overshoot: 2 } }
+      Behavior on scale { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 280 : 0; easing.type: Easing.OutBack; easing.overshoot: 2 } }
       Text {
         id: countText
         anchors.centerIn: parent
@@ -252,7 +252,7 @@ Item {
       readonly property bool show: root.editMode && favItem.appId.length > 0
       visible: scale > 0.01
       scale: show ? 1 : 0
-      Behavior on scale { NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 2 } }
+      Behavior on scale { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 240 : 0; easing.type: Easing.OutBack; easing.overshoot: 2 } }
       anchors.left: parent.left
       anchors.top: parent.top
       anchors.leftMargin: -8

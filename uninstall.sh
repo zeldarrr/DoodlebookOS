@@ -21,6 +21,8 @@ if command -v systemctl &>/dev/null; then
     systemctl --user stop doodlebookos-topbar.service 2>/dev/null || true
     systemctl --user disable doodlebookos-topbar.service 2>/dev/null || true
     [ -x "$HOME/.local/bin/doodlebookos-gamemode" ] && "$HOME/.local/bin/doodlebookos-gamemode" reset 2>/dev/null || true
+    systemctl --user disable --now doodlebookos-powersave.service 2>/dev/null || true
+    [ -x "$HOME/.local/bin/doodlebookos-powersave" ] && "$HOME/.local/bin/doodlebookos-powersave" restore 2>/dev/null || true
     [ -x "$HOME/.local/bin/doodlebookos-desktop-shortcuts" ] && "$HOME/.local/bin/doodlebookos-desktop-shortcuts" off 2>/dev/null || true
 fi
 rm -f "$HOME"/.config/systemd/user/doodlebookos-update{.service,.timer,-apply.service} \
@@ -28,10 +30,11 @@ rm -f "$HOME"/.config/systemd/user/doodlebookos-update{.service,.timer,-apply.se
 rm -rf "$HOME/.local/state/doodlebookos/pending"
 rm -f "$HOME/.config/systemd/user/doodlebookos-topbar.service" \
       "$HOME/.config/systemd/user/doodlebookos-topbar.path" \
-      "$HOME/.config/systemd/user/doodlebookos-gamemode@.service"
+      "$HOME/.config/systemd/user/doodlebookos-gamemode@.service" \
+      "$HOME/.config/systemd/user/doodlebookos-powersave.service"
 rm -f "$HOME"/.config/systemd/user/app-*-.scope.d/50-doodlebookos-voice.conf
 rm -f "$HOME/.local/bin/doodlebookos-gamemode" "$HOME/.local/bin/doodlebookos-gamemode-dnd" \
-      "$HOME/.local/bin/doodlebookos-desktop-shortcuts"
+      "$HOME/.local/bin/doodlebookos-desktop-shortcuts" "$HOME/.local/bin/doodlebookos-powersave"
 rm -f "$HOME/.config/systemd/user/plasma-krunner.service"
 rm -f "$HOME/.local/bin/doodlebookos-topbar-color" \
       "$HOME/.local/bin/dostheme" \

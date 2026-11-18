@@ -306,10 +306,10 @@ for r in res[:5]:
         transformOrigin: Item.TopLeft
 
         Behavior on scale {
-            NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
+            NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 220 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
         }
         Behavior on opacity {
-            NumberAnimation { duration: 160; easing.type: Easing.OutQuad }
+            NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 160 : 0; easing.type: Easing.OutQuad }
         }
 
         Column {
@@ -441,7 +441,7 @@ for r in res[:5]:
                                         height: 66
 
                                         Behavior on width {
-                                            NumberAnimation { duration: 250; easing.type: Easing.OutBack; easing.overshoot: 1.1 }
+                                            NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 250 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.1 }
                                         }
 
                                         Rectangle {
@@ -503,10 +503,10 @@ for r in res[:5]:
                                                 opacity: wpDelegate.isSelected ? 1.0 : 0.0
 
                                                 Behavior on scale {
-                                                    NumberAnimation { duration: 220; easing.type: Easing.OutBack }
+                                                    NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 220 : 0; easing.type: Easing.OutBack }
                                                 }
                                                 Behavior on opacity {
-                                                    NumberAnimation { duration: 180; easing.type: Easing.OutQuad }
+                                                    NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 180 : 0; easing.type: Easing.OutQuad }
                                                 }
 
                                                 Kirigami.Icon {
@@ -619,7 +619,7 @@ for r in res[:5]:
                 clip: true
 
                 Behavior on implicitHeight {
-                    NumberAnimation { duration: 220; easing.type: Easing.OutQuad }
+                    NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 220 : 0; easing.type: Easing.OutQuad }
                 }
 
                 layer.enabled: true
@@ -698,7 +698,7 @@ for r in res[:5]:
                                     }
 
                                     Behavior on rotation {
-                                        NumberAnimation { duration: 200; easing.type: Easing.OutQuad }
+                                        NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 200 : 0; easing.type: Easing.OutQuad }
                                     }
                                 }
                             }

@@ -34,14 +34,34 @@ Item {
     }
     readonly property int rows: cells[35].inMonth ? 6 : 5
 
+    // M3 shared-axis X transition between months (1 = came from the right, -1 = from the left)
+    readonly property bool anim: Kirigami.Units.longDuration > 1
+    property real slide: 0
+    property int lastOffset: 0
+    onMonthOffsetChanged: {
+        var dir = monthOffset > lastOffset ? 1 : -1;
+        lastOffset = monthOffset;
+        if (!anim) return;
+        slide = dir;
+        slideAnim.restart();
+    }
+    NumberAnimation {
+        id: slideAnim
+        target: card; property: "slide"; to: 0
+        duration: card.anim ? 320 : 0
+        easing.type: Easing.BezierSpline; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1, 1]
+    }
+
     component NavBtn: Rectangle {
         id: nb
         property string icon: ""
         signal clicked()
         width: 36
         height: 36
-        radius: 18
+        radius: nbMa.pressed ? 12 : 18                       // press: circle → rounded square
         color: nbMa.pressed ? pal.statePress : (nbMa.containsMouse ? pal.stateHover : "transparent")
+        Behavior on radius { NumberAnimation { duration: card.anim ? 200 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
+        Behavior on color { ColorAnimation { duration: card.anim ? 120 : 0 } }
         Kirigami.Icon { anchors.centerIn: parent; width: 18; height: 18; source: nb.icon; isMask: true; color: pal.surfaceTextVariant }
         MouseArea { id: nbMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: nb.clicked() }
     }
@@ -65,6 +85,8 @@ Item {
                 font.weight: Font.DemiBold
                 font.variableAxes: { "ROND": 100 }
                 color: pal.surfaceText
+                opacity: 1 - Math.abs(card.slide) * 0.85
+                transform: Translate { x: card.slide * 16 }
                 MouseArea { anchors.fill: parent; cursorShape: card.monthOffset !== 0 ? Qt.PointingHandCursor : Qt.ArrowCursor; onClicked: card.monthOffset = 0 }
             }
             Row {
@@ -106,6 +128,8 @@ Item {
                     readonly property var c: card.cells[index]
                     width: grid.cell
                     height: Math.min(grid.cell, (card.height - 100) / card.rows)
+                    opacity: 1 - Math.abs(card.slide) * 0.85
+                    transform: Translate { x: card.slide * 28 }
                     Rectangle {
                         anchors.centerIn: parent
                         width: Math.min(parent.width, parent.height) - 4

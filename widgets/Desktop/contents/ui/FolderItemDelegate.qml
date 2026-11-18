@@ -303,7 +303,7 @@ Item {
                     transformOrigin: Item.Center
                     Behavior on scale {
                         NumberAnimation {
-                            duration: impl.pressed ? 80 : 150
+                            duration: Kirigami.Units.longDuration > 1 ? (impl.pressed ? 80 : 150) : 0
                             easing.type: Easing.OutQuad
                         }
                     }

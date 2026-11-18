@@ -76,7 +76,7 @@ Item {
         height: column.height + 8
         radius: 11
         color: Qt.rgba(rail.fg.r, rail.fg.g, rail.fg.b, rail.dragging ? 0.10 : (ma.containsMouse ? 0.06 : 0))
-        Behavior on color { ColorAnimation { duration: 150 } }
+        Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 } }
     }
 
     Column {
@@ -95,7 +95,7 @@ Item {
                     width: 18; height: 18; radius: 9
                     color: rail.accent
                     scale: parent.on ? 1 : 0
-                    Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 2 } }
+                    Behavior on scale { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 220 : 0; easing.type: Easing.OutBack; easing.overshoot: 2 } }
                 }
                 Text {
                     anchors.centerIn: parent
@@ -129,9 +129,9 @@ Item {
         scale: rail.dragging && rail.active.length ? 1 : 0
         visible: scale > 0.01
         transformOrigin: Item.Right
-        Behavior on scale { NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.8 } }
-        Behavior on radius { NumberAnimation { duration: 260; easing.type: Easing.OutBack } }
-        Behavior on y { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
+        Behavior on scale { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 240 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.8 } }
+        Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 260 : 0; easing.type: Easing.OutBack } }
+        Behavior on y { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 90 : 0; easing.type: Easing.OutCubic } }
         Text {
             anchors.centerIn: parent
             text: rail.active

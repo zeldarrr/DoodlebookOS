@@ -78,7 +78,7 @@ Item {
                 color: sv.tint(0.06)
                 opacity: 0
                 Component.onCompleted: fade.start()
-                NumberAnimation { id: fade; target: card; property: "opacity"; to: 1; duration: 280; easing.type: Easing.OutCubic }
+                NumberAnimation { id: fade; target: card; property: "opacity"; to: 1; duration: Kirigami.Units.longDuration > 1 ? 280 : 0; easing.type: Easing.OutCubic }
 
                 RowLayout {
                     anchors.fill: parent
@@ -113,7 +113,7 @@ Item {
                     Rectangle {
                         Layout.preferredWidth: 40; Layout.preferredHeight: 40; radius: openMa.pressed ? 12 : 20
                         color: sv.accent
-                        Behavior on radius { NumberAnimation { duration: 180 } }
+                        Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 180 : 0 } }
                         Kirigami.Icon { anchors.centerIn: parent; width: 20; height: 20; source: Qt.resolvedUrl("icons/folder_open.svg"); isMask: true; color: Kirigami.Theme.highlightedTextColor }
                         MouseArea { id: openMa; anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                             onClicked: { sv.busy = card.modelData.path; sv.run("open " + sv.shq(card.modelData.path), "open"); } }
@@ -121,7 +121,7 @@ Item {
                     Rectangle {
                         Layout.preferredWidth: 40; Layout.preferredHeight: 40; radius: ejectMa.pressed ? 12 : 20
                         color: ejectMa.containsMouse ? sv.tint(0.14) : sv.tint(0.08)
-                        Behavior on radius { NumberAnimation { duration: 180 } }
+                        Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 180 : 0 } }
                         Kirigami.Icon { anchors.centerIn: parent; width: 20; height: 20; source: Qt.resolvedUrl("icons/eject.svg"); isMask: true; color: sv.fg }
                         MouseArea { id: ejectMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                             onClicked: { sv.busy = card.modelData.disk; sv.run("eject " + sv.shq(card.modelData.disk), "eject"); } }

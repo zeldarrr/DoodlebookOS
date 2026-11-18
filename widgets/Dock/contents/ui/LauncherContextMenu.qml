@@ -161,7 +161,7 @@ Item {
     }
 
     property real t: 1
-    NumberAnimation { id: openAnim; target: menu; property: "t"; from: 0; to: 1; duration: 260; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
+    NumberAnimation { id: openAnim; target: menu; property: "t"; from: 0; to: 1; duration: Kirigami.Units.longDuration > 1 ? 260 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
 
     Rectangle {
         id: menuCard
@@ -252,7 +252,7 @@ Item {
                         width: 110; height: 34
                         radius: mvMa.pressed ? 10 : 17
                         color: mvMa.containsMouse ? menu.tint(0.12) : menu.tint(0.06)
-                        Behavior on radius { NumberAnimation { duration: 200; easing.type: Easing.OutBack } }
+                        Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 200 : 0; easing.type: Easing.OutBack } }
                         Item {
                             anchors.centerIn: parent
                             width: 18; height: 18
@@ -293,8 +293,8 @@ Item {
                 radius: actMa.pressed ? 10 : 14
                 color: actCol.confirming ? menu.errorColor
                      : (actMa.pressed ? menu.tint(0.16) : (actMa.containsMouse ? menu.tint(0.10) : "transparent"))
-                Behavior on radius { NumberAnimation { duration: 180; easing.type: Easing.OutBack } }
-                Behavior on color { ColorAnimation { duration: 140 } }
+                Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 180 : 0; easing.type: Easing.OutBack } }
+                Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 140 : 0 } }
 
                 RowLayout {
                     anchors.fill: parent
@@ -323,7 +323,7 @@ Item {
                         visible: actCol.entry.folders === true
                         Layout.preferredWidth: 18; Layout.preferredHeight: 18
                         rotation: menu.foldersOpen ? 180 : 0
-                        Behavior on rotation { NumberAnimation { duration: 240; easing.type: Easing.OutBack } }
+                        Behavior on rotation { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 240 : 0; easing.type: Easing.OutBack } }
                         Image { id: chevImg; anchors.fill: parent; sourceSize: Qt.size(36, 36); visible: false; source: Qt.resolvedUrl("icons/chevron_down.svg") }
                         MultiEffect { anchors.fill: chevImg; source: chevImg; colorization: 1.0; colorizationColor: menu.fg }
                     }

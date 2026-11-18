@@ -156,7 +156,7 @@ NotificationsApplet.NotificationWindow {
                 if (exitAnim.running) {
                     return;
                 }
-                if (Kirigami.Units.longDuration <= 0) {   // animations disabled
+                if (Kirigami.Units.longDuration <= 1) {   // animations disabled ("instant" speed, e.g. power saver)
                     finish();
                     return;
                 }

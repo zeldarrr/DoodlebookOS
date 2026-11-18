@@ -360,8 +360,8 @@ Item {
                             border.width: m3Switch.checked ? 0 : 1.5
                             border.color: fullRep ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.28) : Kirigami.Theme.separatorColor
 
-                            Behavior on color { ColorAnimation { duration: 150 } }
-                            Behavior on border.color { ColorAnimation { duration: 150 } }
+                            Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 } }
+                            Behavior on border.color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 } }
 
                             // Thumb (Gałka M3 powiększająca się i przesuwająca)
                             Rectangle {
@@ -380,17 +380,17 @@ Item {
 
                                 Behavior on x {
                                     NumberAnimation {
-                                        duration: 200
+                                        duration: Kirigami.Units.longDuration > 1 ? 200 : 0
                                         easing.type: Easing.OutCubic
                                     }
                                 }
                                 Behavior on height {
                                     NumberAnimation {
-                                        duration: 150
+                                        duration: Kirigami.Units.longDuration > 1 ? 150 : 0
                                         easing.type: Easing.OutCubic
                                     }
                                 }
-                                Behavior on color { ColorAnimation { duration: 150 } }
+                                Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 } }
 
                                 // Checkmark icon wewnątrz gałki po włączeniu
                                 Kirigami.Icon {
@@ -404,7 +404,7 @@ Item {
                                     visible: opacity > 0.0
 
                                     Behavior on opacity {
-                                        NumberAnimation { duration: 150 }
+                                        NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 }
                                     }
                                 }
                             }

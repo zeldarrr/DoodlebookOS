@@ -26,6 +26,7 @@ Item {
     property color capsuleColor: Kirigami.Theme.highlightColor
     property color highlightedContentColor: Kirigami.Theme.highlightedTextColor
     readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
+    readonly property bool anim: Kirigami.Units.longDuration > 1
     function snap(v) { return Math.round(v * dpr) / dpr; }
 
     property var items: []
@@ -45,7 +46,7 @@ Item {
     implicitWidth: width
     implicitHeight: height
     visible: items.length > 0
-    Behavior on width { NumberAnimation { duration: 350; easing.type: Easing.OutQuart } }
+    Behavior on width { NumberAnimation { duration: tray.anim ? 350 : 0; easing.type: Easing.OutQuart } }
 
     // ───── data ─────
     Plasma5Support.DataSource {
@@ -131,6 +132,10 @@ Item {
     function scroll(it, delta, orientation) {
         exec.run(helper("scroll " + q(it.service) + " " + q(it.path) + " " + delta + " " + orientation), "tray-act");
     }
+    // Right click: show the cached menu at once (menus rarely change), then refresh it from the app.
+    // First time: wait for the helper (~80 ms) so an app without a DBusMenu never flashes our popup.
+    property var menuCache: ({})
+    property string menuRequest: ""
     function openMenu(it, item) {
         if (!it.menu) {
             var p = globalPos(item);
@@ -138,6 +143,9 @@ Item {
             return;
         }
         trayMenu.request(it, item);
+        var cached = tray.menuCache[it.key];
+        if (cached) trayMenu.show(cached);
+        tray.menuRequest = "tray-menu " + it.key;
         exec.run(helper("menu " + q(it.service) + " " + q(it.menu)), "tray-menu");
     }
     function menuEvent(it, entryId) {
@@ -170,18 +178,30 @@ Item {
                 // M3 pop-in when an app adds its icon
                 property real e: 0
                 Component.onCompleted: popIn.start()
-                NumberAnimation { id: popIn; target: cell; property: "e"; from: 0; to: 1; duration: 420; easing.type: Easing.OutBack }
+                NumberAnimation { id: popIn; target: cell; property: "e"; from: 0; to: 1; duration: tray.anim ? 420 : 0; easing.type: Easing.OutBack }
                 opacity: Math.min(1, e * 1.4)
                 scale: 0.5 + 0.5 * e
 
+                // state layer (hover 8 %, pressed 12 %) and the tonal capsule while its menu is open
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: parent.width
+                    height: parent.height
+                    radius: height / 2
+                    color: Qt.rgba(tray.contentColor.r, tray.contentColor.g, tray.contentColor.b,
+                                   cellMouse.pressed ? 0.12 : (cellMouse.containsMouse ? 0.08 : 0))
+                    Behavior on color { ColorAnimation { duration: tray.anim ? 120 : 0 } }
+                }
                 Rectangle {
                     anchors.centerIn: parent
                     width: parent.width
                     height: parent.height
                     radius: height / 2
                     color: tray.capsuleColor
-                    opacity: cell.menuOpen ? 1.0 : (cellMouse.pressed ? 0.4 : 0)
-                    Behavior on opacity { NumberAnimation { duration: 200 } }
+                    opacity: cell.menuOpen ? 1.0 : 0
+                    scale: cell.menuOpen ? 1.0 : 0.6
+                    Behavior on opacity { NumberAnimation { duration: tray.anim ? 180 : 0 } }
+                    Behavior on scale { NumberAnimation { duration: tray.anim ? 320 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
                 }
 
                 Kirigami.Icon {
@@ -189,13 +209,21 @@ Item {
                     anchors.centerIn: parent
                     width: tray.iconSize
                     height: tray.iconSize
+                    // M3 Expressive press: quick squish, springs back on release
+                    transform: Scale {
+                        origin.x: tray.iconSize / 2
+                        origin.y: tray.iconSize / 2
+                        xScale: cellMouse.pressed ? 0.84 : 1
+                        yScale: xScale
+                        Behavior on xScale { NumberAnimation { duration: tray.anim ? (cellMouse.pressed ? 90 : 380) : 0; easing.type: cellMouse.pressed ? Easing.OutQuad : Easing.OutBack; easing.overshoot: 2.4 } }
+                    }
                     source: cell.modelData.iconFile ? ("file://" + cell.modelData.iconFile)
                           : (cell.modelData.iconName || cell.modelData.appIcon || "application-x-executable")
                     fallback: cell.modelData.appIcon || "application-x-executable"
                     smooth: true
                     // gentle "breathing" when the app asks for attention
                     SequentialAnimation on scale {
-                        running: cell.attention
+                        running: cell.attention && tray.anim
                         loops: Animation.Infinite
                         alwaysRunToEnd: true
                         NumberAnimation { to: 1.15; duration: 600; easing.type: Easing.InOutSine }
@@ -217,42 +245,53 @@ Item {
                 }
 
 
-                MouseArea {
-                    id: cellMouse
+                PlasmaCore.ToolTipArea {
                     anchors.fill: parent
-                    hoverEnabled: true
-                    acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: mouse => {
-                        if (tray.appletRoot && typeof tray.appletRoot.closeAllPopups === "function") tray.appletRoot.closeAllPopups();
-                        if (mouse.button === Qt.MiddleButton) {
-                            tray.secondary(cell.modelData, cell);
-                        } else if (mouse.button === Qt.RightButton || (cell.modelData.itemIsMenu && cell.modelData.menu)) {
-                            if (cell.menuOpen) trayMenu.visible = false;
-                            else tray.openMenu(cell.modelData, cell);
-                        } else {
-                            tray.activate(cell.modelData, cell);
+                    active: !cell.menuOpen && !cellMouse.pressed
+                    mainText: cell.modelData.title || ""
+                    subText: (cell.modelData.tooltip || "").replace(/<[^>]*>/g, "").trim()
+                    location: PlasmaCore.Types.TopEdge
+
+                    MouseArea {
+                        id: cellMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
+                        cursorShape: Qt.PointingHandCursor
+                        // the popup hides itself as soon as the bar is pressed (focus loss):
+                        // remember whether it was open so a second click closes instead of reopening
+                        property bool wasOpen: false
+                        onPressed: wasOpen = cell.menuOpen || (trayMenu.visible && tray.openMenuKey === cell.modelData.key)
+                        onClicked: mouse => {
+                            if (tray.appletRoot && typeof tray.appletRoot.closeAllPopups === "function") tray.appletRoot.closeAllPopups();
+                            if (mouse.button === Qt.MiddleButton) {
+                                tray.secondary(cell.modelData, cell);
+                            } else if (mouse.button === Qt.RightButton || (cell.modelData.itemIsMenu && cell.modelData.menu)) {
+                                if (wasOpen || cell.menuOpen) trayMenu.visible = false;
+                                else tray.openMenu(cell.modelData, cell);
+                            } else {
+                                trayMenu.visible = false;
+                                tray.activate(cell.modelData, cell);
+                            }
                         }
-                    }
-                    onWheel: wheel => {
-                        if (wheel.angleDelta.y !== 0) tray.scroll(cell.modelData, wheel.angleDelta.y, "vertical");
-                        else if (wheel.angleDelta.x !== 0) tray.scroll(cell.modelData, wheel.angleDelta.x, "horizontal");
+                        onWheel: wheel => {
+                            if (wheel.angleDelta.y !== 0) tray.scroll(cell.modelData, wheel.angleDelta.y, "vertical");
+                            else if (wheel.angleDelta.x !== 0) tray.scroll(cell.modelData, wheel.angleDelta.x, "horizontal");
+                        }
                     }
                 }
             }
         }
     }
 
-    // ───── Material 3 menu (built from the app's DBusMenu) ─────
+    // ───── Material 3 Expressive menu (built from the app's DBusMenu) ─────
     PlasmaCore.AppletPopup {
         id: trayMenu
         property var item: null
         property var rootEntries: []
         property var stack: []                  // submenu navigation
         readonly property var entries: stack.length > 0 ? stack[stack.length - 1].children : rootEntries
-        readonly property string subTitle: stack.length > 0 ? stack[stack.length - 1].label : ""
         property Item pendingAnchor: null
-        property real enterT: 1
 
         visualParent: pendingAnchor
         // same floating, fully rounded popup as Quick Settings / notifications (a Dialog on the
@@ -271,30 +310,51 @@ Item {
             tray.openMenuKey = it.key;
         }
 
-        function load(out) {
-            var parsed;
-            try { parsed = JSON.parse(String(out)); } catch (e) { parsed = null; }
-            if (!parsed || !Array.isArray(parsed) || parsed.length === 0) {
-                // no usable DBusMenu: let the application show its own menu
-                if (item && pendingAnchor) {
-                    var p = tray.globalPos(pendingAnchor);
-                    exec.run(tray.helper("contextmenu " + tray.q(item.service) + " " + tray.q(item.path) + " " + p.x + " " + p.y), "tray-act");
-                }
-                return;
-            }
+        function show(parsed) {
             stack = [];
             rootEntries = parsed;
             visible = true;
-            menuContent.playEnter();
+            requestActivate();
+            menuContent.playEnter(0);
+        }
+
+        // helper reply: fill the cache, open (or refresh the open menu in place)
+        function load(out) {
+            var parsed;
+            try { parsed = JSON.parse(String(out)); } catch (e) { parsed = null; }
+            var it = item;
+            if (!it || tray.menuRequest !== "tray-menu " + it.key) return;   // another icon was clicked since
+            tray.menuRequest = "";
+            if (!parsed || !Array.isArray(parsed) || parsed.length === 0) {
+                // no usable DBusMenu: let the application show its own menu
+                var cache = tray.menuCache;
+                delete cache[it.key];
+                visible = false;
+                if (pendingAnchor) {
+                    var p = tray.globalPos(pendingAnchor);
+                    exec.run(tray.helper("contextmenu " + tray.q(it.service) + " " + tray.q(it.path) + " " + p.x + " " + p.y), "tray-act");
+                }
+                return;
+            }
+            var json = JSON.stringify(parsed);
+            var wasCached = tray.menuCache[it.key];
+            tray.menuCache[it.key] = parsed;
+            if (!visible) {
+                if (tray.openMenuKey === it.key) show(parsed);
+            } else if (!wasCached || JSON.stringify(wasCached) !== json) {
+                // same menu already on screen: swap the data without replaying the entrance
+                if (stack.length === 0) rootEntries = parsed;
+                else { stack = []; rootEntries = parsed; }
+            }
         }
 
         function trigger(entry) {
-            if (!entry.enabled || entry.type === "separator") return;
+            if (!entry || entry.enabled === false || entry.type === "separator") return;
             if (entry.submenu && entry.children && entry.children.length > 0) {
                 var s = stack.slice();
                 s.push(entry);
                 stack = s;
-                menuContent.playEnter();
+                menuContent.playEnter(1);
                 return;
             }
             tray.menuEvent(item, entry.id);
@@ -302,201 +362,24 @@ Item {
         }
 
         function back() {
+            if (stack.length === 0) return;
             var s = stack.slice();
             s.pop();
             stack = s;
-            menuContent.playEnter();
+            menuContent.playEnter(-1);
         }
 
-        onVisibleChanged: if (!visible) tray.openMenuKey = ""
+        onVisibleChanged: if (!visible) { tray.openMenuKey = ""; stack = []; }
 
-        mainItem: Item {
+        mainItem: TrayMenu {
             id: menuContent
-            readonly property color fg: Kirigami.Theme.textColor
-            function tint(a) { return Qt.rgba(fg.r, fg.g, fg.b, a); }
-
-            width: Kirigami.Units.gridUnit * 15
-            height: menuCol.implicitHeight
-            implicitWidth: width
-            implicitHeight: height
-
-            // M3 menu motion: content unfolds from the anchor edge, rows follow in cascade
-            property real t: 1
-            NumberAnimation { id: menuAnim; target: menuContent; property: "t"; from: 0; to: 1; duration: 420 }
-            function playEnter() { menuAnim.restart(); }
-            function rowEnter(i) {
-                var p = Math.max(0, Math.min(1, (t - Math.min(i, 10) * 0.035) / 0.6));
-                return 1 - Math.pow(1 - p, 4);
-            }
-
-            Column {
-                id: menuCol
-                width: parent.width
-                spacing: 0
-
-                // header: app + back navigation for submenus
-                Item {
-                    width: parent.width
-                    height: Kirigami.Units.gridUnit * 2.2
-                    opacity: menuContent.rowEnter(0)
-
-                    Rectangle {
-                        id: backBtn
-                        visible: trayMenu.stack.length > 0
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: Kirigami.Units.gridUnit * 1.8
-                        height: width
-                        radius: width / 2
-                        color: backMa.containsMouse ? menuContent.tint(0.10) : "transparent"
-                        Kirigami.Icon {
-                            anchors.centerIn: parent
-                            width: Kirigami.Units.iconSizes.small
-                            height: width
-                            source: "go-previous-symbolic"
-                            color: menuContent.fg
-                            isMask: true
-                        }
-                        MouseArea { id: backMa; anchors.fill: parent; hoverEnabled: true; onClicked: trayMenu.back() }
-                    }
-
-                    Kirigami.Icon {
-                        id: hdrIcon
-                        visible: trayMenu.stack.length === 0
-                        anchors.left: parent.left
-                        anchors.leftMargin: Kirigami.Units.smallSpacing
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: Kirigami.Units.iconSizes.small
-                        height: width
-                        source: trayMenu.item ? (trayMenu.item.iconFile ? ("file://" + trayMenu.item.iconFile) : (trayMenu.item.iconName || trayMenu.item.appIcon)) : ""
-                        fallback: trayMenu.item ? trayMenu.item.appIcon : ""
-                    }
-
-                    Text {
-                        anchors.left: trayMenu.stack.length > 0 ? backBtn.right : hdrIcon.right
-                        anchors.leftMargin: Kirigami.Units.smallSpacing * 2
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: trayMenu.stack.length > 0 ? trayMenu.subTitle : (trayMenu.item ? trayMenu.item.title : "")
-                        font.family: "Google Sans Flex"
-                        font.pixelSize: 13
-                        font.weight: Font.DemiBold
-                        color: menuContent.fg
-                        elide: Text.ElideRight
-                    }
-                }
-
-                Repeater {
-                    model: trayMenu.entries
-                    delegate: Item {
-                        id: entryRow
-                        required property var modelData
-                        required property int index
-                        readonly property bool isSep: modelData.type === "separator"
-                        width: menuCol.width
-                        height: isSep ? 9 : Kirigami.Units.gridUnit * 2.2
-                        opacity: menuContent.rowEnter(index + 1) * (modelData.enabled || isSep ? 1 : 0.38)
-                        transform: Translate { y: (1 - menuContent.rowEnter(entryRow.index + 1)) * -8 }
-
-                        Rectangle {
-                            visible: entryRow.isSep
-                            anchors.centerIn: parent
-                            width: parent.width - Kirigami.Units.smallSpacing * 2
-                            height: 1
-                            color: menuContent.tint(0.12)
-                        }
-
-                        // M3 Expressive state layer: inset pill that morphs to a rounded square on press
-                        Rectangle {
-                            visible: !entryRow.isSep
-                            anchors.fill: parent
-                            anchors.leftMargin: 4
-                            anchors.rightMargin: 4
-                            anchors.topMargin: 1
-                            anchors.bottomMargin: 1
-                            radius: rowMa.pressed ? 8 : height / 2
-                            color: menuContent.tint(rowMa.pressed ? 0.16 : (rowMa.containsMouse && entryRow.modelData.enabled ? 0.10 : 0))
-                            Behavior on color { ColorAnimation { duration: 150 } }
-                            Behavior on radius { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
-                        }
-
-                        RowLayout {
-                            visible: !entryRow.isSep
-                            anchors.fill: parent
-                            anchors.leftMargin: Kirigami.Units.smallSpacing * 2
-                            anchors.rightMargin: Kirigami.Units.smallSpacing * 2
-                            spacing: Kirigami.Units.smallSpacing * 2
-
-                            // toggle indicator (checkbox / radio) or icon
-                            Item {
-                                Layout.preferredWidth: Kirigami.Units.iconSizes.small
-                                Layout.preferredHeight: Kirigami.Units.iconSizes.small
-                                visible: entryRow.modelData.toggleType !== "" || entryRow.modelData.iconName !== ""
-
-                                Kirigami.Icon {
-                                    anchors.fill: parent
-                                    visible: entryRow.modelData.toggleType === "" && entryRow.modelData.iconName !== ""
-                                    source: entryRow.modelData.iconName
-                                }
-                                Rectangle {
-                                    anchors.centerIn: parent
-                                    visible: entryRow.modelData.toggleType !== ""
-                                    width: parent.width * 0.85
-                                    height: width
-                                    radius: entryRow.modelData.toggleType === "radio" ? width / 2 : 4
-                                    color: entryRow.modelData.toggleState === 1 ? Kirigami.Theme.highlightColor : "transparent"
-                                    border.width: entryRow.modelData.toggleState === 1 ? 0 : 2
-                                    border.color: menuContent.tint(0.6)
-                                    Kirigami.Icon {
-                                        anchors.centerIn: parent
-                                        visible: entryRow.modelData.toggleState === 1 && entryRow.modelData.toggleType !== "radio"
-                                        width: parent.width * 0.8
-                                        height: width
-                                        source: "checkmark-symbolic"
-                                        isMask: true
-                                        color: Kirigami.Theme.highlightedTextColor
-                                    }
-                                    Rectangle {
-                                        anchors.centerIn: parent
-                                        visible: entryRow.modelData.toggleState === 1 && entryRow.modelData.toggleType === "radio"
-                                        width: parent.width * 0.4
-                                        height: width
-                                        radius: width / 2
-                                        color: Kirigami.Theme.highlightedTextColor
-                                    }
-                                }
-                            }
-
-                            Text {
-                                Layout.fillWidth: true
-                                text: entryRow.modelData.label
-                                font.family: "Google Sans Flex"
-                                font.pixelSize: 13
-                                color: menuContent.fg
-                                elide: Text.ElideRight
-                            }
-
-                            Kirigami.Icon {
-                                visible: entryRow.modelData.submenu
-                                Layout.preferredWidth: Kirigami.Units.iconSizes.small
-                                Layout.preferredHeight: Kirigami.Units.iconSizes.small
-                                source: "go-next-symbolic"
-                                isMask: true
-                                color: menuContent.tint(0.7)
-                            }
-                        }
-
-                        MouseArea {
-                            id: rowMa
-                            anchors.fill: parent
-                            enabled: !entryRow.isSep && entryRow.modelData.enabled
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: trayMenu.trigger(entryRow.modelData)
-                        }
-                    }
-                }
-            }
+            appItem: trayMenu.item
+            entries: trayMenu.entries
+            depth: trayMenu.stack.length
+            levelTitle: trayMenu.stack.length > 0 ? (trayMenu.stack[trayMenu.stack.length - 1].label || "") : ""
+            onActivated: entry => trayMenu.trigger(entry)
+            onBackRequested: trayMenu.back()
+            onCloseRequested: trayMenu.visible = false
         }
     }
 }

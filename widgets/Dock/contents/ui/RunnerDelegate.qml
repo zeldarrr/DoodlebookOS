@@ -186,7 +186,7 @@ Item {
         anchors.topMargin: 2
         anchors.bottomMargin: 2
         radius: rowTap.pressed ? 10 : 16
-        Behavior on radius { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
+        Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 200 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
         color: {
             if (delegateRoot.isCurrent) {
                 return Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.22);
@@ -201,7 +201,7 @@ Item {
         border.color: delegateRoot.isCurrent ? Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.5) : "transparent"
 
         Behavior on color {
-            ColorAnimation { duration: 100 }
+            ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 100 : 0 }
         }
     }
 

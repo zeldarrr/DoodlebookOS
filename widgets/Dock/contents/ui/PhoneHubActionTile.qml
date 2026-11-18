@@ -43,7 +43,7 @@ Item {
                : Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, root.hoverAlpha)
         border.width: 1
         border.color: Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, root.editMode ? 0.6 : 0)
-        Behavior on border.color { ColorAnimation { duration: 400 } }
+        Behavior on border.color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 400 : 0 } }
         scale: ma.pressed ? 0.96 : 1.0
 
         Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration; easing.type: Easing.OutCubic } }
@@ -107,7 +107,7 @@ Item {
     // Edit mode: Android-style "–" badge, pops in with a slight overshoot
     Rectangle {
         property real pop: root.editMode ? 1 : 0
-        Behavior on pop { NumberAnimation { duration: 420; easing.type: Easing.OutBack } }
+        Behavior on pop { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 420 : 0; easing.type: Easing.OutBack } }
         visible: pop > 0.01
         scale: pop
         anchors.top: parent.top

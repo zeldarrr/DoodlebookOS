@@ -7,6 +7,7 @@
  */
 
 import QtQuick
+import org.kde.kirigami as Kirigami
 import QtQuick.Shapes
 
 Item {
@@ -35,7 +36,7 @@ Item {
     property real spin: notches * turn
     Behavior on spin {
         id: spinBehavior
-        NumberAnimation { duration: 420; easing.type: Easing.OutBack; easing.overshoot: 1.6 }
+        NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 420 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.6 }
     }
 
     readonly property real side: Math.min(width, height)

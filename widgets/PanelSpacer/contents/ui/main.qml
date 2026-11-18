@@ -6,6 +6,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import org.kde.kirigami as Kirigami
 import QtQuick.Layouts
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
@@ -76,7 +77,7 @@ PlasmoidItem {
 
             Behavior on opacity {
                 NumberAnimation {
-                    duration: 220
+                    duration: Kirigami.Units.longDuration > 1 ? 220 : 0
                     easing.type: Easing.OutCubic
                 }
             }

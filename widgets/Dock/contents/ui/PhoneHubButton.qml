@@ -79,7 +79,7 @@ Item {
         border.width: phoneHubBtn.shaped ? 0 : 1
 
         Behavior on fillColor {
-            ColorAnimation { duration: 150; easing.type: Easing.OutCubic }
+            ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0; easing.type: Easing.OutCubic }
         }
 
         ShapeBackground {
@@ -90,7 +90,7 @@ Item {
             color: capsuleBg.fillColor
             hovered: mouseArea.containsMouse
             scale: mouseArea.pressed ? 0.9 : 1
-            Behavior on scale { SpringAnimation { spring: 4; damping: 0.3; epsilon: 0.005 } }
+            Behavior on scale { enabled: Kirigami.Units.longDuration > 1; SpringAnimation { spring: 4; damping: 0.3; epsilon: 0.005 } }
         }
 
         Kirigami.Icon {
@@ -104,7 +104,7 @@ Item {
             roundToIconSize: false
 
             Behavior on scale {
-                NumberAnimation { duration: 100; easing.type: Easing.OutQuad }
+                NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 100 : 0; easing.type: Easing.OutQuad }
             }
         }
     }

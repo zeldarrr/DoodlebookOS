@@ -344,7 +344,7 @@ PlasmaCore.Dialog {
 
     // ───────────────────────── Motion ─────────────────────────
     property real revealT: 1.0
-    NumberAnimation on revealT { id: revealAnim; running: false; from: 0; to: 1; duration: 560; easing.type: Easing.Linear }
+    NumberAnimation on revealT { id: revealAnim; running: false; from: 0; to: 1; duration: Kirigami.Units.longDuration > 1 ? 560 : 0; easing.type: Easing.Linear }
     function enterAt(delay) {
         var p = Math.max(0, Math.min(1, (revealT - delay) / 0.42));
         return 1 - Math.pow(1 - p, 4); // M3 emphasized-decelerate approximation
@@ -452,11 +452,11 @@ PlasmaCore.Dialog {
 
         ListModel { id: tileModel }
 
-        NumberAnimation { id: modeAnim; target: root; property: "modeT"; from: 0; to: 1; duration: 620 }
-        NumberAnimation { id: pickerAnim; target: root; property: "pickerT"; from: 0; to: 1; duration: 560 }
-        NumberAnimation { id: addAnim; target: root; property: "addT"; from: 0; to: 1; duration: 520 }
+        NumberAnimation { id: modeAnim; target: root; property: "modeT"; from: 0; to: 1; duration: Kirigami.Units.longDuration > 1 ? 620 : 0 }
+        NumberAnimation { id: pickerAnim; target: root; property: "pickerT"; from: 0; to: 1; duration: Kirigami.Units.longDuration > 1 ? 560 : 0 }
+        NumberAnimation { id: addAnim; target: root; property: "addT"; from: 0; to: 1; duration: Kirigami.Units.longDuration > 1 ? 520 : 0 }
         NumberAnimation {
-            id: removeAnim; target: root; property: "removeT"; from: 0; to: 1; duration: 280
+            id: removeAnim; target: root; property: "removeT"; from: 0; to: 1; duration: Kirigami.Units.longDuration > 1 ? 280 : 0
             onFinished: root.finishRemove()
         }
 
@@ -497,7 +497,7 @@ PlasmaCore.Dialog {
                 }
             }
         }
-        NumberAnimation { id: photosAnim; target: root; property: "photosT"; from: 0; to: 1; duration: 720 }
+        NumberAnimation { id: photosAnim; target: root; property: "photosT"; from: 0; to: 1; duration: Kirigami.Units.longDuration > 1 ? 720 : 0 }
 
         // All paired devices (reachable or not) — reachability tracked live per device.
         Instantiator {
@@ -822,8 +822,8 @@ PlasmaCore.Dialog {
                         z: dragging ? 10 : 1
                         property real dragX: 0
                         property real dragY: 0
-                        Behavior on x { enabled: !slot.dragging; NumberAnimation { duration: 450; easing.type: Easing.OutQuart } }
-                        Behavior on y { enabled: !slot.dragging; NumberAnimation { duration: 450; easing.type: Easing.OutQuart } }
+                        Behavior on x { enabled: !slot.dragging; NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 450 : 0; easing.type: Easing.OutQuart } }
+                        Behavior on y { enabled: !slot.dragging; NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 450 : 0; easing.type: Easing.OutQuart } }
 
                         // Reorder handle (edit mode only); sits under the tile so the "–" badge stays clickable.
                         MouseArea {
@@ -905,8 +905,8 @@ PlasmaCore.Dialog {
                     Layout.fillWidth: true
                     spacing: 8
                     // chips glide when one leaves, and pop when one comes back
-                    move: Transition { NumberAnimation { properties: "x,y"; duration: 450; easing.type: Easing.OutQuart } }
-                    add: Transition { NumberAnimation { property: "scale"; from: 0.5; to: 1; duration: 450; easing.type: Easing.OutBack } }
+                    move: Transition { NumberAnimation { properties: "x,y"; duration: Kirigami.Units.longDuration > 1 ? 450 : 0; easing.type: Easing.OutQuart } }
+                    add: Transition { NumberAnimation { property: "scale"; from: 0.5; to: 1; duration: Kirigami.Units.longDuration > 1 ? 450 : 0; easing.type: Easing.OutBack } }
 
                     Repeater {
                         model: root.tileCatalog
@@ -1195,7 +1195,7 @@ PlasmaCore.Dialog {
                             Layout.preferredWidth: turnOnLabel.implicitWidth + 28
                             radius: turnOnMa.pressed ? 10 : 17
                             color: container.accent
-                            Behavior on radius { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+                            Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 250 : 0; easing.type: Easing.OutCubic } }
 
                             Text {
                                 id: turnOnLabel
@@ -1227,10 +1227,11 @@ PlasmaCore.Dialog {
                     readonly property real thumbSize: Math.floor((width - 3 * gap) / 4)
                     property real pulse: 1
                     SequentialAnimation on pulse {
-                        running: root.photosLoading && thumbRow.visible
+                        running: root.photosLoading && thumbRow.visible && Kirigami.Units.longDuration > 1
                         loops: Animation.Infinite
                         NumberAnimation { to: 0.4; duration: 650; easing.type: Easing.InOutSine }
                         NumberAnimation { to: 1; duration: 650; easing.type: Easing.InOutSine }
+                        onStopped: thumbRow.pulse = 1
                     }
 
                     Repeater {
@@ -1260,7 +1261,7 @@ PlasmaCore.Dialog {
                                 id: thumb
                                 anchors.fill: parent
                                 radius: thMa.containsMouse ? 26 : 16
-                                Behavior on radius { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
+                                Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 320 : 0; easing.type: Easing.OutCubic } }
                                 color: "transparent"
                                 source: ph.photo ? "file://" + ph.photo.thumb : ""
                                 fillMode: Image.PreserveAspectCrop
@@ -1268,7 +1269,7 @@ PlasmaCore.Dialog {
                                 asynchronous: true
                                 opacity: ph.photo ? ph.e : 0
                                 scale: (0.82 + 0.18 * ph.e) * (thMa.pressed ? 0.94 : 1)
-                                Behavior on scale { enabled: ph.e >= 1; NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                                Behavior on scale { enabled: ph.e >= 1; NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 160 : 0; easing.type: Easing.OutCubic } }
                             }
 
                             Rectangle {
@@ -1281,8 +1282,8 @@ PlasmaCore.Dialog {
                                 color: Qt.rgba(0, 0, 0, 0.55)
                                 opacity: thMa.containsMouse ? 1 : 0
                                 scale: thMa.containsMouse ? 1 : 0.6
-                                Behavior on opacity { NumberAnimation { duration: 200 } }
-                                Behavior on scale { NumberAnimation { duration: 260; easing.type: Easing.OutBack } }
+                                Behavior on opacity { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 200 : 0 } }
+                                Behavior on scale { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 260 : 0; easing.type: Easing.OutBack } }
 
                                 Kirigami.Icon {
                                     anchors.centerIn: parent
@@ -1498,9 +1499,9 @@ PlasmaCore.Dialog {
                ? Kirigami.Theme.highlightColor
                : (mbMa.containsMouse ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.10) : "transparent")
         scale: mbMa.pressed ? 0.9 : 1.0
-        Behavior on radius { NumberAnimation { duration: 380; easing.type: Easing.OutBack } }
+        Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 380 : 0; easing.type: Easing.OutBack } }
         Behavior on color { ColorAnimation { duration: Kirigami.Units.shortDuration } }
-        Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+        Behavior on scale { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 140 : 0; easing.type: Easing.OutCubic } }
 
         Kirigami.Icon {
             anchors.centerIn: parent

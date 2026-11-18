@@ -63,7 +63,7 @@ Item {
         target: label
         property: "x"
         to: 0
-        duration: 220
+        duration: Kirigami.Units.longDuration > 1 ? 220 : 0
         easing.type: Easing.OutQuad
         onFinished: {
             label.x = 0;
@@ -74,6 +74,9 @@ Item {
         marqueeAnim.stop();
         returnAnim.stop();
         label.x = 0;
+        if (Kirigami.Units.longDuration <= 1) {
+            return;
+        }
         if (!root.scrollOnClickOnly && !root.scrollOnHoverOnly && root.overflowing) {
             marqueeAnim.restart();
         } else if (root.scrollOnHoverOnly && root.hovered && root.overflowing) {
@@ -83,8 +86,10 @@ Item {
 
     SequentialAnimation {
         id: marqueeAnim
-        running: (!root.scrollOnClickOnly && !root.scrollOnHoverOnly && root.overflowing) ||
-                 (root.scrollOnHoverOnly && root.hovered && root.overflowing)
+        // no endless scrolling when animations are off ("instant" speed, e.g. power saver)
+        running: Kirigami.Units.longDuration > 1 && (
+                 (!root.scrollOnClickOnly && !root.scrollOnHoverOnly && root.overflowing) ||
+                 (root.scrollOnHoverOnly && root.hovered && root.overflowing))
         loops: root.scrollOnClickOnly ? 1 : Animation.Infinite
 
         PauseAnimation {

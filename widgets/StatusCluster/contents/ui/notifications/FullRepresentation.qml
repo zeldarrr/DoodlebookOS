@@ -109,7 +109,7 @@ PlasmaExtras.Representation {
 
     // Material 3 staggered entrance (linear driver + emphasized-decelerate per item)
     property real revealT: 1.0
-    NumberAnimation { id: revealAnim; target: fullRepresentationRoot; property: "revealT"; from: 0; to: 1; duration: 520; easing.type: Easing.Linear }
+    NumberAnimation { id: revealAnim; target: fullRepresentationRoot; property: "revealT"; from: 0; to: 1; duration: Kirigami.Units.longDuration > 1 ? 520 : 0; easing.type: Easing.Linear }
     function enterAt(delay) {
         var p = Math.max(0, Math.min(1, (revealT - delay) / 0.45));
         return 1 - Math.pow(1 - p, 4);
@@ -345,8 +345,8 @@ PlasmaExtras.Representation {
                             radius: ghMouse.pressed ? fullRepresentationRoot.snap(8) : height / 2
                             color: delegateRoot.groupExpanded ? Kirigami.Theme.highlightColor
                                  : Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, ghMouse.containsMouse ? 0.16 : 0.10)
-                            Behavior on radius { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
-                            Behavior on color { ColorAnimation { duration: 180 } }
+                            Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 200 : 0; easing.type: Easing.OutCubic } }
+                            Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 180 : 0 } }
                             Kirigami.Icon {
                                 anchors.centerIn: parent
                                 width: fullRepresentationRoot.snap(18); height: width
@@ -354,7 +354,7 @@ PlasmaExtras.Representation {
                                 isMask: true
                                 color: delegateRoot.groupExpanded ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
                                 rotation: delegateRoot.groupExpanded ? 180 : 0
-                                Behavior on rotation { NumberAnimation { duration: 320; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
+                                Behavior on rotation { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 320 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
                             }
                         }
                         MouseArea {
@@ -393,11 +393,11 @@ PlasmaExtras.Representation {
                             }
                             onTranslationChanged: swipeTr.x = translation.x
                         }
-                        NumberAnimation { id: springBack; target: swipeTr; property: "x"; to: 0; duration: 320; easing.type: Easing.OutBack; easing.overshoot: 1.4 }
+                        NumberAnimation { id: springBack; target: swipeTr; property: "x"; to: 0; duration: Kirigami.Units.longDuration > 1 ? 320 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.4 }
                         SequentialAnimation {
                             id: flingOut
                             property alias to: flingAnim.to
-                            NumberAnimation { id: flingAnim; target: swipeTr; property: "x"; duration: 180; easing.type: Easing.InCubic }
+                            NumberAnimation { id: flingAnim; target: swipeTr; property: "x"; duration: Kirigami.Units.longDuration > 1 ? 180 : 0; easing.type: Easing.InCubic }
                             ScriptAction { script: fullRepresentationRoot.historyModel.close(fullRepresentationRoot.historyModel.index(delegateRoot.index, 0)) }
                         }
                         height: cardInnerCol.implicitHeight + fullRepresentationRoot.snap(24)
@@ -806,7 +806,7 @@ PlasmaExtras.Representation {
                 color: histMouse.pressed
                        ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.20)
                        : (histMouse.containsMouse ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08) : fullRepresentationRoot.cardBackgroundColor)
-                Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 } }
 
                 Kirigami.Icon {
                     anchors.centerIn: parent
@@ -835,7 +835,7 @@ PlasmaExtras.Representation {
                 color: clearMouse.pressed
                        ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.20)
                        : (clearMouse.containsMouse ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08) : fullRepresentationRoot.cardBackgroundColor)
-                Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 } }
 
                 Text {
                     anchors.centerIn: parent
@@ -867,7 +867,7 @@ PlasmaExtras.Representation {
                 color: setMouse.pressed
                        ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.20)
                        : (setMouse.containsMouse ? Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08) : fullRepresentationRoot.cardBackgroundColor)
-                Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 } }
 
                 Kirigami.Icon {
                     anchors.centerIn: parent

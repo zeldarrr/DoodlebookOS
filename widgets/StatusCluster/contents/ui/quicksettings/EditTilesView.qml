@@ -23,7 +23,7 @@ Item {
     // M3 shared-axis transition between "Edit tiles" and "New tile"
     property real switchT: 1.0
     readonly property real switchEased: 1 - Math.pow(1 - switchT, 4)
-    NumberAnimation { id: switchAnim; target: editRoot; property: "switchT"; from: 0; to: 1; duration: 520 }
+    NumberAnimation { id: switchAnim; target: editRoot; property: "switchT"; from: 0; to: 1; duration: Kirigami.Units.longDuration > 1 ? 520 : 0 }
     onCreatingTileChanged: switchAnim.restart()
     property string newTileName: ""
     property string newTileCommand: ""

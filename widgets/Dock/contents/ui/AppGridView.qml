@@ -100,10 +100,10 @@ GridView {
                 : Qt.rgba(main.textColor.r, main.textColor.g, main.textColor.b, 0.35)
 
             Behavior on width {
-                NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
+                NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0; easing.type: Easing.OutCubic }
             }
             Behavior on color {
-                ColorAnimation { duration: 150 }
+                ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 }
             }
 
             MouseArea {
@@ -206,8 +206,7 @@ GridView {
                     moveCurrentIndexUp()
                     focusCurrentItem(event, Qt.BacktabFocusReason)
                 } else {
-                    if (main.chips.visible) main.chips.forceActiveFocus(Qt.BacktabFocusReason);
-                    else searchBar.textField.forceActiveFocus(Qt.BacktabFocusReason);
+                    searchBar.textField.forceActiveFocus(Qt.BacktabFocusReason);
                     event.accepted = true;
                 } break
                 case Qt.Key_K: if (!atTop && event.modifiers & Qt.ControlModifier) {

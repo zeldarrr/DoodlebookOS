@@ -86,8 +86,8 @@ Item {
                     color: isDefault ? mixer.accent : (chipMa.containsMouse ? mixer.tint(0.10) : "transparent")
                     border.width: isDefault ? 0 : 1
                     border.color: mixer.tint(0.25)
-                    Behavior on radius { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
-                    Behavior on color { ColorAnimation { duration: 150 } }
+                    Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 220 : 0; easing.type: Easing.OutCubic } }
+                    Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 } }
                     Kirigami.Icon {
                         id: chipIcon
                         anchors.left: parent.left
@@ -128,9 +128,9 @@ Item {
             model: streams
             reuseItems: true
 
-            add: Transition { NumberAnimation { properties: "opacity,scale"; from: 0; to: 1; duration: 320; easing.type: Easing.OutQuart } }
-            remove: Transition { NumberAnimation { properties: "opacity"; to: 0; duration: 180 } }
-            displaced: Transition { NumberAnimation { properties: "y"; duration: 320; easing.type: Easing.OutQuart } }
+            add: Transition { NumberAnimation { properties: "opacity,scale"; from: 0; to: 1; duration: Kirigami.Units.longDuration > 1 ? 320 : 0; easing.type: Easing.OutQuart } }
+            remove: Transition { NumberAnimation { properties: "opacity"; to: 0; duration: Kirigami.Units.longDuration > 1 ? 180 : 0 } }
+            displaced: Transition { NumberAnimation { properties: "y"; duration: Kirigami.Units.longDuration > 1 ? 320 : 0; easing.type: Easing.OutQuart } }
 
             delegate: Item {
                 id: row
@@ -158,7 +158,7 @@ Item {
                         Layout.preferredHeight: 48
                         radius: row.muted ? 14 : 24
                         color: row.muted ? mixer.tint(0.10) : Qt.rgba(mixer.accent.r, mixer.accent.g, mixer.accent.b, 0.18)
-                        Behavior on radius { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
+                        Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 260 : 0; easing.type: Easing.OutCubic } }
                         Kirigami.Icon {
                             anchors.centerIn: parent
                             width: 28; height: 28
@@ -192,7 +192,7 @@ Item {
                                 height: parent.height
                                 radius: parent.radius
                                 color: row.muted ? mixer.tint(0.25) : mixer.accent
-                                Behavior on width { enabled: !dragMa.pressed; NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                                Behavior on width { enabled: !dragMa.pressed; NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 160 : 0; easing.type: Easing.OutCubic } }
                             }
 
                             Text {

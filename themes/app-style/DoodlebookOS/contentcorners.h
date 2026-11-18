@@ -52,6 +52,8 @@ public:
     explicit ContentCorners(QObject *parent = nullptr);
     void registerWidget(QWidget *widget);
     void unregisterWidget(QWidget *widget);
+    // re-evaluate a registered view after its frame changed
+    void refresh(QWidget *widget);
     bool eventFilter(QObject *object, QEvent *event) override;
 
     //* true when the area's frame is drawn rounded by the style (used for the scroll bar background too)

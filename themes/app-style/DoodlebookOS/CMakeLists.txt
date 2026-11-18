@@ -9,25 +9,27 @@ set(QT_NO_CREATE_VERSIONLESS_TARGETS ON)
 set(QT_NO_CREATE_VERSIONLESS_FUNCTIONS ON)
 set(QT_MAJOR_VERSION 6)
 
-find_package(ECM 5.102.0 REQUIRED NO_MODULE)
-set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH})
-
-include(KDEInstallDirs6)
-include(KDECMakeSettings)
-include(KDECompilerSettings NO_POLICY_SCOPE)
-include(ECMQtDeclareLoggingCategory)
+# extra-cmake-modules is optional: without it (package not installed) the style still builds
+# with plain CMake + Qt + KF6, only the KDE compiler presets are skipped.
+find_package(ECM 5.102.0 QUIET NO_MODULE)
+if(ECM_FOUND)
+    set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH})
+    include(KDEInstallDirs6)
+    include(KDECMakeSettings)
+    include(KDECompilerSettings NO_POLICY_SCOPE)
+    include(ECMQtDeclareLoggingCategory)
+else()
+    message(STATUS "extra-cmake-modules not found: building without the KDE CMake presets")
+    set(CMAKE_AUTOMOC ON)
+    set(KDE_INSTALL_QTPLUGINDIR "lib/qt6/plugins")
+    set(KDE_INSTALL_DATADIR "share")
+endif()
 
 find_package(Qt6 REQUIRED CONFIG COMPONENTS Core Gui DBus Widgets Quick)
-find_package(KF6 REQUIRED COMPONENTS
-    CoreAddons
-    Config
-    ConfigWidgets
-    GuiAddons
-    I18n
-    IconThemes
-    WindowSystem
-    ColorScheme
-)
+# one find_package per framework: the KF6 umbrella package is not installed everywhere
+foreach(_kf CoreAddons Config ConfigWidgets GuiAddons I18n IconThemes WindowSystem ColorScheme)
+    find_package(KF6${_kf} REQUIRED CONFIG)
+endforeach()
 
 set(DOODLEBOOKOS_HAVE_QTQUICK 1)
 set(HAVE_QTDBUS 1)
@@ -92,19 +94,28 @@ kconfig_add_kcfg_files(doodlebookos_PART_SRCS styleconfigdata.kcfgc)
 
 add_library(doodlebookos6 MODULE ${doodlebookos_PART_SRCS})
 
-ecm_qt_declare_logging_category(doodlebookos6
-    HEADER
-        logging.h
-    IDENTIFIER
-        DOODLEBOOKOS
-    CATEGORY_NAME
-        doodlebookos6
-    DEFAULT_SEVERITY
-        Warning
-)
+if(ECM_FOUND)
+    ecm_qt_declare_logging_category(doodlebookos6
+        HEADER
+            logging.h
+        IDENTIFIER
+            DOODLEBOOKOS
+        CATEGORY_NAME
+            doodlebookos6
+        DEFAULT_SEVERITY
+            Warning
+    )
+else()
+    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/logging.h
+        "#pragma once\n#include <QLoggingCategory>\nQ_DECLARE_LOGGING_CATEGORY(DOODLEBOOKOS)\n")
+    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/logging.cpp
+        "#include \"logging.h\"\nQ_LOGGING_CATEGORY(DOODLEBOOKOS, \"doodlebookos6\", QtWarningMsg)\n")
+    target_sources(doodlebookos6 PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/logging.cpp)
+endif()
 
 set_target_properties(doodlebookos6 PROPERTIES
     OUTPUT_NAME doodlebookos6
+    PREFIX ""
 )
 
 target_link_libraries(doodlebookos6

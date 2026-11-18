@@ -28,7 +28,7 @@ Item {
     property real waveAmplitude: root.isPlaying && !root.userSeeking ? 2.8 : 0.0
 
     Behavior on waveAmplitude {
-        NumberAnimation { duration: 350; easing.type: Easing.OutCubic }
+        NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 350 : 0; easing.type: Easing.OutCubic }
     }
 
     readonly property double effectivePosition: userSeeking ? userPosition : value
@@ -45,7 +45,7 @@ Item {
         to: Math.PI * 2
         duration: 3200
         loops: Animation.Infinite
-        running: root.windowShown && root.visible && root.isPlaying && !root.userSeeking
+        running: root.windowShown && root.visible && root.isPlaying && !root.userSeeking && Kirigami.Units.longDuration > 1
     }
 
     function repaint() {

@@ -93,7 +93,7 @@ PlasmaCore.Dialog {
                 color: devMa.containsMouse ? Qt.tint(Kirigami.Theme.backgroundColor, root.tint(0.08)) : Kirigami.Theme.backgroundColor
                 border.width: 1
                 border.color: root.tint(0.08)
-                Behavior on radius { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+                Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 220 : 0; easing.type: Easing.OutCubic } }
                 MaskIcon {
                     anchors.centerIn: parent
                     width: 22; height: 22
@@ -148,8 +148,8 @@ PlasmaCore.Dialog {
                         readonly property real ratio: osd.muted ? 0 : Math.min(1, osd.value)
                         height: Math.max(width, ratio * parent.height)
                         color: osd.muted ? root.tint(0.18) : root.accent
-                        Behavior on height { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-                        Behavior on color { ColorAnimation { duration: 160 } }
+                        Behavior on height { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 180 : 0; easing.type: Easing.OutCubic } }
+                        Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 160 : 0 } }
                     }
 
                     MaskIcon {
@@ -195,16 +195,16 @@ PlasmaCore.Dialog {
         }
 
         // enter: slide + fade with a light overshoot; leave: quick ease-in, then unmap
-        NumberAnimation { id: enter; target: root; property: "slide"; from: 1; to: 0; duration: 340; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
+        NumberAnimation { id: enter; target: root; property: "slide"; from: 1; to: 0; duration: Kirigami.Units.longDuration > 1 ? 340 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
         SequentialAnimation {
             id: leave
-            NumberAnimation { target: root; property: "slide"; to: 1; duration: 200; easing.type: Easing.InCubic }
+            NumberAnimation { target: root; property: "slide"; to: 1; duration: Kirigami.Units.longDuration > 1 ? 200 : 0; easing.type: Easing.InCubic }
             ScriptAction { script: osd.visible = false }
         }
         SequentialAnimation {
             id: pulse
-            NumberAnimation { target: pill; property: "scale"; to: 1.035; duration: 70; easing.type: Easing.OutQuad }
-            NumberAnimation { target: pill; property: "scale"; to: 1.0; duration: 260; easing.type: Easing.OutBack; easing.overshoot: 2 }
+            NumberAnimation { target: pill; property: "scale"; to: 1.035; duration: Kirigami.Units.longDuration > 1 ? 70 : 0; easing.type: Easing.OutQuad }
+            NumberAnimation { target: pill; property: "scale"; to: 1.0; duration: Kirigami.Units.longDuration > 1 ? 260 : 0; easing.type: Easing.OutBack; easing.overshoot: 2 }
         }
     }
 }

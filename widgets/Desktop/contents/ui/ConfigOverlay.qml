@@ -260,10 +260,10 @@ ContainmentLayoutManager.ConfigOverlay {
         transformOrigin: Item.Top
 
         Behavior on opacity {
-            NumberAnimation { duration: 150; easing.type: Easing.OutQuad }
+            NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0; easing.type: Easing.OutQuad }
         }
         Behavior on scale {
-            NumberAnimation { duration: 180; easing.type: Easing.OutBack }
+            NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 180 : 0; easing.type: Easing.OutBack }
         }
 
         // Soft drop shadow

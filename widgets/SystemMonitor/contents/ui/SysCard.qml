@@ -2,6 +2,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 import QtQuick
+import org.kde.kirigami as Kirigami
 import QtQuick.Shapes
 
 Item {
@@ -28,7 +29,7 @@ Item {
         property color tint: pal.primary
         readonly property real v: Math.max(0, Math.min(100, value))
         property real shown: v
-        Behavior on shown { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
+        Behavior on shown { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 280 : 0; easing.type: Easing.OutCubic } }
         width: 96
         height: 132
 

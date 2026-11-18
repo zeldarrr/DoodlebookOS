@@ -42,8 +42,8 @@ Item {
         color: selected ? dv.accent : (chipMa.containsMouse ? dv.tint(0.10) : "transparent")
         border.width: selected ? 0 : 1
         border.color: dv.tint(0.25)
-        Behavior on radius { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
-        Behavior on color { ColorAnimation { duration: 150 } }
+        Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 220 : 0; easing.type: Easing.OutCubic } }
+        Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 } }
         Text {
             id: chipLabel
             anchors.centerIn: parent
@@ -63,8 +63,8 @@ Item {
         Layout.preferredHeight: 52
         radius: rowMa.pressed ? 12 : 16
         color: rowMa.containsMouse ? dv.tint(0.10) : dv.tint(0.05)
-        Behavior on radius { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
-        Behavior on color { ColorAnimation { duration: 120 } }
+        Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 200 : 0; easing.type: Easing.OutCubic } }
+        Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 120 : 0 } }
         ColumnLayout {
             anchors.verticalCenter: parent.verticalCenter
             anchors.left: parent.left; anchors.leftMargin: 16; anchors.right: parent.right; anchors.rightMargin: 16
@@ -97,8 +97,8 @@ Item {
             Layout.preferredHeight: 72
             radius: mainMa.pressed ? 18 : 28
             color: dv.active ? dv.accent : dv.tint(0.08)
-            Behavior on color { ColorAnimation { duration: 220 } }
-            Behavior on radius { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
+            Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 220 : 0 } }
+            Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 260 : 0; easing.type: Easing.OutCubic } }
             Kirigami.Icon {
                 id: mainIcon
                 anchors.left: parent.left; anchors.leftMargin: 22; anchors.verticalCenter: parent.verticalCenter
@@ -136,14 +136,14 @@ Item {
                 anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
                 width: 52; height: 32; radius: 16
                 color: dv.schedule ? dv.tertiary : dv.tint(0.2)
-                Behavior on color { ColorAnimation { duration: 180 } }
+                Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 180 : 0 } }
                 Rectangle {
                     width: dv.schedule ? 24 : 16; height: width; radius: width / 2
                     anchors.verticalCenter: parent.verticalCenter
                     x: dv.schedule ? parent.width - width - 4 : 8
                     color: dv.schedule ? dv.onTertiary : dv.tint(0.7)
-                    Behavior on x { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.4 } }
-                    Behavior on width { NumberAnimation { duration: 180 } }
+                    Behavior on x { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 220 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.4 } }
+                    Behavior on width { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 180 : 0 } }
                 }
                 MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Plasmoid.configuration.dndSchedule = !dv.schedule }
             }

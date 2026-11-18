@@ -123,10 +123,10 @@ for (var i = 0; i < panels().length; i++) {
         transformOrigin: Item.Bottom
 
         Behavior on scale {
-            NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.1 }
+            NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 160 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.1 }
         }
         Behavior on opacity {
-            NumberAnimation { duration: 140; easing.type: Easing.OutQuad }
+            NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 140 : 0; easing.type: Easing.OutQuad }
         }
 
         // Material 3 Expressive shape picker (icons + dock buttons)
@@ -164,7 +164,7 @@ for (var i = 0; i < panels().length; i++) {
                             hovered: cellMa.containsMouse
                             color: cell.current ? Kirigami.Theme.highlightColor
                                  : Qt.rgba(taskbarMenuDialog.cText.r, taskbarMenuDialog.cText.g, taskbarMenuDialog.cText.b, cellMa.containsMouse ? 0.7 : 0.38)
-                            Behavior on width { SpringAnimation { spring: 4; damping: 0.3; epsilon: 0.1 } }
+                            Behavior on width { enabled: Kirigami.Units.longDuration > 1; SpringAnimation { spring: 4; damping: 0.3; epsilon: 0.1 } }
                         }
                         MouseArea {
                             id: cellMa
@@ -217,7 +217,7 @@ for (var i = 0; i < panels().length; i++) {
                         radius: 14
                         color: mainItem.shapePickerOpen ? Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.22)
                              : (shapeBtnMa.containsMouse ? Qt.rgba(taskbarMenuDialog.cText.r, taskbarMenuDialog.cText.g, taskbarMenuDialog.cText.b, 0.12) : "transparent")
-                        Behavior on color { ColorAnimation { duration: 150 } }
+                        Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 } }
                     }
                     ShapeBackground {
                         anchors.centerIn: parent
@@ -248,7 +248,7 @@ for (var i = 0; i < panels().length; i++) {
                         anchors.fill: parent
                         radius: cfgMa.pressed ? 9 : 14
                         color: cfgMa.containsMouse ? Qt.rgba(taskbarMenuDialog.cText.r, taskbarMenuDialog.cText.g, taskbarMenuDialog.cText.b, 0.12) : "transparent"
-                        Behavior on radius { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                        Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 160 : 0; easing.type: Easing.OutCubic } }
                     }
                     Kirigami.Icon {
                         anchors.centerIn: parent
@@ -317,7 +317,7 @@ for (var i = 0; i < panels().length; i++) {
                         anchors.fill: parent
                         radius: 12
                         color: taskbarMenuDialog.alwaysShow ? Kirigami.Theme.highlightColor : (taskbarMenuDialog.isDark ? "#484C52" : "#74777F")
-                        Behavior on color { ColorAnimation { duration: 150 } }
+                        Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 } }
                     }
 
                     Rectangle {
@@ -328,8 +328,8 @@ for (var i = 0; i < panels().length; i++) {
                         y: 3
                         x: taskbarMenuDialog.alwaysShow ? (switchItem.width - width - 3) : 3
                         color: taskbarMenuDialog.alwaysShow ? Kirigami.Theme.highlightedTextColor : "#FFFFFF"
-                        Behavior on color { ColorAnimation { duration: 150 } }
-                        Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                        Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 } }
+                        Behavior on x { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0; easing.type: Easing.OutQuad } }
                     }
 
                     MouseArea {

@@ -58,7 +58,7 @@ ColumnLayout {
                             width: 48
                             height: 48
                             scale: tileMouse.containsMouse && !tileMouse.pressed ? 1.05 : (tileMouse.pressed ? 0.94 : 1.0)
-                            Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
+                            Behavior on scale { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 120 : 0; easing.type: Easing.OutQuad } }
 
                             Kirigami.Icon {
                                 anchors.centerIn: parent

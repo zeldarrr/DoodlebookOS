@@ -4,6 +4,7 @@
  */
 
 import QtQuick
+import org.kde.kirigami as Kirigami
 import org.kde.layershell as LayerShell
 
 Window {
@@ -46,7 +47,7 @@ Window {
 
         Behavior on opacity {
             NumberAnimation {
-                duration: 160
+                duration: Kirigami.Units.longDuration > 1 ? 160 : 0
                 easing.type: Easing.OutCubic
             }
         }

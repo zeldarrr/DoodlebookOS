@@ -135,7 +135,7 @@ PlasmaExtras.Representation {
 
     // Material 3 entrance (emphasized decelerate)
     property real revealT: 1.0
-    NumberAnimation { id: revealAnim; target: calendar; property: "revealT"; from: 0; to: 1; duration: 420; easing.type: Easing.OutQuart }
+    NumberAnimation { id: revealAnim; target: calendar; property: "revealT"; from: 0; to: 1; duration: Kirigami.Units.longDuration > 1 ? 420 : 0; easing.type: Easing.OutQuart }
 
     Connections {
         target: calendar.Window ? calendar.Window.window : null

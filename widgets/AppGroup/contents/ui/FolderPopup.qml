@@ -74,15 +74,15 @@ QQC2.Popup {
     // Material 3 "emphasized" container motion
     enter: Transition {
         ParallelAnimation {
-            NumberAnimation { property: "opacity"; from: 0.0; to: 1.0; duration: 180; easing.type: Easing.OutCubic }
-            NumberAnimation { property: "scale"; from: 0.8; to: 1.0; duration: 400; easing.type: Easing.OutQuart }
+            NumberAnimation { property: "opacity"; from: 0.0; to: 1.0; duration: Kirigami.Units.longDuration > 1 ? 180 : 0; easing.type: Easing.OutCubic }
+            NumberAnimation { property: "scale"; from: 0.8; to: 1.0; duration: Kirigami.Units.longDuration > 1 ? 400 : 0; easing.type: Easing.OutQuart }
         }
     }
 
     exit: Transition {
         ParallelAnimation {
-            NumberAnimation { property: "opacity"; from: 1.0; to: 0.0; duration: 150; easing.type: Easing.InCubic }
-            NumberAnimation { property: "scale"; from: 1.0; to: 0.9; duration: 200; easing.type: Easing.InQuart }
+            NumberAnimation { property: "opacity"; from: 1.0; to: 0.0; duration: Kirigami.Units.longDuration > 1 ? 150 : 0; easing.type: Easing.InCubic }
+            NumberAnimation { property: "scale"; from: 1.0; to: 0.9; duration: Kirigami.Units.longDuration > 1 ? 200 : 0; easing.type: Easing.InQuart }
         }
     }
 

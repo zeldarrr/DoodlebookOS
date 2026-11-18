@@ -51,6 +51,7 @@ PlasmaCore.Dialog {
             hideGraceTimer.stop();
         }
 
+        var fresh = !tooltipDialog.visible;
         targetItem = item;
         tooltipDialog.visualParent = item;
         text = tooltipText;
@@ -58,6 +59,8 @@ PlasmaCore.Dialog {
             mainItem.opacity = 1;
         }
         tooltipDialog.visible = true;
+        // M3 plain tooltip: pops from the icon it points at; moving along the dock just swaps the text
+        if (fresh) popAnim.restart();
     }
 
     function requestHide(item) {
@@ -92,6 +95,20 @@ PlasmaCore.Dialog {
         implicitHeight: 34
         opacity: 1
 
+        property real pop: 1
+        NumberAnimation {
+            id: popAnim
+            target: mainItem; property: "pop"; from: 0; to: 1
+            duration: Kirigami.Units.longDuration > 1 ? 180 : 0
+            easing.type: Easing.BezierSpline; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1, 1]
+        }
+        transform: Scale {
+            origin.x: mainItem.width / 2
+            origin.y: mainItem.height
+            xScale: 0.8 + 0.2 * mainItem.pop
+            yScale: xScale
+        }
+
         Timer {
             id: hideGraceTimer
             interval: 60
@@ -104,6 +121,7 @@ PlasmaCore.Dialog {
         // Main rounded pill body - flat, borderless
         Rectangle {
             id: bubbleBody
+            opacity: Math.min(1, mainItem.pop * 2)
             x: 0
             y: 0
             width: parent.width
@@ -128,6 +146,7 @@ PlasmaCore.Dialog {
         Shape {
             id: arrowShape
             anchors.fill: parent
+            opacity: bubbleBody.opacity
             containsMode: Shape.FillContains
             readonly property real midX: Math.round(width / 2)
 

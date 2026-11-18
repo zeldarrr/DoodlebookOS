@@ -61,11 +61,63 @@ Rectangle {
         return "";
     }
 
+    readonly property bool anim: Kirigami.Units.longDuration > 1
+    readonly property bool active: textField.text.length > 0
+    function tint(a) { return Qt.rgba(main.textColor.r, main.textColor.g, main.textColor.b, a); }
+
     RowLayout {
         anchors.fill: parent
-        anchors.leftMargin: 20
-        anchors.rightMargin: 20
+        anchors.leftMargin: 14
+        anchors.rightMargin: 8
         spacing: 8
+
+        // leading icon: search, morphing into a back arrow while a query is typed (click = clear)
+        Item {
+            Layout.preferredWidth: 36
+            Layout.preferredHeight: 36
+            Layout.alignment: Qt.AlignVCenter
+
+            Rectangle {
+                anchors.fill: parent
+                radius: backMa.pressed ? 12 : 18
+                color: searchBarRoot.tint(backMa.pressed ? 0.12 : (backMa.containsMouse && searchBarRoot.active ? 0.08 : 0))
+                Behavior on radius { NumberAnimation { duration: searchBarRoot.anim ? 200 : 0; easing.type: Easing.OutBack } }
+            }
+            Kirigami.Icon {
+                anchors.centerIn: parent
+                width: 22; height: 22
+                source: Qt.resolvedUrl("icons/search.svg")
+                isMask: true
+                color: main.textColor
+                opacity: searchBarRoot.active ? 0 : 0.75
+                rotation: searchBarRoot.active ? 90 : 0
+                scale: searchBarRoot.active ? 0.5 : 1
+                Behavior on opacity { NumberAnimation { duration: searchBarRoot.anim ? 150 : 0 } }
+                Behavior on rotation { NumberAnimation { duration: searchBarRoot.anim ? 300 : 0; easing.type: Easing.OutCubic } }
+                Behavior on scale { NumberAnimation { duration: searchBarRoot.anim ? 300 : 0; easing.type: Easing.OutCubic } }
+            }
+            Kirigami.Icon {
+                anchors.centerIn: parent
+                width: 22; height: 22
+                source: Qt.resolvedUrl("icons/arrow_back.svg")
+                isMask: true
+                color: main.textColor
+                opacity: searchBarRoot.active ? 1 : 0
+                rotation: searchBarRoot.active ? 0 : -90
+                scale: searchBarRoot.active ? 1 : 0.5
+                Behavior on opacity { NumberAnimation { duration: searchBarRoot.anim ? 150 : 0 } }
+                Behavior on rotation { NumberAnimation { duration: searchBarRoot.anim ? 300 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+                Behavior on scale { NumberAnimation { duration: searchBarRoot.anim ? 300 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+            }
+            MouseArea {
+                id: backMa
+                anchors.fill: parent
+                enabled: searchBarRoot.active
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: { textField.clear(); textField.forceActiveFocus(); }
+            }
+        }
 
         // Text input field
         TextField {
@@ -172,6 +224,40 @@ Rectangle {
                     triggerSelectedResult(Boolean(event.modifiers & Qt.ShiftModifier));
                 }
                 // Tab without a completion bubbles up to MainView (focus zones)
+            }
+        }
+
+        // trailing clear button: springs in with the first character
+        Item {
+            Layout.preferredWidth: searchBarRoot.active ? 36 : 0
+            Layout.preferredHeight: 36
+            Layout.alignment: Qt.AlignVCenter
+            Behavior on Layout.preferredWidth { NumberAnimation { duration: searchBarRoot.anim ? 220 : 0; easing.type: Easing.OutCubic } }
+            visible: Layout.preferredWidth > 0.5
+
+            Rectangle {
+                anchors.centerIn: parent
+                width: 36; height: 36
+                radius: clearMa.pressed ? 12 : 18
+                color: searchBarRoot.tint(clearMa.pressed ? 0.12 : (clearMa.containsMouse ? 0.08 : 0))
+                scale: searchBarRoot.active ? 1 : 0.3
+                Behavior on scale { NumberAnimation { duration: searchBarRoot.anim ? 320 : 0; easing.type: Easing.OutBack; easing.overshoot: 2 } }
+                Behavior on radius { NumberAnimation { duration: searchBarRoot.anim ? 200 : 0; easing.type: Easing.OutBack } }
+                Kirigami.Icon {
+                    anchors.centerIn: parent
+                    width: 20; height: 20
+                    source: Qt.resolvedUrl("icons/close.svg")
+                    isMask: true
+                    color: main.textColor
+                    opacity: 0.8
+                }
+            }
+            MouseArea {
+                id: clearMa
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: { textField.clear(); textField.forceActiveFocus(); }
             }
         }
     }

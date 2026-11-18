@@ -127,8 +127,5 @@
     <entry name="showRecentFiles" type="Bool">
       <default>true</default>
     </entry>
-    <entry name="showCategories" type="Bool">
-      <default>true</default>
-    </entry>
   </group>
 </kcfg>

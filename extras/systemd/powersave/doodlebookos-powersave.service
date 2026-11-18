@@ -1,0 +1,12 @@
+[Unit]
+Description=DoodlebookOS: blur and animations follow the power saver profile
+PartOf=graphical-session.target
+After=graphical-session.target plasma-kwin_wayland.service plasma-kwin_x11.service
+
+[Service]
+ExecStart=/usr/bin/python3 -I %h/.local/bin/doodlebookos-powersave watch
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

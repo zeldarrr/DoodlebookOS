@@ -284,7 +284,7 @@ PlasmaExtras.Representation {
         property: "revealT"
         from: 0
         to: 1
-        duration: 480
+        duration: Kirigami.Units.longDuration > 1 ? 480 : 0
         easing.type: Easing.Linear
     }
 
@@ -1772,10 +1772,10 @@ PlasmaExtras.Representation {
                         Layout.preferredHeight: fullRep.snap(28.8)
                         radius: fullRep.caffeineActive ? fullRep.snap(9.6) : Math.round(height / 2)
                         color: fullRep.caffeineActive ? fullRep.tertiaryColor : fullRep.oneUiTrackBg
-                        Behavior on radius { NumberAnimation { duration: 350; easing.type: Easing.OutQuart } }
-                        Behavior on color { ColorAnimation { duration: 250 } }
+                        Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 350 : 0; easing.type: Easing.OutQuart } }
+                        Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 250 : 0 } }
                         scale: stayAwakeMouse.pressed ? 0.9 : 1.0
-                        Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutQuart } }
+                        Behavior on scale { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 200 : 0; easing.type: Easing.OutQuart } }
 
                         PlasmaComponents3.ToolTip.text: fullRep.caffeineActive ? i18n("Sleep blocked") : i18n("Block sleep")
                         PlasmaComponents3.ToolTip.visible: stayAwakeMouse.containsMouse
@@ -1897,7 +1897,7 @@ PlasmaExtras.Representation {
 
                             SequentialAnimation on x {
                                 id: scrollAnim
-                                running: mRoot.isHovered && mRoot.needsScroll
+                                running: mRoot.isHovered && mRoot.needsScroll && fullRep.animationsEnabled
                                 loops: Animation.Infinite
 
                                 PauseAnimation { duration: 600 }
@@ -1929,7 +1929,7 @@ PlasmaExtras.Representation {
                                 target: scrollLabel
                                 property: "x"
                                 to: 0
-                                duration: 250
+                                duration: Kirigami.Units.longDuration > 1 ? 250 : 0
                                 easing.type: Easing.OutQuad
                             }
                         }
@@ -2040,8 +2040,8 @@ PlasmaExtras.Representation {
                     }
                     ParallelAnimation {
                         id: rippleAnim
-                        NumberAnimation { target: ripple; property: "r"; from: 0; to: Math.sqrt(tile.width * tile.width + tile.height * tile.height); duration: 450; easing.type: Easing.OutCubic }
-                        NumberAnimation { target: ripple; property: "opacity"; from: 0.24; to: 0; duration: 560; easing.type: Easing.InQuad }
+                        NumberAnimation { target: ripple; property: "r"; from: 0; to: Math.sqrt(tile.width * tile.width + tile.height * tile.height); duration: Kirigami.Units.longDuration > 1 ? 450 : 0; easing.type: Easing.OutCubic }
+                        NumberAnimation { target: ripple; property: "opacity"; from: 0.24; to: 0; duration: Kirigami.Units.longDuration > 1 ? 560 : 0; easing.type: Easing.InQuad }
                     }
 
                     function isInBadge(mx, my) {
@@ -2272,11 +2272,11 @@ PlasmaExtras.Representation {
                     Layout.preferredHeight: fullRep.snap(50.4)
                     // M3 shape morph: pill -> rounded square on hover/press
                     radius: addMouse.pressed ? fullRep.snap(10) : (addMouse.containsMouse ? fullRep.snap(16) : Math.round(height / 2))
-                    Behavior on radius { NumberAnimation { duration: 400; easing.type: Easing.OutQuart } }
+                    Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 400 : 0; easing.type: Easing.OutQuart } }
                     color: "transparent"
                     border.width: fullRep.snap(1.2)
                     border.color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, addMouse.containsMouse ? 0.45 : 0.22)
-                    Behavior on border.color { ColorAnimation { duration: 300 } }
+                    Behavior on border.color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 300 : 0 } }
 
                     Rectangle {
                         anchors.fill: parent
@@ -2294,7 +2294,7 @@ PlasmaExtras.Representation {
                         color: Kirigami.Theme.textColor
                         opacity: 0.85
                         rotation: addMouse.containsMouse ? 90 : 0
-                        Behavior on rotation { NumberAnimation { duration: 500; easing.type: Easing.OutQuart } }
+                        Behavior on rotation { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 500 : 0; easing.type: Easing.OutQuart } }
                     }
 
                     MouseArea {
@@ -2338,7 +2338,7 @@ PlasmaExtras.Representation {
                 property: "enterT"
                 from: 0
                 to: 1
-                duration: 560
+                duration: Kirigami.Units.longDuration > 1 ? 560 : 0
             }
         }
 

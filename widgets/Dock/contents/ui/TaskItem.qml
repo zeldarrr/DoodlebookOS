@@ -144,7 +144,7 @@ Item {
     Behavior on animatedShiftX {
         enabled: dockRoot && dockRoot.isDragging
         NumberAnimation {
-            duration: 200
+            duration: Kirigami.Units.longDuration > 1 ? 200 : 0
             easing.type: Easing.OutCubic
         }
     }
@@ -225,7 +225,7 @@ Item {
                 scale: mouseArea.drag.active ? 1.08 : 1.0
 
                 Behavior on scale {
-                    NumberAnimation { duration: 150; easing.type: Easing.OutQuad }
+                    NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0; easing.type: Easing.OutQuad }
                 }
 
                 transform: Translate {
@@ -251,7 +251,7 @@ Item {
                     color: mouseArea.pressed ? Qt.rgba(1, 1, 1, 0.12) : "transparent"
 
                     Behavior on color {
-                        ColorAnimation { duration: 150 }
+                        ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 }
                     }
 
                     // Square container strictly iconSize x iconSize
@@ -276,7 +276,7 @@ Item {
                             layer.effect: MultiEffect { colorization: 1.0; colorizationColor: Kirigami.Theme.highlightColor }
 
                             Behavior on scale {
-                                NumberAnimation { duration: 100; easing.type: Easing.OutQuad }
+                                NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 100 : 0; easing.type: Easing.OutQuad }
                             }
                         }
 
@@ -306,10 +306,10 @@ Item {
                             opacity: taskItem.showAttentionBadge ? 1.0 : 0.0
 
                             Behavior on scale {
-                                NumberAnimation { duration: 180; easing.type: Easing.OutBack; easing.overshoot: 1.25 }
+                                NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 180 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.25 }
                             }
                             Behavior on opacity {
-                                NumberAnimation { duration: 150 }
+                                NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 }
                             }
                         }
                     }
@@ -337,10 +337,10 @@ Item {
                         // spring: the dot stretches into a pill with a small overshoot
                         Behavior on width {
                             enabled: !minimizeBounceAnimation.running
-                            NumberAnimation { duration: 340; easing.type: Easing.OutBack; easing.overshoot: 2.2 }
+                            NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 340 : 0; easing.type: Easing.OutBack; easing.overshoot: 2.2 }
                         }
                         Behavior on color {
-                            ColorAnimation { duration: 150 }
+                            ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 }
                         }
                     }
                 }
@@ -431,7 +431,7 @@ Item {
 
                 onContainsMouseChanged: {
                     if (containsMouse && !mouseArea.drag.active && !(taskItem.dockRoot && taskItem.dockRoot.isDragging)) {
-                        if (!contextMenu.visible && taskItem.appName.length > 0) {
+                        if (!taskItem.contextMenuOpen && taskItem.appName.length > 0) {
                             if (taskItem.dockRoot && taskItem.dockRoot.requestShowTooltip) {
                                 taskItem.dockRoot.requestShowTooltip(buttonContainer, taskItem.appName);
                             }
@@ -491,7 +491,7 @@ Item {
                             taskItem.tasksModel.requestNewInstance(idx);
                         }
                     } else if (mouse.button === Qt.RightButton) {
-                        contextMenu.open();
+                        taskItem.openContextMenu();
                     }
                 }
             }
@@ -507,7 +507,7 @@ Item {
             property: "iconYOffset"
             from: 0
             to: 3.5
-            duration: 80
+            duration: Kirigami.Units.longDuration > 1 ? 80 : 0
             easing.type: Easing.OutQuad
         }
 
@@ -518,7 +518,7 @@ Item {
                 property: "iconYOffset"
                 from: 3.5
                 to: 0
-                duration: 140
+                duration: Kirigami.Units.longDuration > 1 ? 140 : 0
                 easing.type: Easing.OutBack
                 easing.overshoot: 1.1
             }
@@ -528,14 +528,14 @@ Item {
                     property: "extraWidth"
                     from: 0
                     to: 3.5
-                    duration: 50
+                    duration: Kirigami.Units.longDuration > 1 ? 50 : 0
                     easing.type: Easing.OutQuad
                 }
                 NumberAnimation {
                     target: statusIndicator
                     property: "extraWidth"
                     to: 0
-                    duration: 120
+                    duration: Kirigami.Units.longDuration > 1 ? 120 : 0
                     easing.type: Easing.OutCubic
                 }
             }
@@ -546,32 +546,41 @@ Item {
     SequentialAnimation {
         id: launchBounce
         loops: 2
-        NumberAnimation { target: taskItem; property: "iconYOffset"; to: -taskItem.dockHeight * 0.16; duration: 200; easing.type: Easing.OutQuad }
-        NumberAnimation { target: taskItem; property: "iconYOffset"; to: 0; duration: 340; easing.type: Easing.OutBounce }
+        NumberAnimation { target: taskItem; property: "iconYOffset"; to: -taskItem.dockHeight * 0.16; duration: Kirigami.Units.longDuration > 1 ? 200 : 0; easing.type: Easing.OutQuad }
+        NumberAnimation { target: taskItem; property: "iconYOffset"; to: 0; duration: Kirigami.Units.longDuration > 1 ? 340 : 0; easing.type: Easing.OutBounce }
     }
 
-    TaskContextMenu {
-        id: contextMenu
-        visualParent: buttonContainer
-        tasksModel: taskItem.tasksModel
-        dockRoot: taskItem.dockRoot
-        modelIndex: taskItem.getModelIndex()
-        isWindow: taskItem.isWindow
-        isLauncher: taskItem.isLauncher
-        hasLauncher: taskItem.hasLauncher
-        launcherUrl: taskItem.launcherUrl
-        appId: taskItem.appId
+    // one Dialog window per dock icon is costly: create the menu on the first right click only
+    Loader {
+        id: contextMenuLoader
+        active: false
+        sourceComponent: TaskContextMenu {
+            visualParent: buttonContainer
+            tasksModel: taskItem.tasksModel
+            dockRoot: taskItem.dockRoot
+            modelIndex: taskItem.getModelIndex()
+            isWindow: taskItem.isWindow
+            isLauncher: taskItem.isLauncher
+            hasLauncher: taskItem.hasLauncher
+            launcherUrl: taskItem.launcherUrl
+            appId: taskItem.appId
 
-        onStatusChanged: {
-            if (contextMenu.status) {
-                if (taskItem.dockRoot && taskItem.dockRoot.requestHideTooltip) {
-                    taskItem.dockRoot.requestHideTooltip(buttonContainer);
-                }
-                if (taskItem.dockRoot && taskItem.dockRoot.requestHideWindowPreviewImmediately) {
-                    taskItem.dockRoot.requestHideWindowPreviewImmediately();
+            onStatusChanged: {
+                if (status) {
+                    if (taskItem.dockRoot && taskItem.dockRoot.requestHideTooltip) {
+                        taskItem.dockRoot.requestHideTooltip(buttonContainer);
+                    }
+                    if (taskItem.dockRoot && taskItem.dockRoot.requestHideWindowPreviewImmediately) {
+                        taskItem.dockRoot.requestHideWindowPreviewImmediately();
+                    }
                 }
             }
         }
+    }
+    readonly property bool contextMenuOpen: contextMenuLoader.item !== null && contextMenuLoader.item.visible
+    function openContextMenu() {
+        contextMenuLoader.active = true;
+        if (contextMenuLoader.item) contextMenuLoader.item.open();
     }
 
     Component.onDestruction: {

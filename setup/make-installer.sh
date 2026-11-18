@@ -27,7 +27,7 @@ KEY="$HOME/.local/share/doodlebookos-release/signing-key"
 
 echo "[i] Copie du dépôt…"
 mkdir -p "$D"
-tar -C "$REPO" --exclude=./.git --exclude=./dist --exclude=./.github --exclude='__pycache__' \
+tar -C "$REPO" --exclude=./.git --exclude=./dist --exclude=./.github --exclude='__pycache__' --exclude='*.run' \
     --exclude='*.pyc' --exclude=build -cf - . | tar -C "$D" -xf -
 echo "$VERSION" > "$D/VERSION"
 echo "    version $VERSION"

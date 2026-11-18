@@ -31,21 +31,47 @@ d'avis de modification au sens de la GPL-3.0 (§ 5a).
 ## Bureau et widgets
 - **Dock / lanceur** : index et recherche tolérante, dossiers, badges de notifications, résultats
   KRunner + recherche web (navigateur par défaut), réglages (pages Dock et Lanceur), formes M3 des
-  boutons, icônes rafraîchies dès que le thème d'icônes change, lancement ≈ 17 ms.
+  boutons, icônes rafraîchies dès que le thème d'icônes change, lancement ≈ 17 ms. Plus de
+  catégories : une seule grille A–Z sous la recherche (les catégories servent encore à nommer les
+  dossiers). Barre de recherche M3 (loupe → flèche retour, bouton effacer à ressort), entrée du
+  lanceur en « emphasized decelerate », info-bulles du dock qui jaillissent de l'icône.
 - **Barre du haut** : bureaux virtuels (`Workspaces`), batteries des appareils et téléphones
   KDE Connect (`Devices`), pilule média, Phone Hub, réglages rapides (mode jeu, Material You…),
   OSD Material 3, couleur adaptée au fond d'écran par une unité systemd `.path` (plus de sondage).
+- **Menu des applis en arrière-plan** (clic droit sur Discord, Steam… dans la barre du haut) : menu
+  Material 3 Expressive construit depuis le DBusMenu de l'appli (`tray/TrayMenu.qml`) — groupes
+  tonals séparés par des espaces, cases et boutons radio M3, sous-menus en axe partagé X, lignes
+  en cascade, navigation clavier complète ; dernier menu gardé en cache (ouverture immédiate),
+  repli sur le menu de l'appli quand elle n'expose pas de DBusMenu.
 - Nouveaux widgets : Note, Stockage, Image (formes M3, diaporama), Jeux, Calendrier, Horloge,
   Média, Système — avec page « Apparence » commune.
 - Notifications : barre de délai M3 et animation de sortie Expressive.
+- Calendrier : changement de mois en axe partagé X ; Horloge : chiffres qui défilent à chaque minute.
+- Corrections : presse-papiers des réglages rapides (identifiant `clip` qui masquait la propriété
+  `clip`), menu d'une fenêtre du dock (fermeture avant l'appel au modèle, menu chargé à la demande).
 
 ## Fenêtres et applis
 - Décoration : boutons M3 Expressive, coins animés, ombre réglable (`ShadowOpacity`,
   `ShadowSpread` dans `doodlebookosrc`).
 - Style Qt : rayons 12/16, animations, sélection tonale, coins arrondis des vues, barres de
-  défilement discrètes, champs intégrés sans fond.
+  défilement discrètes, champs intégrés sans fond. Se compile aussi sans extra-cmake-modules.
+- **Sélecteur de fichiers** (celui des navigateurs, via xdg-desktop-portal-kde) : emplacements et
+  fil d'Ariane en pilules tonales, liste de fichiers sur une surface arrondie (la propriété
+  `_breeze_borders_sides` que KIO remet après l'affichage ne l'aplatit plus), curseur de zoom sans
+  graduations serrées ; réglages par défaut appliqués une seule fois par l'installeur (vue détaillée,
+  dossiers d'abord, aperçus, icônes 32 px, panneau 196 px).
 - Scripts / effets KWin : animations Material (`doodlebookos_motion`), coins d'écran arrondis,
   mode jeu automatique, mode concentration, sélecteur de fenêtres.
+
+## Économie d'énergie
+- `doodlebookos-powersave` (service utilisateur, sans sondage) : en profil « Économie d'énergie »
+  (tuile, applet batterie ou PowerDevil sur batterie), flou KWin coupé et animations « instantanées »
+  partout (KWin, Plasma, applis, décoration) ; valeurs d'origine restaurées en quittant le profil.
+- Thème Plasma : sans flou, popups, menus et bulles sont opaques (fonds de base à 100 % ; les
+  variantes `translucent/` restent à 82 % quand le flou est actif).
+- Widgets : les durées d'animation suivent la vitesse globale de Plasma (instantané = aucune
+  animation) ; titres défilants, vague du lecteur, « respiration » de la barre, tremblement du mode
+  édition et ressorts du dock s'arrêtent quand les animations sont coupées.
 
 ## Outils
 - `theme-switch` (profils de thème, retour arrière), `doodlebookos-gamemode`,

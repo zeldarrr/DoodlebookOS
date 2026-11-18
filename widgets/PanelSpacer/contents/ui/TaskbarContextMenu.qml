@@ -124,10 +124,10 @@ for (var i = 0; i < panels().length; i++) {
         transformOrigin: Item.Bottom
 
         Behavior on scale {
-            NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.1 }
+            NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 160 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.1 }
         }
         Behavior on opacity {
-            NumberAnimation { duration: 140; easing.type: Easing.OutQuad }
+            NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 140 : 0; easing.type: Easing.OutQuad }
         }
 
         // Soft drop shadow
@@ -210,7 +210,7 @@ for (var i = 0; i < panels().length; i++) {
                         anchors.fill: parent
                         radius: 12
                         color: taskbarMenuDialog.alwaysShow ? Kirigami.Theme.highlightColor : (taskbarMenuDialog.isDark ? "#484C52" : "#74777F")
-                        Behavior on color { ColorAnimation { duration: 150 } }
+                        Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 } }
                     }
 
                     Rectangle {
@@ -221,8 +221,8 @@ for (var i = 0; i < panels().length; i++) {
                         y: 3
                         x: taskbarMenuDialog.alwaysShow ? (switchItem.width - width - 3) : 3
                         color: taskbarMenuDialog.alwaysShow ? Kirigami.Theme.highlightedTextColor : "#FFFFFF"
-                        Behavior on color { ColorAnimation { duration: 150 } }
-                        Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                        Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 } }
+                        Behavior on x { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0; easing.type: Easing.OutQuad } }
                     }
                 }
             }

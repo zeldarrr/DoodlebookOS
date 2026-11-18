@@ -522,7 +522,7 @@ Item {
                 z: 0
 
                 Behavior on x {
-                    NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+                    NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 180 : 0; easing.type: Easing.OutCubic }
                 }
             }
 

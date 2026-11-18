@@ -40,8 +40,8 @@ Item {
     onFolderChanged: if (shown && !folder) shown = false      // dissolved (last app removed)
 
     property real t: 0
-    NumberAnimation { id: openAnim; target: ov; property: "t"; from: 0; to: 1; duration: 380; easing.type: Easing.OutBack; easing.overshoot: 1.0 }
-    NumberAnimation { id: closeAnim; target: ov; property: "t"; to: 0; duration: 180; easing.type: Easing.InCubic }
+    NumberAnimation { id: openAnim; target: ov; property: "t"; from: 0; to: 1; duration: Kirigami.Units.longDuration > 1 ? 380 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.0 }
+    NumberAnimation { id: closeAnim; target: ov; property: "t"; to: 0; duration: Kirigami.Units.longDuration > 1 ? 180 : 0; easing.type: Easing.InCubic }
     onShownChanged: if (!shown) closeAnim.restart()
     visible: t > 0.001
     enabled: shown
@@ -109,7 +109,7 @@ Item {
                     height: 2; radius: 1
                     color: ov.accent
                     opacity: title.activeFocus ? 1 : 0
-                    Behavior on opacity { NumberAnimation { duration: 150 } }
+                    Behavior on opacity { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 } }
                 }
             }
             Item {
@@ -169,7 +169,7 @@ Item {
             width: dissolveLabel.implicitWidth + 24
             radius: dissolveMa.pressed ? 8 : 15
             color: dissolveMa.containsMouse ? Qt.rgba(ov.fg.r, ov.fg.g, ov.fg.b, 0.10) : "transparent"
-            Behavior on radius { NumberAnimation { duration: 200; easing.type: Easing.OutBack } }
+            Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 200 : 0; easing.type: Easing.OutBack } }
             Text {
                 id: dissolveLabel
                 anchors.centerIn: parent

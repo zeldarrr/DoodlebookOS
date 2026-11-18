@@ -136,7 +136,7 @@ Item {
                             topRightRadius: Math.min(3, height / 2)
                             bottomRightRadius: Math.min(3, height / 2)
                             color: row.full ? pal.error : pal.primary
-                            Behavior on width { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
+                            Behavior on width { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 400 : 0; easing.type: Easing.OutCubic } }
                         }
                         Text {
                             x: 8

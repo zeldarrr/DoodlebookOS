@@ -199,7 +199,7 @@ def plasma_version():
 
 
 def shell_running():
-    out = dbus("org.freedesktop.DBus", "/", "org.freedesktop.DBus.NameHasOwner", "org.kde.plasmashell")
+    out = dbus("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus.NameHasOwner", "org.kde.plasmashell")
     return bool(out and "true" in out)
 
 
@@ -274,6 +274,9 @@ def install_files():
     for d in glob.glob(os.path.join(ROOT, "themes", "plasma-theme", "*")):
         if os.path.isdir(d):
             copytree(d, os.path.join(SHARE, "plasma", "desktoptheme", os.path.basename(d)))
+    # Plasma caches rendered theme SVGs: drop them so changed backgrounds show at the next start
+    for cache in glob.glob(os.path.join(HOME, ".cache", "plasma_theme_DoodlebookOS_*.kcache")):
+        rm(cache)
     copytree(os.path.join(ROOT, "themes", "look-and-feel", "DoodlebookOS"),
              os.path.join(SHARE, "plasma", "look-and-feel", "org.doodlebookos.desktop"))
     for f in glob.glob(os.path.join(ROOT, "themes", "color-schemes", "*.colors")):
@@ -318,7 +321,8 @@ def install_files():
     # user services (event driven: they run only when their watched files change)
     for f in (os.path.join(ex, "scripts", "doodlebookos-topbar.path"), os.path.join(ex, "scripts", "doodlebookos-topbar.service"),
               os.path.join(ex, "systemd", "doodlebookos-gamemode@.service"),
-              *glob.glob(os.path.join(ex, "systemd", "m3icons", "*"))):
+              *glob.glob(os.path.join(ex, "systemd", "m3icons", "*")),
+              *glob.glob(os.path.join(ex, "systemd", "powersave", "*"))):
         if os.path.isfile(f):
             copyfile(f, os.path.join(UNITS, os.path.basename(f)))
     voice = os.path.join(ex, "systemd", "voice-priority", "50-doodlebookos-voice.conf")
@@ -450,6 +454,38 @@ def apply_settings(settings, deco, style):
         with open(os.path.join(st, "icon-shape"), "w", encoding="utf-8") as f:
             f.write(extra["icon-shape"] + "\n")
     return pack
+
+
+def file_dialog_defaults():
+    """KDE file dialog (also the one browsers open through the xdg portal): breadcrumb path, list
+    view with normal-size icons, readable sidebar, A→Z. Applied once (marker key), so later
+    choices made in the dialog itself are kept across updates."""
+    grp = "KFileDialog Settings"
+    if kread("kdeglobals", grp, "DoodlebookOSDefaults", "") == "1":
+        return
+    if kread("kdeglobals", grp, "View Style", "DetailTree") in ("DetailTree", ""):
+        kwrite("kdeglobals", grp, "View Style", "Detail")
+    for key, value in (("Breadcrumb Navigation", "true"), ("Sort reversed", "false"),
+                       ("Sort directories first", "true"), ("Sort hidden files last", "true"),
+                       ("Show Inline Previews", "true"), ("Allow Expansion", "false"),
+                       ("Automatically select filename extension", "true"),
+                       ("Places Icons Auto-resize", "false"), ("Places Icons Static Size", "22")):
+        kwrite("kdeglobals", grp, key, value)
+    try:
+        width = int(kread("kdeglobals", grp, "Speedbar Width", "0") or 0)
+    except ValueError:
+        width = 0
+    if width < 170:
+        kwrite("kdeglobals", grp, "Speedbar Width", "196")
+    # the portal keeps its own icon sizes: 128 px icons in the list view made every row huge
+    for rc in ("xdg-desktop-portal-kderc", "kdialogrc"):
+        try:
+            size = int(kread(rc, grp, "detailViewIconSize", "0") or 0)
+        except ValueError:
+            size = 0
+        if size == 0 or size > 48:
+            kwrite(rc, grp, "detailViewIconSize", "32")
+    kwrite("kdeglobals", grp, "DoodlebookOSDefaults", "1")
 
 
 def wallpaper_path(mode):
@@ -653,6 +689,17 @@ def kwin_refresh():
     dbus("org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.start")
 
 
+def powersave_service():
+    """Power saver profile -> no blur, instant animations (restored when leaving it)."""
+    if not which("systemctl") or not os.path.exists(os.path.join(UNITS, "doodlebookos-powersave.service")):
+        return
+    if has_python_module("gi.repository.Gio"):
+        run(["systemctl", "--user", "enable", "doodlebookos-powersave.service"])
+        run(["systemctl", "--user", "restart", "doodlebookos-powersave.service"])
+    else:
+        ui.note("Mode économie d'énergie : PyGObject absent, le flou et les animations ne suivront pas le profil.")
+
+
 def services(pack):
     if not which("systemctl"):
         return
@@ -663,6 +710,7 @@ def services(pack):
     run(["systemctl", "--user", "enable", "--now", "doodlebookos-topbar.path"])
     if pack == "material":
         run(["systemctl", "--user", "enable", "--now", "doodlebookos-m3icons.path"])
+    powersave_service()
     if os.path.exists(os.path.join(UNITS, "plasma-krunner.service")):
         run(["systemctl", "--user", "restart", "plasma-krunner.service"])
     run([os.path.join(BIN, "doodlebookos-topbar-color"), "--check"], timeout=120)
@@ -700,9 +748,12 @@ def update_main(pv, settings):
                 continue
             if kread(file, group, key, "__doodlebookos_absent__") == "__doodlebookos_absent__":
                 kwrite(file, group, key, value)
+        file_dialog_defaults()
         if which("systemctl"):
             run(["systemctl", "--user", "daemon-reload"])
             run(["systemctl", "--user", "enable", "doodlebookos-update-apply.service"])
+            if has_python_module("gi.repository.Gio"):     # added in 0.9.x: started with the session
+                run(["systemctl", "--user", "enable", "doodlebookos-powersave.service"])
         try:
             with open(os.path.join(CFG, "doodlebookos", "materialyou.json"), encoding="utf-8") as f:
                 my_on = bool(json.load(f).get("enabled"))
@@ -756,6 +807,7 @@ def main():
         deco, style = native_parts(pv)
         ui.step("Réglages (polices, effets, curseurs)…")
         pack = apply_settings(settings, deco, style)
+        file_dialog_defaults()
         mode = settings.get("doodlebookos", {}).get("mode", "dark")
         wp = None if keep_wp else wallpaper_path(mode)
         ui.step("Barres et widgets du bureau…")

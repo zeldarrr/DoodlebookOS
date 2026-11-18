@@ -251,10 +251,10 @@ PlasmaCore.Dialog {
         }
 
         Behavior on animatedOpacity {
-            NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
+            NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0; easing.type: Easing.OutCubic }
         }
         Behavior on animatedYOffset {
-            NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+            NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 180 : 0; easing.type: Easing.OutCubic }
         }
 
         opacity: animatedOpacity
@@ -405,7 +405,7 @@ PlasmaCore.Dialog {
                                     z: 0
 
                                     Behavior on opacity {
-                                        NumberAnimation { duration: 150 }
+                                        NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 }
                                     }
 
                                     Kirigami.Icon {
@@ -438,7 +438,7 @@ PlasmaCore.Dialog {
                                     opacity: ready ? 1.0 : 0.0
 
                                     Behavior on opacity {
-                                        NumberAnimation { duration: 150 }
+                                        NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 }
                                     }
                                 }
 
@@ -458,10 +458,10 @@ PlasmaCore.Dialog {
                                 z: 10
 
                                 Behavior on border.color {
-                                    ColorAnimation { duration: 100 }
+                                    ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 100 : 0 }
                                 }
                                 Behavior on border.width {
-                                    NumberAnimation { duration: 100 }
+                                    NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 100 : 0 }
                                 }
                             }
 

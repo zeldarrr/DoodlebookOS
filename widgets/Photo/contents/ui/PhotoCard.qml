@@ -79,7 +79,7 @@ Item {
         fillMode: card.cfg.fillMode === "fit" ? Image.PreserveAspectFit : Image.PreserveAspectCrop
         sourceSize: Qt.size(Math.ceil(width * Screen.devicePixelRatio), Math.ceil(height * Screen.devicePixelRatio))
         opacity: card.ready ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 250 : 0; easing.type: Easing.OutCubic } }
         layer.enabled: true
         layer.smooth: true
         layer.effect: MultiEffect {
@@ -139,8 +139,8 @@ Item {
         color: pal.alpha(pal.surface, 0.88)
         visible: card.ready && card.cfg.showButton
         opacity: hover.hovered ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 150 } }
-        Behavior on radius { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 } }
+        Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 160 : 0; easing.type: Easing.OutCubic } }
         Kirigami.Icon {
             anchors.centerIn: parent
             width: 20

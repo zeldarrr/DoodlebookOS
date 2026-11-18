@@ -51,8 +51,8 @@ Item {
         color: selected ? dv.accent : (chipMa.containsMouse ? dv.tint(0.10) : "transparent")
         border.width: selected ? 0 : 1
         border.color: dv.tint(0.25)
-        Behavior on radius { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
-        Behavior on color { ColorAnimation { duration: 150 } }
+        Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 220 : 0; easing.type: Easing.OutCubic } }
+        Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 150 : 0 } }
         Text {
             id: chipLabel
             anchors.centerIn: parent
@@ -133,7 +133,7 @@ Item {
                                         width: 24; height: 24; radius: 12; y: 4
                                         x: card.modelData.enabled ? parent.width - width - 4 : 4
                                         color: card.modelData.enabled ? Kirigami.Theme.highlightedTextColor : "white"
-                                        Behavior on x { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                                        Behavior on x { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 180 : 0; easing.type: Easing.OutCubic } }
                                     }
                                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                                         onClicked: dv.run((card.modelData.enabled ? "disable " : "enable ") + dv.shq(card.modelData.name), "set") }

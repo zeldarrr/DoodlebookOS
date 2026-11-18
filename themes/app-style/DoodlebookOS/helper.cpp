@@ -1507,7 +1507,8 @@ void Helper::renderViewItemPosition(QPainter *painter,
         break;
     }
 
-    const qreal radius = qMin(r.height() / 2.0, 8.0);
+    // Material 3 Expressive list items: 12 px corners (pill when the row is shorter than 24 px)
+    const qreal radius = qMin(r.height() / 2.0, 12.0);
     painter->setBrush(bg);
     painter->setPen(Qt::NoPen);
 

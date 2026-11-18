@@ -98,8 +98,8 @@ Item {
                     color: pal.surfaceHighest
                     clip: true
                     scale: tileMa.pressed ? 0.96 : 1
-                    Behavior on radius { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
-                    Behavior on scale { NumberAnimation { duration: 120 } }
+                    Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 200 : 0; easing.type: Easing.OutCubic } }
+                    Behavior on scale { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 120 : 0 } }
                     Image {
                         anchors.fill: parent
                         source: tile.modelData.cover ? "file://" + tile.modelData.cover : ""
@@ -143,7 +143,7 @@ Item {
                         radius: 16
                         color: pal.primary
                         opacity: tile.hovered ? 1 : 0
-                        Behavior on opacity { NumberAnimation { duration: 140 } }
+                        Behavior on opacity { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 140 : 0 } }
                         Kirigami.Icon { anchors.centerIn: parent; width: 22; height: 22; source: "media-playback-start"; isMask: true; color: pal.primaryText }
                     }
                 }

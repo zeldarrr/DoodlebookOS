@@ -73,8 +73,8 @@ Item {
         color: filled ? fill : (sbMa.containsMouse ? card.tint(0.10) : "transparent")
         border.width: filled ? 0 : 1
         border.color: card.tint(0.22)
-        Behavior on radius { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
-        Behavior on color { ColorAnimation { duration: 160 } }
+        Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 220 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
+        Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 160 : 0 } }
         Row {
             id: sbRow
             anchors.centerIn: parent
@@ -92,7 +92,7 @@ Item {
     }
 
     property real t: shown ? 1 : 0
-    Behavior on t { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
+    Behavior on t { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 300 : 0; easing.type: Easing.OutCubic } }
     visible: t > 0.001
     enabled: shown
 

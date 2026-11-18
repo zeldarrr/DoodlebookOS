@@ -15,7 +15,6 @@ Item {
   property bool searching: (searchBar.textField.text != "")
   // typed text, immediately (KRunner gets it debounced, see SearchBar)
   readonly property string searchText: searchBar.textField.text
-  property string category: "all"
 
   readonly property var plasmoidConfig: (typeof root !== "undefined" && root && root.plasmoidConfiguration) ? root.plasmoidConfiguration : (typeof Plasmoid !== "undefined" ? Plasmoid.configuration : null)
   readonly property bool usePlasmaTheme: Boolean(!plasmoidConfig || plasmoidConfig.usePlasmaTheme !== false)
@@ -31,7 +30,6 @@ Item {
   property color contrastBgColor: isDarkTheme ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(0, 0, 0, 0.06)
 
   property alias searchBar: searchBar
-  property alias chips: chips
   property alias bottomBar: bottomBar
   readonly property Item stackItem: stack.currentItem
   property int itemSpacing: 6
@@ -40,7 +38,6 @@ Item {
     if (searchBar.textField.text !== "") {
       searchBar.textField.clear();
     }
-    category = "all";
     searchBar.textField.forceActiveFocus();
     if (appsPage.viewItem) appsPage.viewItem.positionViewAtBeginning();
   }
@@ -57,10 +54,9 @@ Item {
     return res.length && res[0].key.indexOf(appIndex.fold(prefix).trim()) === 0 ? res[0].name : "";
   }
 
-  // Tab / Shift+Tab: search -> categories -> apps -> bottom bar
+  // Tab / Shift+Tab: search -> apps -> bottom bar
   function focusZone(dir) {
     var zones = [searchBar.textField];
-    if (chips.visible) zones.push(chips);
     if (stack.currentItem && stack.currentItem.viewItem) zones.push(stack.currentItem.viewItem);
     zones.push(bottomBar);
     var cur = 0;
@@ -82,9 +78,6 @@ Item {
     var ctrl = event.modifiers & Qt.ControlModifier;
     if (ctrl && event.key >= Qt.Key_1 && event.key <= Qt.Key_9) {
       launchPinned(event.key - Qt.Key_1);
-      event.accepted = true;
-    } else if (ctrl && (event.key === Qt.Key_Left || event.key === Qt.Key_Right) && !searching) {
-      chips.step(event.key === Qt.Key_Left ? -1 : 1);
       event.accepted = true;
     } else if (ctrl && event.key === Qt.Key_E) {
       root.editMode = !root.editMode;
@@ -115,21 +108,6 @@ Item {
       Keys.forwardTo: stack.currentItem ? stack.currentItem.viewItem : null
     }
 
-    CategoryChips {
-      id: chips
-      visible: !main.searching && Plasmoid.configuration.showCategories !== false
-      Layout.fillWidth: !root.fullscreen
-      Layout.preferredWidth: root.fullscreen ? Math.min(contentWidth, main.width) : -1
-      Layout.alignment: Qt.AlignHCenter
-      Layout.preferredHeight: 36
-      Layout.bottomMargin: 4
-      current: main.category
-      onPicked: (key) => {
-        main.category = key;
-        if (stack.currentItem && stack.currentItem.viewItem) stack.currentItem.viewItem.positionViewAtBeginning();
-      }
-    }
-
     // Both pages stay alive: switching between apps and results no longer rebuilds the whole
     // app grid (or the results list) on the first / last keystroke.
     Item {
@@ -155,7 +133,7 @@ Item {
           model: runnerModel.count ? runnerModel.modelForRow(0) : null
         }
       }
-      NumberAnimation { id: pageFade; property: "opacity"; from: 0.35; to: 1; duration: 110; easing.type: Easing.OutCubic }
+      NumberAnimation { id: pageFade; property: "opacity"; from: 0.35; to: 1; duration: Kirigami.Units.longDuration > 1 ? 110 : 0; easing.type: Easing.OutCubic }
     }
 
     SessionBar {

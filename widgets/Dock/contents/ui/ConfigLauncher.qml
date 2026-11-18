@@ -15,7 +15,6 @@ KCMUtils.SimpleKCM {
     property alias cfg_launcherHeight: heightSlider.value
     property alias cfg_launcherPadding: padSpin.value
     property alias cfg_showRecentFiles: recentBox.checked
-    property alias cfg_showCategories: chipsBox.checked
     property alias cfg_dimBackground: dimBox.checked
     property alias cfg_launcherFullscreen: fullBox.checked
     property alias cfg_useSystemFontSettings: sysFontBox.checked
@@ -36,7 +35,6 @@ KCMUtils.SimpleKCM {
 
         Item { Kirigami.FormData.isSection: true; Kirigami.FormData.label: "Contenu" }
         QQC2.CheckBox { id: recentBox; Kirigami.FormData.label: "Afficher :"; text: "Fichiers récents" }
-        QQC2.CheckBox { id: chipsBox; text: "Catégories (puces)" }
         QQC2.CheckBox { id: dimBox; text: "Assombrir le bureau derrière" }
         QQC2.CheckBox { id: fullBox; text: "Plein écran" }
 

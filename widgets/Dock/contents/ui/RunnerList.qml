@@ -300,10 +300,10 @@ Item {
                         color: Qt.tint(Kirigami.Theme.backgroundColor, Qt.rgba(appIndex.tertiary.r, appIndex.tertiary.g, appIndex.tertiary.b, answerMa.containsMouse ? 0.30 : 0.22))
                         border.width: answerBox.selected ? 2 : 0
                         border.color: appIndex.tertiary
-                        Behavior on radius { NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
-                        Behavior on color { ColorAnimation { duration: 140 } }
+                        Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 240 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
+                        Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 140 : 0 } }
                         scale: answerBox.visible ? 1 : 0.9
-                        Behavior on scale { NumberAnimation { duration: 320; easing.type: Easing.OutBack; easing.overshoot: 1.4 } }
+                        Behavior on scale { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 320 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.4 } }
 
                         RowLayout {
                             anchors.fill: parent
@@ -343,7 +343,7 @@ Item {
                                 Layout.preferredHeight: 36
                                 radius: 18
                                 color: answerBox.selected ? appIndex.tertiary : Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08)
-                                Behavior on color { ColorAnimation { duration: 140 } }
+                                Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 140 : 0 } }
                                 Row {
                                     id: copyRow
                                     anchors.centerIn: parent
@@ -451,8 +451,8 @@ Item {
                                                  : Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, footerMouseArea.containsMouse ? 0.10 : 0.05)
                     border.width: footerRoot.isSelected ? 1 : 0
                     border.color: Qt.rgba(Kirigami.Theme.highlightColor.r, Kirigami.Theme.highlightColor.g, Kirigami.Theme.highlightColor.b, 0.5)
-                    Behavior on color { ColorAnimation { duration: 100 } }
-                    Behavior on radius { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
+                    Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 100 : 0 } }
+                    Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 220 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
 
                     RowLayout {
                         anchors.fill: parent

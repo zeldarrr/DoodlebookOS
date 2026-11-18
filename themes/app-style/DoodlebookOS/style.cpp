@@ -1864,6 +1864,41 @@ bool Style::eventFilterPageViewHeader(QWidget *widget, QEvent *event)
 bool Style::eventFilterScrollArea(QWidget *widget, QEvent *event)
 {
     switch (event->type()) {
+    case QEvent::DynamicPropertyChange: {
+        // KFileWidget re-applies the flat Breeze layout (_breeze_borders_sides) whenever its layout
+        // changes: keep the rounded Material 3 surface given to the file view (see QEvent::Show below)
+        auto change = static_cast<QDynamicPropertyChangeEvent *>(event);
+        if (change->propertyName() == PropertyNames::bordersSides && widget->property("_doodle_dirop_frame").toBool()
+            && widget->property(PropertyNames::bordersSides).isValid()) {
+            widget->setProperty(PropertyNames::bordersSides, QVariant());
+            if (auto frame = qobject_cast<QFrame *>(widget)) {
+                frame->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
+            }
+            _contentCorners->refresh(widget);
+            widget->update();
+        }
+        break;
+    }
+    case QEvent::Show: {
+        // file dialogs (KFileWidget → KDirOperator, also used by the browser portal): the file view
+        // becomes a rounded Material 3 surface instead of a flat rectangle glued to the window edges.
+        // Done on show, once the view sits in its final place: KIO asks Breeze-like styles for a flat,
+        // borderless view (_breeze_borders_sides) inside a splitter, which gave a square dark block.
+        auto view = qobject_cast<QAbstractItemView *>(widget);
+        if (view && !view->property("_doodle_dirop_frame").toBool()) {
+            for (QWidget *p = view->parentWidget(); p && !p->isWindow(); p = p->parentWidget()) {
+                if (p->inherits("KDirOperator")) {
+                    view->setProperty("_doodle_dirop_frame", true);
+                    view->setProperty(PropertyNames::bordersSides, QVariant());
+                    view->setProperty(PropertyNames::forceFrame, true);
+                    view->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
+                    _contentCorners->refresh(view);   // clip the viewport to the new rounded frame
+                    break;
+                }
+            }
+        }
+        break;
+    }
     case QEvent::Paint: {
         // get scrollarea viewport
         auto scrollArea(qobject_cast<QAbstractScrollArea *>(widget));
@@ -4854,6 +4889,42 @@ bool Style::drawPanelItemViewItemPrimitive(const QStyleOption *option, QPainter 
     const QWidget *actualWidget = widget;
     if (!actualWidget) {
         actualWidget = viewItemOption->widget;
+    }
+
+    // Material 3 navigation look: the places sidebar (KFilePlacesView: file dialogs of every KDE / portal
+    // app, browsers included, and Dolphin) and the breadcrumb buttons of KUrlNavigator get fully rounded
+    // pills — tonal "active indicator" when selected, onSurface 8 % state layer on hover.
+    if (actualWidget
+        && (actualWidget->inherits("KFilePlacesView") || actualWidget->inherits("KDEPrivate::KUrlNavigatorButtonBase"))) {
+        const State &navState(option->state);
+        const bool navHover(navState & State_MouseOver);
+        const bool navSelected(navState & State_Selected);
+        if (!navHover && !navSelected) {
+            return true;
+        }
+        const QPalette::ColorGroup group = !(navState & State_Enabled) ? QPalette::Disabled
+            : ((navState & State_Active) ? QPalette::Active : QPalette::Inactive);
+        QRectF pill(option->rect);
+        if (actualWidget->inherits("KFilePlacesView")) {
+            pill.adjust(4, 1, -4, -1);
+        }
+        QColor fill;
+        if (navSelected) {
+            fill = option->palette.color(group, QPalette::Highlight);
+            const bool darkWindow = option->palette.color(group, QPalette::Window).lightnessF() < 0.5;
+            fill.setAlphaF((darkWindow ? 0.30 : 0.22) + (navHover ? 0.06 : 0.0));
+        } else {
+            fill = option->palette.color(group, QPalette::WindowText);
+            fill.setAlphaF(0.08);
+        }
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(fill);
+        const qreal r = pill.height() / 2.0;
+        painter->drawRoundedRect(pill, r, r);
+        painter->restore();
+        return true;
     }
 
     // try cast widget
@@ -8052,6 +8123,13 @@ bool Style::drawSliderComplexControl(const QStyleOptionComplex *option, QPainter
                     int interval = sliderOption->tickInterval;
                     if (interval < 1) {
                         interval = sliderOption->pageStep;
+                    }
+                    // stop indicators only when they can breathe (≥ 10 px apart): a short slider such as
+                    // the file dialog zoom turned into a row of crowded dots otherwise
+                    const int range = sliderOption->maximum - sliderOption->minimum;
+                    if (interval >= 1 && range > 0
+                        && qreal(pixelMetric(PM_SliderSpaceAvailable, option, widget)) * interval / range < 10.0) {
+                        interval = 0;
                     }
                     if (interval >= 1) {
                         const int available = pixelMetric(PM_SliderSpaceAvailable, option, widget);

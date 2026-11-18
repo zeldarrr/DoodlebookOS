@@ -182,10 +182,16 @@ PlasmaCore.Dialog {
 
         Timer { id: closeTimer; interval: 170; onTriggered: root.close() }
 
-        // M3 Expressive entrance: the card grows out of the dock (bottom origin) with a soft overshoot
+        // M3 entrance, kept short so Super still feels instant: the page rises out of the dock and
+        // settles with the "emphasized decelerate" curve (most of the travel happens in the first
+        // frames). Cheap: opacity + one transform on a single item, no layer, no re-layout.
         property real revealT: 1.0
-        // one short fade + slide for the whole page (cheap: two properties on one item)
-        NumberAnimation { id: launcherRevealAnim; target: launcherBox; property: "revealT"; from: 0.4; to: 1; duration: 130; easing.type: Easing.OutCubic }
+        NumberAnimation {
+            id: launcherRevealAnim
+            target: launcherBox; property: "revealT"; from: 0; to: 1
+            duration: Kirigami.Units.longDuration > 1 ? 280 : 0
+            easing.type: Easing.BezierSpline; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1, 1]
+        }
 
         Rectangle {
             id: launcherCard
@@ -210,8 +216,16 @@ PlasmaCore.Dialog {
                     anchors.fill: parent
                     anchors.margins: root.containerInnerPadding
                     anchors.bottomMargin: Math.round(root.containerInnerPadding * 0.6)
-                    opacity: launcherBox.revealT
-                    transform: Translate { y: (1 - launcherBox.revealT) * 12 }
+                    opacity: 0.35 + 0.65 * launcherBox.revealT
+                    transform: [
+                        Scale {
+                            origin.x: main.width / 2
+                            origin.y: main.height
+                            xScale: 0.97 + 0.03 * launcherBox.revealT
+                            yScale: xScale
+                        },
+                        Translate { y: (1 - launcherBox.revealT) * 28 }
+                    ]
                 }
 
                 FolderOverlay {

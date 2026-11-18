@@ -223,9 +223,9 @@ PlasmoidItem {
 
         width: Math.max(active ? root.pillHeight * 1.9 : root.pillHeight, content.implicitWidth + root.pillHeight * 0.72)
         height: root.pillHeight
-        Behavior on width { NumberAnimation { duration: 340; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+        Behavior on width { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 340 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
         scale: ma.pressed ? 0.9 : (dropHover ? 1.12 : 1)
-        Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 2 } }
+        Behavior on scale { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 200 : 0; easing.type: Easing.OutBack; easing.overshoot: 2 } }
 
         DropArea {
             anchors.fill: parent
@@ -289,8 +289,8 @@ PlasmoidItem {
             anchors.fill: parent
             radius: ma.pressed ? height * 0.3 : height / 2
             color: chip.active || chip.dropHover ? root.accent : root.tint(chip.hovered ? 0.24 : (chip.occupied ? 0.14 : 0.07))
-            Behavior on color { ColorAnimation { duration: 220 } }
-            Behavior on radius { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
+            Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 220 : 0 } }
+            Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 220 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
         }
 
         Row {
@@ -306,7 +306,7 @@ PlasmoidItem {
                 font.features: { "tnum": 1 }
                 renderType: Text.QtRendering
                 color: chip.active || chip.dropHover ? root.onAccent : root.tint(chip.occupied ? 1 : 0.62)
-                Behavior on color { ColorAnimation { duration: 220 } }
+                Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 220 : 0 } }
             }
             Repeater {
                 model: root.showIcons ? chip.rows : null
@@ -397,15 +397,15 @@ PlasmoidItem {
                 height: root.pillHeight
                 readonly property bool lit: addMa.containsMouse
                 scale: addMa.pressed ? 0.88 : 1
-                Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 2 } }
+                Behavior on scale { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 200 : 0; easing.type: Easing.OutBack; easing.overshoot: 2 } }
                 Rectangle {
                     anchors.fill: parent
                     radius: addMa.pressed ? height * 0.3 : height / 2
                     color: root.tint(addChip.lit ? 0.24 : 0.07)
                     opacity: barHover.hovered ? 1 : 0
-                    Behavior on opacity { NumberAnimation { duration: 180 } }
-                    Behavior on color { ColorAnimation { duration: 160 } }
-                    Behavior on radius { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
+                    Behavior on opacity { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 180 : 0 } }
+                    Behavior on color { ColorAnimation { duration: Kirigami.Units.longDuration > 1 ? 160 : 0 } }
+                    Behavior on radius { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 220 : 0; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
                 }
                 // plus sign drawn with two bars (no icon theme dependency)
                 Item {
@@ -414,8 +414,8 @@ PlasmoidItem {
                     height: width
                     opacity: barHover.hovered ? 1 : 0.4
                     rotation: addChip.lit ? 90 : 0
-                    Behavior on opacity { NumberAnimation { duration: 180 } }
-                    Behavior on rotation { NumberAnimation { duration: 320; easing.type: Easing.OutBack } }
+                    Behavior on opacity { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 180 : 0 } }
+                    Behavior on rotation { NumberAnimation { duration: Kirigami.Units.longDuration > 1 ? 320 : 0; easing.type: Easing.OutBack } }
                     Rectangle { anchors.centerIn: parent; width: parent.width; height: Math.max(1.5, root.snap(parent.width * 0.16)); radius: height / 2; color: root.fg }
                     Rectangle { anchors.centerIn: parent; height: parent.height; width: Math.max(1.5, root.snap(parent.height * 0.16)); radius: width / 2; color: root.fg }
                 }
