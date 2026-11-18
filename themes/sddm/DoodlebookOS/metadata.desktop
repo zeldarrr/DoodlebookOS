@@ -1,0 +1,12 @@
+[SddmGreeterTheme]
+Name=DoodlebookOS
+Description=Material 3 Expressive login screen
+Author=DoodlebookOS
+License=GPL-3.0-or-later
+Type=sddm-theme
+Version=1.0
+MainScript=Main.qml
+ConfigFile=theme.conf
+Theme-Id=doodlebookos
+Theme-API=2.0
+QtVersion=6

@@ -78,6 +78,14 @@ if [ "$(kreadconfig6 --file kscreenlockerrc --group Greeter --key WallpaperPlugi
 fi
 rm -rf "$HOME/.local/share/plasma/wallpapers/org.doodlebookos.lockscreen"
 
+# login screen (optional, installed as root): the distribution's theme comes back
+if [ -e /etc/sddm.conf.d/zz-doodlebookos.conf ] || [ -d /usr/share/sddm/themes/doodlebookos ]; then
+    if command -v pkexec &>/dev/null; then
+        pkexec sh -c 'rm -f /etc/sddm.conf.d/zz-doodlebookos.conf; rm -rf /usr/share/sddm/themes/doodlebookos' \
+            || echo "Écran de connexion DoodlebookOS laissé en place (autorisation refusée)."
+    fi
+fi
+
 # 3. Remove Installed Themes, Icons, Cursors, Wallpapers, Fonts & C++ Plugins
 rm -rf "$HOME/.local/share/plasma/desktoptheme/DoodlebookOS_Dark" \
        "$HOME/.local/share/plasma/desktoptheme/DoodlebookOS_Light" \

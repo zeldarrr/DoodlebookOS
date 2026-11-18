@@ -20,6 +20,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -666,6 +667,63 @@ def ensure_deps():
         ui.note("Toujours manquant : " + ", ".join(m[0] for m in left) + ".")
 
 
+SDDM_THEME = "/usr/share/sddm/themes/doodlebookos"
+SDDM_CONF = "/etc/sddm.conf.d/zz-doodlebookos.conf"       # sorts after the distribution's files
+SDDM_QUESTION = ("Mettre aussi l'<b>écran de connexion</b> DoodlebookOS (SDDM) ?<br><br>"
+                 "Même horloge que l'écran de verrouillage, aux couleurs Material You.<br>"
+                 "Mot de passe administrateur demandé à la fin ; remplace le thème de connexion actuel.")
+
+
+def install_sddm(ask=True):
+    """Login screen (SDDM), optional: it needs the administrator password and replaces the
+    distribution's login theme. Its colours and wallpaper are a snapshot of Material You (SDDM
+    can't read the home folder); running `doodlebookos-setup.py --sddm` again refreshes them."""
+    src = os.path.join(ROOT, "themes", "sddm", "DoodlebookOS")
+    if not os.path.isdir(src) or not which("pkexec") or not os.path.isdir("/usr/share/sddm/themes"):
+        return False
+    if ask and not ui.ask(SDDM_QUESTION):
+        return False
+    tmp = tempfile.mkdtemp(prefix="doodlebookos-sddm-")
+    try:
+        dst = os.path.join(tmp, "doodlebookos")
+        shutil.copytree(src, dst)
+        os.makedirs(os.path.join(dst, "fonts"), exist_ok=True)
+        fonts = sorted(glob.glob(os.path.join(ROOT, "extras", "fonts", "GoogleSansFlex", "*.ttf")))
+        if fonts:
+            shutil.copyfile(fonts[0], os.path.join(dst, "fonts", "GoogleSansFlex.ttf"))
+        bg = os.path.join(SHARE, "doodlebookos", "lockscreen-materialyou.jpg")
+        if not os.path.exists(bg):
+            bg = wallpaper_path("dark")
+        if bg and os.path.exists(bg):
+            shutil.copyfile(bg, os.path.join(dst, "background.jpg"))
+        accent, on_accent = "#d0bcff", "#381e72"
+        try:
+            with open(os.path.join(CFG, "doodlebookos", "palette.json"), encoding="utf-8") as f:
+                pal = json.load(f)
+            if pal.get("mode") == "light":
+                # the login screen is always dark: use a light tint of the light-mode primary
+                p = pal.get("primary", "#6750a4").lstrip("#")
+                rgb = [int(p[i:i + 2], 16) for i in (0, 2, 4)]
+                accent = "#" + "".join(f"{round(c + (255 - c) * 0.6):02x}" for c in rgb)
+                on_accent = "#" + p
+            else:
+                accent = pal.get("primary", accent)
+                on_accent = pal.get("onPrimary", on_accent)
+        except (OSError, ValueError):
+            pass
+        with open(os.path.join(dst, "theme.conf"), "w", encoding="utf-8") as f:
+            f.write(f"[General]\nbackground=background.jpg\naccent={accent}\nonAccent={on_accent}\n")
+        script = ('set -e; rm -rf "$2"; cp -r "$1" "$2"; chmod -R a+rX "$2"; mkdir -p /etc/sddm.conf.d; '
+                  'printf "[Theme]\\nCurrent=doodlebookos\\n" > "$3"')
+        r = run(["pkexec", "sh", "-c", script, "sh", dst, SDDM_THEME, SDDM_CONF], timeout=300)
+        ok = bool(r) and r.returncode == 0
+        if not ok:
+            ui.note("Écran de connexion non installé (autorisation refusée ou SDDM absent).")
+        return ok
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def material_you(pack, mode):
     my = os.path.join(BIN, "doodlebookos-materialyou")
     run([os.path.join(BIN, "doodlebookos-m3icons"), "shape-json"], timeout=120)   # dock / photo shapes
@@ -791,6 +849,8 @@ def main():
         layout = json.load(f)
     if "--update" in ARGS:
         return update_main(pv, settings)
+    if "--sddm" in ARGS:
+        return 0 if install_sddm(ask=False) else 1
     live = shell_running()
     if not ui.ask("<b>Installer DoodlebookOS</b> (thème Material 3 Expressive pour KDE Plasma) ?<br><br>"
                   "• Barres, dock, widgets, couleurs du fond d'écran, icônes, curseurs, effets.<br>"
@@ -800,6 +860,8 @@ def main():
         return 0
     keep_wp = "--keep-wallpaper" in ARGS or (ui.gui and "--yes" not in ARGS and not ui.ask(
         "Mettre le <b>fond d'écran DoodlebookOS</b> ?<br>(Non = garder ton fond d'écran ; les couleurs en sont tirées)"))
+    want_sddm = ui.gui and "--yes" not in ARGS and os.path.isdir("/usr/share/sddm/themes") \
+        and bool(which("pkexec")) and ui.ask(SDDM_QUESTION)
     ensure_deps()
     ts = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     ui.start(9)
@@ -830,6 +892,8 @@ def main():
         ui.step("Raccourcis et services…")
         azerty_shortcuts(settings)
         services(pack)
+        if want_sddm:
+            install_sddm(ask=False)
         ui.step("Relance de Plasma…")
         if live:
             start_shell()
