@@ -816,6 +816,78 @@ void Helper::renderSeparator(QPainter *painter, const QRectF &rect, const QColor
     }
 }
 
+namespace
+{
+// 0 → off, 1 → on (CheckPartial sits in the middle)
+qreal checkProgress(CheckBoxState state, CheckBoxState target, qreal animation)
+{
+    switch (state) {
+    case CheckOn:
+        return 1.0;
+    case CheckPartial:
+        return 0.5;
+    case CheckAnimated:
+        return target == CheckOn ? animation : 1.0 - animation;
+    default:
+        return 0.0;
+    }
+}
+
+// Material 3 switch track (52×32 dp → ratio 1.625) fitted in the indicator rect; a square rect
+// (menus, group box titles, cramped item views) gets an M3 checkbox instead of a squashed switch
+bool isSwitchRect(const QRectF &rect)
+{
+    return rect.width() >= rect.height() * 1.4;
+}
+
+QRectF switchTrack(const QRectF &rect)
+{
+    const qreal h = qMin(rect.height() - 2.0, (rect.width() - 2.0) / 1.625);
+    const qreal w = h * 1.625;
+    return QRectF(rect.left() + 1.0, rect.center().y() - h / 2.0, w, h);
+}
+
+QRectF checkSquare(const QRectF &rect)
+{
+    const qreal size = qMin(qMin(rect.width(), rect.height()) - 2.0, 18.0);
+    return QRectF(rect.center().x() - size / 2.0, rect.center().y() - size / 2.0, size, size);
+}
+
+// M3 draws disabled controls in their normal colours at 38 % opacity (the disabled colour group
+// would make the track vanish into the background)
+QPalette::ColorGroup colorGroup(const QPalette &palette)
+{
+    return palette.currentColorGroup() == QPalette::Disabled ? QPalette::Active : palette.currentColorGroup();
+}
+
+QColor outlineColor(const QPalette &palette)
+{
+    const auto cg = colorGroup(palette);
+    return KColorUtils::mix(palette.color(cg, QPalette::Window), palette.color(cg, QPalette::WindowText), 0.55);
+}
+
+QColor trackOffColor(const QPalette &palette)
+{
+    // surface-container-highest
+    const auto cg = colorGroup(palette);
+    return KColorUtils::mix(palette.color(cg, QPalette::Window), palette.color(cg, QPalette::WindowText), 0.12);
+}
+
+void drawCheckMark(QPainter *painter, const QPointF &c, qreal size, const QColor &color, qreal width)
+{
+    QPen pen(color, width);
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    painter->setPen(pen);
+    painter->setBrush(Qt::NoBrush);
+    QPainterPath path;
+    path.moveTo(c.x() - 0.36 * size, c.y() + 0.02 * size);
+    path.lineTo(c.x() - 0.10 * size, c.y() + 0.27 * size);
+    path.lineTo(c.x() + 0.38 * size, c.y() - 0.25 * size);
+    painter->drawPath(path);
+}
+}
+
 //______________________________________________________________________________
 void Helper::renderCheckBoxBackground(QPainter *painter,
                                       const QRectF &rect,
@@ -825,30 +897,33 @@ void Helper::renderCheckBoxBackground(QPainter *painter,
                                       bool sunken,
                                       qreal animation) const
 {
-    // setup painter
+    Q_UNUSED(sunken)
+    painter->save();
     painter->setRenderHint(QPainter::Antialiasing, true);
+    if (palette.currentColorGroup() == QPalette::Disabled) {
+        painter->setOpacity(painter->opacity() * 0.38);
+    }
 
-    // Kapsułkowa szyna switcha Material 3 Expressive
-    QRectF trackRect(rect);
-    trackRect.adjust(1.5, 1.5, -1.5, -1.5);
-    const qreal trackRadius = trackRect.height() / 2.0;
+    // the animated state's direction isn't known here: renderCheckBox redraws what depends on it
+    const qreal progress = checkProgress(state, CheckOn, animation);
+    const QColor primary = neutalHighlight ? neutralText(palette) : palette.color(colorGroup(palette), QPalette::Highlight);
 
-    const QColor primaryColor = palette.highlight().color();
-    const QColor inactiveBorder = neutalHighlight ? neutralText(palette) : separatorColor(palette);
-    const QColor inactiveBg = palette.button().color().darker(sunken ? radioCheckSunkenDarkeningFactor : 100);
-
-    qreal progress = 0.0;
-    if (state == CheckOn) progress = 1.0;
-    else if (state == CheckOff) progress = 0.0;
-    else if (state == CheckPartial) progress = 0.5;
-    else if (state == CheckAnimated) progress = animation;
-
-    QColor currentBg = KColorUtils::mix(inactiveBg, primaryColor, progress);
-    QColor currentBorder = KColorUtils::mix(inactiveBorder, primaryColor, progress);
-
-    painter->setPen(QPen(currentBorder, 1.5));
-    painter->setBrush(currentBg);
-    painter->drawRoundedRect(trackRect, trackRadius, trackRadius);
+    if (isSwitchRect(rect)) {
+        // track: outlined surface when off, filled primary when on
+        const QRectF track = switchTrack(rect);
+        const qreal radius = track.height() / 2.0;
+        const qreal border = 2.0 * (1.0 - progress);
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(KColorUtils::mix(trackOffColor(palette), primary, progress));
+        painter->drawRoundedRect(track, radius, radius);
+        if (border > 0.05) {
+            painter->setPen(QPen(KColorUtils::mix(outlineColor(palette), primary, progress), border));
+            painter->setBrush(Qt::NoBrush);
+            const qreal in = border / 2.0;
+            painter->drawRoundedRect(track.adjusted(in, in, -in, -in), radius - in, radius - in);
+        }
+    }
+    painter->restore();
 }
 
 //______________________________________________________________________________
@@ -863,67 +938,95 @@ void Helper::renderCheckBox(QPainter *painter,
                             qreal animation,
                             qreal hoverAnimation) const
 {
-    Q_UNUSED(sunken)
-    Q_UNUSED(neutalHighlight)
     Q_UNUSED(hoverAnimation)
-
-    // setup painter
+    painter->save();
     painter->setRenderHint(QPainter::Antialiasing, true);
-
-    QRectF trackRect(rect);
-    trackRect.adjust(1.5, 1.5, -1.5, -1.5);
-
-    // Oblicz postęp animacji przesunięcia gałki (0.0 = wyłączony po lewej, 1.0 = włączony po prawej)
-    qreal progress = 0.0;
-    if (state == CheckOn) {
-        progress = 1.0;
-    } else if (state == CheckOff) {
-        progress = 0.0;
-    } else if (state == CheckPartial) {
-        progress = 0.5;
-    } else if (state == CheckAnimated) {
-        progress = (target == CheckOn) ? animation : (1.0 - animation);
+    const bool disabled = palette.currentColorGroup() == QPalette::Disabled;
+    const qreal baseOpacity = painter->opacity() * (disabled ? 0.38 : 1.0);
+    painter->setOpacity(baseOpacity);
+    if (disabled) {
+        mouseOver = false;
+        sunken = false;
     }
 
-    // Material 3: Gałka powiększa się z 10px (nieaktywna) do 15px (aktywna)
-    const qreal thumbDiameter = 10.0 + 5.0 * progress;
-    const qreal thumbRadius = thumbDiameter / 2.0;
+    const qreal progress = checkProgress(state, target, animation);
+    const QColor primary = neutalHighlight ? neutralText(palette) : palette.color(colorGroup(palette), QPalette::Highlight);
+    const QColor onPrimary = palette.color(colorGroup(palette), QPalette::HighlightedText);
 
-    const qreal minX = trackRect.left() + 2.5 + 7.5;
-    const qreal maxX = trackRect.right() - 2.5 - 7.5;
-    const qreal centerX = minX + progress * (maxX - minX);
-    const qreal centerY = trackRect.center().y();
-
-    // Kolor gałki (nieaktywna = neutralny tekst, aktywna = onPrimary #374062)
-    const QColor inactiveThumb = palette.buttonText().color();
-    const QColor activeThumb = palette.highlightedText().color();
-    const QColor thumbColor = KColorUtils::mix(inactiveThumb, activeThumb, progress);
-
-    // Rysowanie gałki (Thumb)
-    painter->setPen(Qt::NoPen);
-    painter->setBrush(thumbColor);
-    painter->drawEllipse(QPointF(centerX, centerY), thumbRadius, thumbRadius);
-
-    // Ptaszek wewnątrz gałki w kolorze Primary (Material 3 Expressive)
-    if (progress > 0.1) {
-        painter->save();
-        painter->setOpacity(progress);
-
-        const QColor checkmarkColor = palette.highlight().color();
-        QPen checkPen(checkmarkColor, 1.8);
-        checkPen.setCapStyle(Qt::RoundCap);
-        checkPen.setJoinStyle(Qt::RoundJoin);
-        painter->setPen(checkPen);
-        painter->setBrush(Qt::NoBrush);
-
-        QPainterPath checkPath;
-        checkPath.moveTo(centerX - 3.2, centerY);
-        checkPath.lineTo(centerX - 0.8, centerY + 2.3);
-        checkPath.lineTo(centerX + 3.2, centerY - 2.1);
-        painter->drawPath(checkPath);
-
+    if (!isSwitchRect(rect)) {
+        // ── Material 3 checkbox (18 px, 2 px outline, filled primary + check when on) ─────────
+        const QRectF box = checkSquare(rect);
+        const qreal radius = qMax(2.0, box.width() * 0.2);
+        if (progress > 0.0) {
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(primary);
+            painter->setOpacity(baseOpacity * qMin(1.0, progress * 1.6));
+            painter->drawRoundedRect(box, radius, radius);
+            painter->setOpacity(baseOpacity);
+            if (state == CheckPartial) {
+                QPen pen(onPrimary, 2.0);
+                pen.setCapStyle(Qt::RoundCap);
+                painter->setPen(pen);
+                painter->drawLine(QPointF(box.left() + box.width() * 0.28, box.center().y()),
+                                  QPointF(box.right() - box.width() * 0.28, box.center().y()));
+            } else {
+                drawCheckMark(painter, box.center(), box.width() * 0.8 * (0.6 + 0.4 * progress), onPrimary, 2.0);
+            }
+        }
+        if (progress < 1.0) {
+            painter->setOpacity(baseOpacity * (1.0 - progress));
+            painter->setPen(QPen(mouseOver ? palette.color(QPalette::WindowText) : outlineColor(palette), 2.0));
+            painter->setBrush(Qt::NoBrush);
+            painter->drawRoundedRect(box.adjusted(1, 1, -1, -1), radius - 1, radius - 1);
+        }
         painter->restore();
+        return;
     }
+
+    // ── Material 3 switch ─────────────────────────────────────────────────────────────────────
+    const QRectF track = switchTrack(rect);
+    const qreal h = track.height();
+
+    // the direction is known here: repaint the track for animated states
+    if (state == CheckAnimated) {
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(KColorUtils::mix(trackOffColor(palette), primary, progress));
+        painter->drawRoundedRect(track, h / 2.0, h / 2.0);
+        const qreal border = 2.0 * (1.0 - progress);
+        if (border > 0.05) {
+            painter->setPen(QPen(KColorUtils::mix(outlineColor(palette), primary, progress), border));
+            painter->setBrush(Qt::NoBrush);
+            const qreal in = border / 2.0;
+            painter->drawRoundedRect(track.adjusted(in, in, -in, -in), h / 2.0 - in, h / 2.0 - in);
+        }
+    }
+
+    // thumb: 16 dp off → 24 dp on → 28 dp pressed (of a 32 dp track); a little bigger on hover
+    qreal diameter = h * (0.5 + 0.25 * progress);
+    if (sunken) {
+        diameter = h * 0.875;
+    } else if (mouseOver) {
+        diameter += h * 0.06;
+    }
+    const qreal pad = h / 2.0;
+    const qreal cx = track.left() + pad + progress * (track.width() - 2.0 * pad);
+    const QPointF c(cx, track.center().y());
+    const QColor thumb = KColorUtils::mix(outlineColor(palette), onPrimary, progress);
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(thumb);
+    painter->drawEllipse(c, diameter / 2.0, diameter / 2.0);
+
+    // icon in the thumb: a check when on, a dash for the partial state
+    if (state == CheckPartial) {
+        QPen pen(primary, 1.8);
+        pen.setCapStyle(Qt::RoundCap);
+        painter->setPen(pen);
+        painter->drawLine(QPointF(cx - diameter * 0.22, c.y()), QPointF(cx + diameter * 0.22, c.y()));
+    } else if (progress > 0.4) {
+        painter->setOpacity(baseOpacity * (progress - 0.4) / 0.6);
+        drawCheckMark(painter, c, diameter * 0.62, primary, qMax(1.6, h * 0.075));
+    }
+    painter->restore();
 }
 
 //______________________________________________________________________________
@@ -944,20 +1047,18 @@ void Helper::renderRadioButtonBackground(QPainter *painter,
     QRectF frameRect(rect);
     frameRect.adjust(2.2, 2.2, -2.2, -2.2);
 
-    const QColor primaryColor = palette.highlight().color();
-    const QColor borderColor = neutalHighlight ? neutralText(palette) : (state == RadioOn ? primaryColor : separatorColor(palette));
-
-    // Zewnętrzny pierścień bez wypełnienia (środek w 100% w kolorze tła powierzchni)
-    painter->setPen(QPen(borderColor, 1.8));
+    // Material 3 radio: 2 px ring in the outline colour (primary when selected); disabled = 38 %
+    painter->save();
+    if (palette.currentColorGroup() == QPalette::Disabled) {
+        painter->setOpacity(painter->opacity() * 0.38);
+    }
+    const QColor primaryColor = palette.color(colorGroup(palette), QPalette::Highlight);
+    const qreal t = state == RadioOn ? 1.0 : (state == RadioAnimated ? animation : 0.0);
+    const QColor borderColor = neutalHighlight ? neutralText(palette) : KColorUtils::mix(outlineColor(palette), primaryColor, t);
+    painter->setPen(QPen(borderColor, 2.0));
     painter->setBrush(Qt::NoBrush);
     painter->drawEllipse(frameRect);
-
-    if (state == RadioAnimated) {
-        QColor animatedBorder = KColorUtils::mix(separatorColor(palette), primaryColor, animation);
-        painter->setPen(QPen(animatedBorder, 1.8));
-        painter->setBrush(Qt::NoBrush);
-        painter->drawEllipse(frameRect);
-    }
+    painter->restore();
 }
 
 //______________________________________________________________________________
@@ -996,12 +1097,16 @@ void Helper::renderRadioButton(QPainter *painter,
         painter->restore();
     }
 
-    const QColor primaryColor = palette.highlight().color();
+    painter->save();
+    if (palette.currentColorGroup() == QPalette::Disabled) {
+        painter->setOpacity(painter->opacity() * 0.38);
+    }
+    const QColor primaryColor = palette.color(colorGroup(palette), QPalette::Highlight);
     painter->setBrush(primaryColor);
     painter->setPen(Qt::NoPen);
 
-    // Kropka wewnętrzna o idealnych proporcjach ze wzorca (promień 3.6 px)
-    const qreal radius = 3.6;
+    // inner dot: half the ring (M3: 10 dp in a 20 dp ring)
+    const qreal radius = qMax(3.6, frameRect.width() * 0.25);
     const QPointF center = frameRect.center();
 
     // mark
@@ -1017,6 +1122,7 @@ void Helper::renderRadioButton(QPainter *painter,
     default:
         break;
     }
+    painter->restore();
 }
 
 //______________________________________________________________________________

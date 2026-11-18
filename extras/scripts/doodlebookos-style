@@ -3,7 +3,17 @@
 # DoodlebookOS — « Fond d'écran et style » (comme sur Android) : fond, couleurs Material You,
 # style de palette, contraste, clair/sombre, forme des icônes.
 APP="${XDG_DATA_HOME:-$HOME/.local/share}/doodlebookos/apps/style/Main.qml"
-export QT_QUICK_CONTROLS_STYLE="${QT_QUICK_CONTROLS_STYLE:-org.kde.desktop}"
+# DoodlebookOS's QML style (KDE's, with Material 3 switches) when it is installed with the link
+# that gives Kirigami KDE's colours; otherwise KDE's own style
+DATA="${XDG_DATA_HOME:-$HOME/.local/share}/doodlebookos/qml"
+if [ -f "$DATA/org/doodlebookos/desktop/qmldir" ] \
+   && { [ -e "$HOME/.local/lib64/plugins/kf6/kirigami/platform/org.doodlebookos.desktop.so" ] \
+        || [ -e "$HOME/.local/lib/plugins/kf6/kirigami/platform/org.doodlebookos.desktop.so" ]; }; then
+  export QML_IMPORT_PATH="$DATA${QML_IMPORT_PATH:+:$QML_IMPORT_PATH}"
+  export QT_QUICK_CONTROLS_STYLE=org.doodlebookos.desktop
+else
+  export QT_QUICK_CONTROLS_STYLE="${QT_QUICK_CONTROLS_STYLE:-org.kde.desktop}"
+fi
 for q in qml6 /usr/lib/qt6/bin/qml /usr/lib64/qt6/bin/qml /usr/lib/x86_64-linux-gnu/qt6/bin/qml; do
   if command -v "$q" >/dev/null 2>&1; then
     # widget app type: the KDE controls style (and DoodlebookOS's app style) need a QApplication

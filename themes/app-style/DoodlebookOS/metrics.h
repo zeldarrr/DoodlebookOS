@@ -89,8 +89,8 @@ struct Metrics {
 
     // checkboxes and radio buttons (Switch Material 3 Expressive)
     static constexpr int CheckBox_Size = 20;
-    static constexpr int CheckBox_Width = 36;
-    static constexpr int CheckBox_Height = 20;
+    static constexpr int CheckBox_Width = 42;     // M3 switch track 39×24 (52×32 dp scaled for the desktop)
+    static constexpr int CheckBox_Height = 26;
     static constexpr int CheckBox_FocusMarginWidth = 2;
     static constexpr int CheckBox_ItemSpacing = 6;
     static constexpr int CheckBox_Radius = 10;

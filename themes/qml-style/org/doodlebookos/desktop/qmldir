@@ -1,0 +1,5 @@
+module org.doodlebookos.desktop
+import org.kde.desktop auto
+Switch 1.0 Switch.qml
+SwitchDelegate 1.0 SwitchDelegate.qml
+internal M3SwitchIndicator M3SwitchIndicator.qml

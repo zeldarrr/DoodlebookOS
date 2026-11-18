@@ -312,6 +312,12 @@ def install_files():
         src = os.path.join(BUNDLE, name)
         if os.path.isdir(src):
             copytree(src, os.path.join(SHARE, "doodlebookos", name))
+    # M3 QML style (org.doodlebookos.desktop = KDE's org.kde.desktop with Material 3 switches), used
+    # by DoodlebookOS's own apps only: a session-wide style would break Qt Quick apps that can't see it
+    qml_src = os.path.join(ROOT, "themes", "qml-style")
+    if os.path.isdir(qml_src):
+        copytree(qml_src, os.path.join(SHARE, "doodlebookos", "qml"))
+        kirigami_platform_link()
     # apps: "Fond d'écran et style" (doodlebookos-style), screenshot thumbnail (doodlebookos-screenshot)
     for d in glob.glob(os.path.join(ex, "apps", "*")):
         if os.path.isdir(d):
@@ -364,6 +370,23 @@ def install_files():
     copyfile(os.path.join(ROOT, "uninstall.sh"), os.path.join(SHARE, "doodlebookos", "uninstall.sh"), 0o755)
     if which("kbuildsycoca6"):
         run(["kbuildsycoca6"])
+
+
+def kirigami_platform_link():
+    """Kirigami picks its colour plugin by style name: org.doodlebookos.desktop uses KDE's."""
+    qt = run(["qtpaths6", "--query", "QT_INSTALL_PLUGINS"]) if which("qtpaths6") else None
+    dirs = ([qt.stdout.strip()] if qt and qt.stdout.strip() else []) + [
+        "/usr/lib/qt6/plugins", "/usr/lib64/qt6/plugins", "/usr/lib/x86_64-linux-gnu/qt6/plugins",
+        "/usr/lib/aarch64-linux-gnu/qt6/plugins"]
+    target = next((p for p in (os.path.join(d, "kf6", "kirigami", "platform", "org.kde.desktop.so") for d in dirs)
+                   if os.path.exists(p)), None)
+    if not target:
+        return
+    for ld in lib_dirs():
+        link = os.path.join(ld, "plugins", "kf6", "kirigami", "platform", "org.doodlebookos.desktop.so")
+        os.makedirs(os.path.dirname(link), exist_ok=True)
+        rm(link)
+        os.symlink(target, link)
 
 
 def plugin_env():
