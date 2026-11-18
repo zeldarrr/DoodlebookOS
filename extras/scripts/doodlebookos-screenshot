@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# DoodlebookOS — capture d'écran façon Android : la capture rétrécit dans le coin en bas à gauche
+# et y reste quelques secondes (clic : ouvrir ; « Modifier » : annoter dans Spectacle).
+# L'image est enregistrée dans le dossier de Spectacle et copiée dans le presse-papiers.
+#   doodlebookos-screenshot [screen|region|window]
+#   doodlebookos-screenshot shortcut on|off|status   Impr. écran → cette capture
+#                                                    (la fenêtre de Spectacle passe sur Ctrl+Impr. écran)
+# Rien ne tourne entre deux captures.
+set -u
+APP="${XDG_DATA_HOME:-$HOME/.local/share}/doodlebookos/apps/screenshot/Thumb.qml"
+BAK="${XDG_STATE_HOME:-$HOME/.local/state}/doodlebookos/screenshot-shortcut.bak"
+OURS="doodlebookos-screenshot.desktop"
+PRINT=16777225; CTRL=67108864        # Qt::Key_Print, Qt::ControlModifier
+
+kga() { gdbus call --session -d org.kde.kglobalaccel -o /kglobalaccel -m "org.kde.KGlobalAccel.$1" "${@:2}"; }
+keys() { kga shortcutKeys "['$1','$2','','']" | sed -e 's/^(//' -e 's/,)$//'; }
+
+if [[ "${1:-}" == shortcut ]]; then
+  case "${2:-}" in
+    on)
+      mkdir -p "${BAK%/*}"
+      [[ -s "$BAK" ]] || keys org.kde.spectacle.desktop _launch > "$BAK"
+      # Spectacle keeps its other keys (Meta+Shift+S…): only Print moves to Ctrl+Print
+      cur="$(keys org.kde.spectacle.desktop _launch)"
+      if [[ "$cur" == *"[$PRINT, 0, 0, 0]"* ]]; then
+        kga setForeignShortcutKeys "['org.kde.spectacle.desktop','_launch','','']" \
+          "${cur//\[$PRINT, 0, 0, 0\]/[$((CTRL + PRINT)), 0, 0, 0]}" >/dev/null
+      fi
+      kga doRegister "['$OURS','_launch','Capture d’écran','Capture d’écran']" >/dev/null
+      kga setForeignShortcutKeys "['$OURS','_launch','','']" "[([$PRINT],)]" >/dev/null
+      echo on ;;
+    off)
+      kga setForeignShortcutKeys "['$OURS','_launch','','']" "@a(ai) []" >/dev/null 2>&1
+      if [[ -s "$BAK" ]]; then
+        kga setForeignShortcutKeys "['org.kde.spectacle.desktop','_launch','','']" "$(cat "$BAK")" >/dev/null
+        rm -f "$BAK"
+      fi
+      echo off ;;
+    status) echo "capture: $(keys "$OURS" _launch)  spectacle: $(keys org.kde.spectacle.desktop _launch)" ;;
+    *) echo "usage: doodlebookos-screenshot shortcut on|off|status" >&2; exit 1 ;;
+  esac
+  exit 0
+fi
+
+case "${1:-screen}" in
+  screen) what=-m ;;
+  region) what=-r ;;
+  window) what=-a ;;
+  *) echo "usage: doodlebookos-screenshot [screen|region|window] | shortcut on|off|status" >&2; exit 1 ;;
+esac
+
+# Spectacle's folder: its own setting, else Pictures/<"Screenshots" in the user's language>
+dir="$(kreadconfig6 --file spectaclerc --group ImageSave --key imageSaveLocation 2>/dev/null)"
+dir="${dir#file://}"
+if [[ -z "$dir" ]]; then
+  pics="$(xdg-user-dir PICTURES 2>/dev/null)"; pics="${pics:-$HOME/Pictures}"
+  sub="$(kreadconfig6 --file spectaclerc --group ImageSave --key translatedScreenshotsFolder 2>/dev/null)"
+  dir="${pics%/}/${sub:-Screenshots}"
+fi
+dir="$(printf '%b' "${dir//%/\\x}")"   # file URLs come percent-encoded
+mkdir -p "$dir"
+file="$dir/Capture d'écran_$(date +%Y%m%d_%H%M%S).png"
+
+spectacle -b -n -c "$what" -o "$file" >/dev/null 2>&1
+[[ -s "$file" ]] || exit 0          # selection cancelled
+
+export QT_QUICK_CONTROLS_STYLE="${QT_QUICK_CONTROLS_STYLE:-org.kde.desktop}"
+for q in qml6 /usr/lib/qt6/bin/qml /usr/lib64/qt6/bin/qml /usr/lib/x86_64-linux-gnu/qt6/bin/qml; do
+  if command -v "$q" >/dev/null 2>&1; then
+    exec "$q" "$APP" -- "$file"
+  fi
+done
+exit 0

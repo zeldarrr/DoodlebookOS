@@ -104,7 +104,10 @@ for line in open(p, encoding="utf-8").read().splitlines():
 open(p, "w", encoding="utf-8").write("\n".join(out) + "\n")
 PY
 fi
+[ -x "$HOME/.local/bin/doodlebookos-screenshot" ] && "$HOME/.local/bin/doodlebookos-screenshot" shortcut off >/dev/null 2>&1 || true
+rm -f "$HOME/.local/state/doodlebookos/screenshot-shortcut.bak"
 rm -f "$HOME/.local/share/applications/doodlebookos-style.desktop" "$HOME/.local/bin/doodlebookos-style"
+rm -f "$HOME/.local/share/applications/doodlebookos-screenshot.desktop" "$HOME/.local/bin/doodlebookos-screenshot"
 
 # login screen (optional, installed as root): the distribution's theme comes back
 if [ -e /etc/sddm.conf.d/zz-doodlebookos.conf ] || [ -d /usr/share/sddm/themes/doodlebookos ]; then

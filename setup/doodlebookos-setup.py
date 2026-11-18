@@ -308,13 +308,14 @@ def install_files():
         src = os.path.join(BUNDLE, name)
         if os.path.isdir(src):
             copytree(src, os.path.join(SHARE, "doodlebookos", name))
-    # apps: "Fond d'écran et style" (QML, run by doodlebookos-style)
+    # apps: "Fond d'écran et style" (doodlebookos-style), screenshot thumbnail (doodlebookos-screenshot)
     for d in glob.glob(os.path.join(ex, "apps", "*")):
         if os.path.isdir(d):
             copytree(d, os.path.join(SHARE, "doodlebookos", "apps", os.path.basename(d)))
     for f in glob.glob(os.path.join(ex, "apps", "*.desktop")):
         with open(f, encoding="utf-8") as src:
-            txt = src.read().replace("Exec=doodlebookos-style", "Exec=" + os.path.join(BIN, "doodlebookos-style"))
+            txt = re.sub(r"^Exec=(doodlebookos-[\w-]+)", lambda m: "Exec=" + os.path.join(BIN, m.group(1)),
+                         src.read(), flags=re.M)
         os.makedirs(os.path.join(SHARE, "applications"), exist_ok=True)
         with open(os.path.join(SHARE, "applications", os.path.basename(f)), "w", encoding="utf-8") as out:
             out.write(txt)
@@ -913,6 +914,10 @@ def main():
         azerty_shortcuts(settings)
         services(pack)
         flatpak_theming()
+        # Print → Android-style screenshot with its thumbnail (Spectacle's window: Ctrl+Print)
+        if which("spectacle"):
+            run(["kbuildsycoca6"], timeout=120)
+            run([os.path.join(BIN, "doodlebookos-screenshot"), "shortcut", "on"], timeout=30)
         if want_sddm:
             install_sddm(ask=False)
         ui.step("Relance de Plasma…")

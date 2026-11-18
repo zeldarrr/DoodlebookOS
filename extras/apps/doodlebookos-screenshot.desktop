@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Screenshot
+Name[fr]=Capture d'écran
+Comment=Capture the screen, Android style
+Comment[fr]=Capturer l'écran, façon Android
+Exec=doodlebookos-screenshot
+Icon=spectacle
+NoDisplay=true
+X-KDE-GlobalAccel-CommandShortcut=true
