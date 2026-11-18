@@ -110,6 +110,7 @@ widgets placés, fond d'écran et réglages restent intacts.
 | **Reference Platform (Tier 1)** | **Fedora 45 (KDE Plasma Desktop Edition)** | The exact reference environment where DoodlebookOS is developed and verified. |
 | **Desktop Environment** | **KDE Plasma 6.8.2+** | **Plasma 5 is not supported** (Qt6 / KF6 architecture required). |
 | **Display Server** | **Wayland** | **Wayland session is required**. X11 is not supported due to Wayland layer-shell popups and fractional scaling. |
+| **Image-based (Atomic) systems** | **Bazzite 45 (KDE)**, **Fedora Kinoite 45**, **Aurora** | Supported by the single-file installer: nothing is written to the read-only `/usr`, the C++ modules ship precompiled for Fedora 45 (no compiler needed), missing KDE parts are offered through `rpm-ostree` (never automatically). The DoodlebookOS login screen (SDDM) is skipped there. |
 | **Other Distros (Experimental)** | **Arch Linux**, **openSUSE Tumbleweed**, **KDE neon / Kubuntu 26.10+** | Community testing tier; requires up-to-date Qt6/KF6 packages and may need manual dependency resolution. |
 | **Virtual Machines (VM)** | **3D Acceleration Required (`VirtIO-GPU` / `VirGL`)** | Required when testing in QEMU/KVM, Boxes, or VirtualBox for KWin Wayland compositing and real-time top bar luminance sampling. |
 

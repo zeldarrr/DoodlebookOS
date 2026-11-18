@@ -208,6 +208,27 @@ def has_python_module(mod):
     return subprocess.run([sys.executable, "-c", f"import {mod}"], capture_output=True).returncode == 0
 
 
+def image_based():
+    """Bazzite, Fedora Kinoite/Silverblue, Aurora…: /usr is read-only, packages are layered."""
+    return os.path.exists("/run/ostree-booted") or bool(which("bootc") and os.path.exists("/sysroot/ostree"))
+
+
+def sddm_active():
+    """SDDM is the login manager in use (Bazzite 44+ / Fedora 44+ KDE use Plasma Login instead)."""
+    try:
+        dm = os.path.realpath("/etc/systemd/system/display-manager.service")
+    except OSError:
+        dm = ""
+    if dm and os.path.exists(dm):
+        return "sddm" in os.path.basename(dm)
+    return bool(which("sddm")) and os.path.isdir("/usr/share/sddm/themes")
+
+
+def sddm_possible():
+    """Our SDDM theme goes to /usr/share/sddm/themes: not on an image-based system."""
+    return sddm_active() and not image_based() and os.path.isdir("/usr/share/sddm/themes") and bool(which("pkexec"))
+
+
 def lib_dirs():
     return [os.path.join(HOME, ".local", d) for d in ("lib64", "lib")]
 
@@ -407,12 +428,25 @@ def plugin_env():
         run(["dbus-update-activation-environment", "--systemd", f"QT_PLUGIN_PATH={val}"])
 
 
-def prebuilt_ok(so, info, pv):
-    if not os.path.isfile(so) or tuple(info.get("plasma", [0, 0])[:2]) != pv[:2]:
+def qt_version_of(ldd_out):
+    """Version of the Qt library a binary resolves to (from `ldd` output), e.g. (6, 11)."""
+    m = re.search(r"libQt6Core\.so\.6 => (\S+)", ldd_out)
+    if not m:
+        return None
+    v = re.search(r"\.so\.(\d+)\.(\d+)\.\d+$", os.path.realpath(m.group(1)))
+    return (int(v.group(1)), int(v.group(2))) if v else None
+
+
+def prebuilt_ok(so, info, pv, need_plasma=True):
+    if not os.path.isfile(so) or (need_plasma and tuple(info.get("plasma", [0, 0])[:2]) != pv[:2]):
         return False
     r = run(["ldd", "-r", so]) if which("ldd") else None
     out = (r.stdout + r.stderr) if r else ""
-    return bool(r) and r.returncode == 0 and "not found" not in out and "undefined symbol" not in out
+    if not (bool(r) and r.returncode == 0 and "not found" not in out and "undefined symbol" not in out):
+        return False
+    # Qt refuses plugins built against a newer Qt than the one running (even when every symbol resolves)
+    sys_qt, built_qt = qt_version_of(out), tuple(info.get("qt", [])[:2])
+    return not (sys_qt and len(built_qt) == 2 and built_qt > sys_qt)
 
 
 def install_so(so, sub, name):
@@ -431,35 +465,56 @@ def can_build():
     return any(glob.glob(p) for p in ("/usr/lib*/cmake/KDecoration3", "/usr/lib/*/cmake/KDecoration3"))
 
 
+def prebuilt_variants():
+    """Precompiled modules shipped in the installer: bundle/prebuilt (the release machine) and
+    bundle/prebuilt/<distro>/ (e.g. fedora45 for Bazzite / Kinoite / Fedora KDE, built in a container)."""
+    base = os.path.join(BUNDLE, "prebuilt")
+    out = []
+    for d in [base] + sorted(glob.glob(os.path.join(base, "*", ""))):
+        d = d.rstrip("/")
+        try:
+            with open(os.path.join(d, "buildinfo.json"), encoding="utf-8") as f:
+                out.append((d, json.load(f)))
+        except (OSError, ValueError):
+            pass
+    return out
+
+
 def native_parts(pv):
     """Window decoration + Qt application style. Returns (decoration, style) installed."""
-    info = {}
-    try:
-        with open(os.path.join(BUNDLE, "prebuilt", "buildinfo.json"), encoding="utf-8") as f:
-            info = json.load(f)
-    except (OSError, ValueError):
-        pass
+    variants = prebuilt_variants()
+    info = variants[0][1] if variants else {}
     got = {}
     for key, so_name, sub, script in (
             ("deco", "org.doodlebookos.decoration.so", "org.kde.kdecoration3", "themes/window-decoration/DoodlebookOS/build.sh"),
             ("style", "doodlebookos6.so", "styles", "themes/app-style/DoodlebookOS/build.sh")):
-        so = os.path.join(BUNDLE, "prebuilt", so_name)
-        if prebuilt_ok(so, info, pv):
-            install_so(so, sub, so_name)
+        # the first variant built for this Plasma whose Qt/KDE symbols all resolve on this PC
+        match = next((os.path.join(d, so_name) for d, inf in variants
+                      if prebuilt_ok(os.path.join(d, so_name), inf, pv)), None)
+        if match:
+            install_so(match, sub, so_name)
             got[key] = True
         elif can_build():
             r = run(["bash", os.path.join(ROOT, script)], timeout=1800)
             got[key] = bool(r and r.returncode == 0)
         else:
             got[key] = False
+    # launcher of DoodlebookOS's QML apps (Qt's `qml` tool is missing on Fedora / Bazzite)
+    runner = next((os.path.join(d, "doodlebookos-qml") for d, inf in variants
+                   if prebuilt_ok(os.path.join(d, "doodlebookos-qml"), inf, pv, need_plasma=False)), None)
+    if runner:
+        copyfile(runner, os.path.join(BIN, "doodlebookos-qml"), 0o755)
     style_rc = os.path.join(ROOT, "themes", "app-style", "DoodlebookOS", "doodlebookos.themerc")
     if got.get("style") and os.path.exists(style_rc):
         copyfile(style_rc, os.path.join(SHARE, "kstyle", "themes", "doodlebookos.themerc"))
     if not got.get("deco") or not got.get("style"):
-        built = ".".join(map(str, info.get("plasma", [])[:2])) or "?"
+        built = ", ".join(sorted({".".join(map(str, inf.get("plasma", [])[:2])) for _, inf in variants})) or "?"
+        how = ("une nouvelle version de DoodlebookOS les apportera pour ce système"
+               if image_based() else
+               "installer cmake, ninja, g++ et les paquets de développement KDE (voir install.sh du dépôt), "
+               "puis relancer l'installeur")
         ui.note("Décoration des fenêtres / style des applis non installés : modules compilés pour Plasma "
-                f"{built}, ce PC a Plasma {pv[0]}.{pv[1]}. Pour les compiler : installer cmake, ninja, g++ et les "
-                "paquets de développement KDE (voir install.sh du dépôt), puis relancer l'installeur.")
+                f"{built}, ce PC a Plasma {pv[0]}.{pv[1]} — {how}.")
     return got.get("deco", False), got.get("style", False)
 
 
@@ -677,11 +732,12 @@ def ensure_deps():
     miss = missing_deps()
     if not miss:
         return
+    if image_based():
+        ensure_deps_image(miss)
+        return
     labels = ", ".join(m[0] for m in miss)
     col, cmd = None, None
-    if which("rpm-ostree") and os.path.exists("/run/ostree-booted"):
-        pass                                             # immutable system: no live package install
-    elif which("pacman"):
+    if which("pacman"):
         col, cmd = 0, "pacman -S --needed --noconfirm"   # no -Sy: never a partial upgrade
     elif which("dnf"):
         col, cmd = 1, "dnf install -y"
@@ -703,6 +759,38 @@ def ensure_deps():
     left = missing_deps()
     if left:
         ui.note("Toujours manquant : " + ", ".join(m[0] for m in left) + ".")
+
+
+PIP_NAMES = {"PIL": "pillow"}            # ready-made wheels only: no compiler on these systems
+
+
+def ensure_deps_image(miss):
+    """Image-based system (Bazzite…): Python modules go to the user's site-packages with pip (no
+    root, nothing layered on the image); KDE parts can only be layered with rpm-ostree, applied at
+    the next reboot, so that is offered, never forced."""
+    py = [(label, mod) for label, pkgs in miss for l2, mod, _ in DEPS if l2 == label and mod.startswith("PY:")]
+    pip_ok = run([sys.executable, "-m", "pip", "--version"])
+    for label, mod in py:
+        name = PIP_NAMES.get(mod[3:].split(".")[0])
+        if name and pip_ok and pip_ok.returncode == 0:
+            run([sys.executable, "-m", "pip", "install", "--user", "--quiet", "--only-binary", ":all:", name],
+                timeout=900)
+    left = missing_deps()
+    if not left:
+        return
+    labels = ", ".join(m[0] for m in left)
+    pkgs = [m[1][1] for m in left]                       # Fedora names
+    # never in --yes mode (automatic updates): layering changes the system image, the user decides
+    if which("rpm-ostree") and which("pkexec") and ui.gui and "--yes" not in ARGS and ui.ask(
+            f"Il manque des paquets pour : <b>{labels}</b>.<br>Paquets : {' '.join(pkgs)}<br><br>"
+            "Système en image (Bazzite…) : ils peuvent être <b>ajoutés à l'image</b> avec rpm-ostree "
+            "(actifs au prochain redémarrage). Les ajouter ? (mot de passe administrateur)"):
+        r = run(["pkexec", "rpm-ostree", "install", "--idempotent", "--allow-inactive", *pkgs], timeout=1800)
+        if r and r.returncode == 0:
+            ui.note(f"Paquets ajoutés ({labels}) : redémarre le PC pour en profiter.")
+            return
+    ui.note(f"Paquets manquants ({labels}) : ces fonctions resteront absentes "
+            f"(rpm-ostree install {' '.join(pkgs)}, puis redémarrer).")
 
 
 FLATPAK_THEME_FS = ("xdg-config/gtk-3.0:ro", "xdg-config/gtk-4.0:ro", "xdg-config/kdeglobals:ro",
@@ -727,7 +815,10 @@ def install_sddm(ask=True):
     distribution's login theme. Its colours and wallpaper are a snapshot of Material You (SDDM
     can't read the home folder); running `doodlebookos-setup.py --sddm` again refreshes them."""
     src = os.path.join(ROOT, "themes", "sddm", "DoodlebookOS")
-    if not os.path.isdir(src) or not which("pkexec") or not os.path.isdir("/usr/share/sddm/themes"):
+    if not os.path.isdir(src) or not sddm_possible():
+        if ask is False:                                 # asked for explicitly (--sddm)
+            ui.note("Écran de connexion non installé : SDDM n'est pas le gestionnaire de connexion de ce PC "
+                    "(Plasma Login sur Bazzite / Fedora 44+), ou /usr est en lecture seule.")
         return False
     if ask and not ui.ask(SDDM_QUESTION):
         return False
@@ -908,8 +999,7 @@ def main():
         return 0
     keep_wp = "--keep-wallpaper" in ARGS or (ui.gui and "--yes" not in ARGS and not ui.ask(
         "Mettre le <b>fond d'écran DoodlebookOS</b> ?<br>(Non = garder ton fond d'écran ; les couleurs en sont tirées)"))
-    want_sddm = ui.gui and "--yes" not in ARGS and os.path.isdir("/usr/share/sddm/themes") \
-        and bool(which("pkexec")) and ui.ask(SDDM_QUESTION)
+    want_sddm = ui.gui and "--yes" not in ARGS and sddm_possible() and ui.ask(SDDM_QUESTION)
     ensure_deps()
     ts = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     ui.start(9)

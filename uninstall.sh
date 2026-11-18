@@ -36,7 +36,8 @@ rm -f "$HOME/.config/systemd/user/doodlebookos-topbar.service" \
       "$HOME/.config/systemd/user/doodlebookos-powersave.service"
 rm -f "$HOME"/.config/systemd/user/app-*-.scope.d/50-doodlebookos-voice.conf
 rm -f "$HOME/.local/bin/doodlebookos-gamemode" "$HOME/.local/bin/doodlebookos-gamemode-dnd" \
-      "$HOME/.local/bin/doodlebookos-desktop-shortcuts" "$HOME/.local/bin/doodlebookos-powersave"
+      "$HOME/.local/bin/doodlebookos-desktop-shortcuts" "$HOME/.local/bin/doodlebookos-powersave" \
+      "$HOME/.local/bin/doodlebookos-qml"
 rm -f "$HOME/.config/systemd/user/plasma-krunner.service"
 rm -f "$HOME/.local/bin/doodlebookos-topbar-color" \
       "$HOME/.local/bin/dostheme" \

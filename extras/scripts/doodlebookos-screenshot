@@ -70,7 +70,10 @@ spectacle -b -n -c "$what" -o "$file" >/dev/null 2>&1
 command -v canberra-gtk-play >/dev/null 2>&1 && (canberra-gtk-play -i screen-capture -d "Capture d'écran" >/dev/null 2>&1 &)
 
 export QT_QUICK_CONTROLS_STYLE="${QT_QUICK_CONTROLS_STYLE:-org.kde.desktop}"
-for q in qml6 /usr/lib/qt6/bin/qml /usr/lib64/qt6/bin/qml /usr/lib/x86_64-linux-gnu/qt6/bin/qml; do
+if [ -x "$HOME/.local/bin/doodlebookos-qml" ]; then
+  exec "$HOME/.local/bin/doodlebookos-qml" -d doodlebookos-screenshot "$APP" -- "$file"
+fi
+for q in qml6 qml-qt6 /usr/lib/qt6/bin/qml /usr/lib64/qt6/bin/qml /usr/lib/x86_64-linux-gnu/qt6/bin/qml; do
   if command -v "$q" >/dev/null 2>&1; then
     exec "$q" "$APP" -- "$file"
   fi

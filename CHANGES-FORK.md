@@ -13,6 +13,15 @@ d'avis de modification au sens de la GPL-3.0 (§ 5a).
 - Vérifie les paquets dont les widgets ont besoin (son, réseau, Bluetooth, KDE Connect, Pillow, PyGObject…)
   et propose de les installer en une fois (pacman, dnf, apt, zypper) ; testé sur Arch (Plasma 6.8.3, Qt 6.12).
   Dock et widget Appareils se chargent même sans KDE Connect.
+- **Bazzite / Fedora Kinoite / Aurora (systèmes en image, `/usr` en lecture seule)** : rien n'est
+  écrit dans `/usr` ; modules C++ précompilés pour Fedora 45 dans un conteneur
+  (`setup/build-prebuilt-fedora.sh`), livrés à côté de ceux de la machine de publication, et
+  l'installeur prend la variante dont Plasma et Qt correspondent (`ldd -r` et version de Qt) ;
+  Pillow via `pip --user` (roues seulement), paquets KDE manquants proposés via `rpm-ostree` (jamais
+  en mode `--yes`, donc jamais par les mises à jour automatiques) ; écran de connexion SDDM sauté
+  (lecture seule, et Plasma Login sur Bazzite / Fedora 44+). Lanceur `doodlebookos-qml`
+  pour « Fond d'écran et style » et la vignette de capture, car Fedora ne livre l'outil `qml`
+  qu'avec les paquets de développement. Testé dans un conteneur Fedora 45 simulant Bazzite.
 - Mises à jour automatiques signées (`doodlebookos-update`, minuteur quotidien, installation à la
   connexion suivante, `setup/release.sh` pour publier).
 - Faux liens (fichiers texte) de l'archive remplacés par de vrais liens symboliques (curseurs,

@@ -17,6 +17,12 @@ cd "$REPO"
 [[ -z "$(git status --porcelain -- . ':!setup/profile')" ]] || { echo "[!] modifications non commitées :"; git status --short; exit 1; }
 git rev-parse -q --verify "refs/tags/$TAG" >/dev/null && { echo "[!] le tag $TAG existe déjà"; exit 1; }
 
+# Bazzite / Kinoite / Fedora KDE modules, rebuilt from this commit (needs podman or docker)
+if command -v podman >/dev/null 2>&1 || command -v docker >/dev/null 2>&1; then
+    bash setup/build-prebuilt-fedora.sh 45
+else
+    echo "[!] ni podman ni docker : modules Fedora 45 (Bazzite) repris du cache, s'il existe"
+fi
 bash setup/make-installer.sh --capture --desktop --version "$TAG"
 git add setup/profile
 git diff --cached --quiet || git commit -q -m "Profil exporté pour $TAG"

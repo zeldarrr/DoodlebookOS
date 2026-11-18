@@ -22,7 +22,8 @@ import time
 
 HOME = os.path.expanduser("~")
 APPLETSRC = os.path.join(HOME, ".config", "plasma-org.kde.plasma.desktop-appletsrc")
-QML = shutil.which("qml6") or "/usr/lib/qt6/bin/qml"
+QML = (shutil.which("qml6") or shutil.which("qml-qt6")
+       or next((p for p in ("/usr/lib/qt6/bin/qml", "/usr/lib64/qt6/bin/qml") if os.path.exists(p)), "qml"))
 
 
 def sh(*cmd, **kw):

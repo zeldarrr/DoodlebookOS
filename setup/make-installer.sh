@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Builds dist/DoodlebookOS-Installer.run: one self-extracting file (run-header.sh + tar.xz of the repo,
-# the precompiled decoration/style modules of THIS machine and the third-party icon assets).
+# the precompiled decoration/style modules of THIS machine, those built in containers for other
+# systems — setup/build-prebuilt-fedora.sh for Bazzite / Kinoite / Fedora KDE — and the third-party
+# icon assets).
 #
 #   setup/make-installer.sh [--capture] [--desktop] [--version vX.Y.Z]
 #     --capture   export this desktop's look first (setup/capture-profile.py)
@@ -38,10 +40,21 @@ for so in "$HOME/.local/lib64/plugins/org.kde.kdecoration3/org.doodlebookos.deco
           "$HOME/.local/lib64/plugins/styles/doodlebookos6.so"; do
     [[ -f "$so" ]] && cp -L "$so" "$D/bundle/prebuilt/" || echo "    (absent : $so)"
 done
+bash "$REPO/setup/qml-runner/build.sh" "$D/bundle/prebuilt/doodlebookos-qml" 2>/dev/null \
+    || echo "    (doodlebookos-qml non compilé ici)"
 pv=$(QT_QPA_PLATFORM=offscreen plasmashell --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
 qv=$(readlink -f "$(ldd "$D/bundle/prebuilt/doodlebookos6.so" 2>/dev/null | awk '/libQt6Core/ {print $3}')" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+$' || true)
 printf '{"plasma": [%s], "qt": [%s], "arch": "%s"}\n' "${pv//./, }" "${qv//./, }" "$(uname -m)" > "$D/bundle/prebuilt/buildinfo.json"
 cat "$D/bundle/prebuilt/buildinfo.json"
+# variants built in containers for other systems (setup/build-prebuilt-fedora.sh: Bazzite, Kinoite…)
+for v in "${XDG_CACHE_HOME:-$HOME/.cache}"/doodlebookos-prebuilt/*/; do
+    [[ -f "$v/buildinfo.json" ]] || continue
+    n="$(basename "$v")"
+    mkdir -p "$D/bundle/prebuilt/$n"
+    cp "$v"/*.so "$v/buildinfo.json" "$D/bundle/prebuilt/$n/"
+    [[ -f "$v/doodlebookos-qml" ]] && cp "$v/doodlebookos-qml" "$D/bundle/prebuilt/$n/"
+    echo "    variante $n : $(cat "$v/buildinfo.json")"
+done
 
 echo "[i] Icônes tierces (Tela-circle GPL-3.0, glyphes Simple Icons CC0 / Material Symbols Apache-2.0)…"
 mkdir -p "$D/bundle/icons"
