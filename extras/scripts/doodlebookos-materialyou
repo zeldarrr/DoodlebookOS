@@ -646,6 +646,253 @@ def write_konsole_scheme(src, mode):
         f.write("\n".join(lines))
 
 
+# ───────────────────────── extras: third-party apps (Zen, VS Code / VSCodium, Kate) ─────────────────────────
+def m3_roles(src, mode):
+    """Material 3 colour roles for app themes, from the chosen palette style."""
+    dark = mode == "dark"
+    pal = palettes(src)
+    ph, pc = pal["primary"]
+    pc = max(src[1], pc) if load_style()[0] == "tonal_spot" else pc
+    sh, sc = pal["secondary"]
+    th, tc = pal["tertiary"]
+    nh, nc = pal["neutral"]
+    vh, vc = pal["neutralVariant"]
+    hx = lambda h, c, t: "#%02x%02x%02x" % hct_to_rgb(h % 360.0, c, t)
+    T = (lambda d, l: d if dark else l)
+    return {
+        "dark": dark,
+        "primary": hx(ph, pc, T(80, 40)), "onPrimary": hx(ph, pc, T(20, 100)),
+        "primaryContainer": hx(ph, pc, T(30, 90)), "onPrimaryContainer": hx(ph, pc, T(90, 10)),
+        "secondary": hx(sh, sc, T(80, 40)), "secondaryContainer": hx(sh, sc, T(30, 90)),
+        "onSecondaryContainer": hx(sh, sc, T(90, 10)),
+        "tertiary": hx(th, tc, T(80, 40)), "tertiaryContainer": hx(th, tc, T(30, 90)),
+        "error": T("#ffb4ab", "#ba1a1a"),
+        "surface": hx(nh, nc, T(6, 98)), "surfaceDim": hx(nh, nc, T(6, 87)),
+        "surfaceContainerLowest": hx(nh, nc, T(4, 100)), "surfaceContainerLow": hx(nh, nc, T(10, 96)),
+        "surfaceContainer": hx(nh, nc, T(12, 94)), "surfaceContainerHigh": hx(nh, nc, T(17, 92)),
+        "surfaceContainerHighest": hx(nh, nc, T(22, 90)),
+        "onSurface": hx(nh, nc, T(90, 10)), "onSurfaceVariant": hx(vh, vc, T(80, 30)),
+        "outline": hx(vh, vc, T(60, 50)), "outlineVariant": hx(vh, vc, T(30, 80)),
+        # syntax colours: the palette families + fixed hues kept readable
+        "syn": {k: hx(h, c, T(80, 40)) for k, (h, c) in {
+            "keyword": (ph, max(pc, 36)), "type": (th, max(tc, 30)), "function": (sh + 30, 36),
+            "string": (145, 40), "number": (60, 44), "comment": (vh, vc), "constant": (25, 44),
+            "variable": (nh, nc), "operator": (ph + 180, 20)}.items()},
+    }
+
+
+MARK_BEGIN = "// >>> DoodlebookOS Material You"
+MARK_END = "// <<< DoodlebookOS Material You"
+
+
+def zen_profiles():
+    ini = os.path.join(HOME, ".zen", "profiles.ini")
+    out = []
+    if os.path.exists(ini):
+        cp = configparser.ConfigParser()
+        try:
+            cp.read(ini, encoding="utf-8")
+        except configparser.Error:
+            return out
+        for sec in cp.sections():
+            path = cp.get(sec, "Path", fallback="")
+            if not path:
+                continue
+            full = path if os.path.isabs(path) else os.path.join(HOME, ".zen", path)
+            if os.path.isdir(full):
+                out.append(full)
+    return out
+
+
+def zen_user_js(profile, accent):
+    """Zen browser accent colour, in the profile's user.js between DoodlebookOS markers."""
+    p = os.path.join(profile, "user.js")
+    txt = open(p, encoding="utf-8").read() if os.path.exists(p) else ""
+    txt = re.sub(re.escape(MARK_BEGIN) + r".*?" + re.escape(MARK_END) + r"\n?", "", txt, flags=re.S)
+    if accent:
+        txt += f'{MARK_BEGIN}\nuser_pref("zen.theme.accent-color", "{accent}");\n{MARK_END}\n'
+    with open(p, "w", encoding="utf-8") as f:
+        f.write(txt)
+
+
+def zen_current_accent(profile):
+    try:
+        m = re.search(r'user_pref\("zen\.theme\.accent-color",\s*"([^"]+)"\)', open(os.path.join(profile, "prefs.js"), encoding="utf-8").read())
+        return m.group(1) if m else ""
+    except OSError:
+        return ""
+
+
+VSCODE_EXT_DIRS = [os.path.join(HOME, d, "extensions") for d in (".vscode-oss", ".vscode")]
+VSCODE_EXT_ID = "doodlebookos.material-you"
+VSCODE_EXT_VER = "1.0.0"
+
+
+def vscode_theme(r):
+    c = lambda k: r[k]
+    colors = {
+        "editor.background": c("surface"), "editor.foreground": c("onSurface"),
+        "editorLineNumber.foreground": c("outline"), "editorLineNumber.activeForeground": c("primary"),
+        "editor.selectionBackground": c("primaryContainer") + "aa", "editor.lineHighlightBackground": c("surfaceContainerLow"),
+        "editorCursor.foreground": c("primary"), "editorIndentGuide.background1": c("outlineVariant"),
+        "editorWidget.background": c("surfaceContainerHigh"), "editorSuggestWidget.selectedBackground": c("secondaryContainer"),
+        "sideBar.background": c("surfaceContainerLow"), "sideBar.foreground": c("onSurfaceVariant"),
+        "sideBarSectionHeader.background": c("surfaceContainerLow"), "activityBar.background": c("surfaceContainer"),
+        "activityBar.foreground": c("onSurface"), "activityBar.inactiveForeground": c("onSurfaceVariant"),
+        "activityBarBadge.background": c("primary"), "activityBarBadge.foreground": c("onPrimary"),
+        "activityBar.activeBorder": c("primary"),
+        "titleBar.activeBackground": c("surfaceContainer"), "titleBar.inactiveBackground": c("surfaceContainer"),
+        "titleBar.activeForeground": c("onSurface"), "statusBar.background": c("surfaceContainer"),
+        "statusBar.foreground": c("onSurfaceVariant"), "statusBar.noFolderBackground": c("surfaceContainer"),
+        "statusBarItem.remoteBackground": c("primary"), "statusBarItem.remoteForeground": c("onPrimary"),
+        "tab.activeBackground": c("surface"), "tab.inactiveBackground": c("surfaceContainerLow"),
+        "tab.activeForeground": c("onSurface"), "tab.inactiveForeground": c("onSurfaceVariant"),
+        "tab.activeBorderTop": c("primary"), "tab.border": c("surfaceContainerLow"),
+        "editorGroupHeader.tabsBackground": c("surfaceContainerLow"), "panel.background": c("surfaceContainerLow"),
+        "panel.border": c("outlineVariant"), "panelTitle.activeBorder": c("primary"),
+        "terminal.background": c("surfaceContainerLow"), "terminal.foreground": c("onSurface"),
+        "button.background": c("primary"), "button.foreground": c("onPrimary"),
+        "button.secondaryBackground": c("secondaryContainer"), "button.secondaryForeground": c("onSecondaryContainer"),
+        "input.background": c("surfaceContainerHighest"), "input.foreground": c("onSurface"),
+        "dropdown.background": c("surfaceContainerHigh"), "list.activeSelectionBackground": c("secondaryContainer"),
+        "list.activeSelectionForeground": c("onSecondaryContainer"), "list.hoverBackground": c("surfaceContainerHigh"),
+        "list.inactiveSelectionBackground": c("surfaceContainerHighest"), "focusBorder": c("primary"),
+        "badge.background": c("tertiaryContainer"), "badge.foreground": c("onSurface"),
+        "progressBar.background": c("primary"), "scrollbarSlider.background": c("outlineVariant") + "88",
+        "scrollbarSlider.hoverBackground": c("outline") + "aa", "menu.background": c("surfaceContainer"),
+        "menu.selectionBackground": c("secondaryContainer"), "quickInput.background": c("surfaceContainerHigh"),
+        "textLink.foreground": c("primary"), "errorForeground": c("error"), "editorError.foreground": c("error"),
+        "gitDecoration.modifiedResourceForeground": c("tertiary"), "gitDecoration.untrackedResourceForeground": r["syn"]["string"],
+    }
+    s = r["syn"]
+    rule = lambda scope, color, style=None: {"scope": scope, "settings": dict({"foreground": color}, **({"fontStyle": style} if style else {}))}
+    return {
+        "name": "DoodlebookOS Material You", "type": "dark" if r["dark"] else "light", "colors": colors,
+        "tokenColors": [
+            rule(["comment", "punctuation.definition.comment"], s["comment"], "italic"),
+            rule(["keyword", "storage.type", "storage.modifier"], s["keyword"]),
+            rule(["entity.name.type", "support.type", "entity.name.class"], s["type"]),
+            rule(["entity.name.function", "support.function", "meta.function-call"], s["function"]),
+            rule(["string", "markup.inline.raw"], s["string"]),
+            rule(["constant.numeric"], s["number"]),
+            rule(["constant.language", "constant.other", "variable.other.constant"], s["constant"]),
+            rule(["variable", "meta.definition.variable"], s["variable"]),
+            rule(["keyword.operator", "punctuation"], s["operator"]),
+            rule(["entity.name.tag"], s["keyword"]), rule(["entity.other.attribute-name"], s["type"]),
+        ],
+        "semanticHighlighting": True,
+    }
+
+
+def write_vscode_theme(r):
+    """A "DoodlebookOS Material You" colour theme for VS Code / VSCodium (pick it once in the
+    editor; it then follows the wallpaper — the file is rewritten on every change)."""
+    theme = vscode_theme(r)
+    pkg = {"name": "material-you", "displayName": "DoodlebookOS Material You", "publisher": "doodlebookos",
+           "version": VSCODE_EXT_VER, "engines": {"vscode": "^1.60.0"}, "categories": ["Themes"],
+           "contributes": {"themes": [{"label": "DoodlebookOS Material You", "uiTheme": "vs-dark" if r["dark"] else "vs",
+                                       "path": "./themes/material-you.json"}]}}
+    for ext in VSCODE_EXT_DIRS:
+        if not os.path.isdir(ext):
+            continue
+        d = os.path.join(ext, f"{VSCODE_EXT_ID}-{VSCODE_EXT_VER}")
+        os.makedirs(os.path.join(d, "themes"), exist_ok=True)
+        with open(os.path.join(d, "package.json"), "w", encoding="utf-8") as f:
+            json.dump(pkg, f, indent=1)
+        with open(os.path.join(d, "themes", "material-you.json"), "w", encoding="utf-8") as f:
+            json.dump(theme, f, indent=1)
+        register_vscode_extension(ext, d)
+
+
+def register_vscode_extension(ext, d):
+    """Newer VS Code builds only load extensions listed in extensions.json."""
+    p = os.path.join(ext, "extensions.json")
+    if not os.path.exists(p):
+        return
+    try:
+        with open(p, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return
+    if any((e.get("identifier") or {}).get("id") == VSCODE_EXT_ID for e in data):
+        return
+    data.append({"identifier": {"id": VSCODE_EXT_ID}, "version": VSCODE_EXT_VER,
+                 "location": {"$mid": 1, "path": d, "scheme": "file"},
+                 "relativeLocation": os.path.basename(d),
+                 "metadata": {"installedTimestamp": int(__import__("time").time() * 1000), "source": "vsix"}})
+    tmp = p + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f)
+    os.replace(tmp, p)
+
+
+KATE_THEME = os.path.join(HOME, ".local", "share", "org.kde.syntax-highlighting", "themes", "doodlebookos-materialyou.theme")
+
+
+def write_kate_theme(r):
+    """KTextEditor colour theme (Kate, KWrite, KDevelop): "DoodlebookOS Material You"."""
+    s = r["syn"]
+    ts = lambda color, **kw: dict({"text-color": color}, **kw)
+    theme = {
+        "metadata": {"name": "DoodlebookOS Material You", "revision": int(__import__("time").time())},
+        "editor-colors": {
+            "BackgroundColor": r["surface"], "CurrentLine": r["surfaceContainerLow"], "TextSelection": r["primaryContainer"],
+            "SearchHighlight": r["tertiaryContainer"], "ReplaceHighlight": r["secondaryContainer"],
+            "IconBorder": r["surface"], "LineNumbers": r["outline"], "CurrentLineNumber": r["primary"],
+            "Separator": r["outlineVariant"], "CodeFolding": r["surfaceContainerHigh"], "BracketMatching": r["surfaceContainerHighest"],
+            "IndentationLine": r["outlineVariant"], "TabMarker": r["outlineVariant"], "WordWrapMarker": r["outlineVariant"],
+            "MarkBookmark": r["primary"], "MarkError": r["error"], "MarkWarning": s["number"], "MarkExecution": s["string"],
+            "ModifiedLines": s["number"], "SavedLines": s["string"], "SpellChecking": r["error"],
+            "TemplateBackground": r["surfaceContainer"], "TemplateFocusedPlaceholder": r["primaryContainer"],
+            "TemplatePlaceholder": r["surfaceContainerHigh"], "TemplateReadOnlyPlaceholder": r["surfaceContainerHigh"],
+            "MarkBreakpointActive": r["error"], "MarkBreakpointReached": s["number"], "MarkBreakpointDisabled": r["outline"],
+        },
+        "text-styles": {
+            "Normal": ts(r["onSurface"]), "Keyword": ts(s["keyword"], bold=True), "Function": ts(s["function"]),
+            "Variable": ts(s["variable"]), "ControlFlow": ts(s["keyword"], bold=True), "Operator": ts(s["operator"]),
+            "BuiltIn": ts(s["type"]), "Extension": ts(s["type"]), "Preprocessor": ts(s["constant"]),
+            "Attribute": ts(s["type"]), "Char": ts(s["string"]), "SpecialChar": ts(s["constant"]), "String": ts(s["string"]),
+            "VerbatimString": ts(s["string"]), "SpecialString": ts(s["constant"]), "Import": ts(s["keyword"]),
+            "DataType": ts(s["type"]), "DecVal": ts(s["number"]), "BaseN": ts(s["number"]), "Float": ts(s["number"]),
+            "Constant": ts(s["constant"]), "Comment": ts(s["comment"], italic=True), "Documentation": ts(s["comment"]),
+            "Annotation": ts(s["type"]), "CommentVar": ts(s["keyword"]), "RegionMarker": ts(r["primary"]),
+            "Information": ts(s["function"]), "Warning": ts(s["number"]), "Alert": ts(r["error"], bold=True),
+            "Error": ts(r["error"], underline=True), "Others": ts(s["type"]),
+        },
+    }
+    os.makedirs(os.path.dirname(KATE_THEME), exist_ok=True)
+    with open(KATE_THEME, "w", encoding="utf-8") as f:
+        json.dump(theme, f, indent=1)
+
+
+def apply_app_themes(st, src, mode):
+    try:
+        r = m3_roles(src, mode)
+    except Exception:  # noqa: BLE001
+        return
+    for fn in (write_vscode_theme, write_kate_theme):
+        try:
+            fn(r)
+        except Exception:  # noqa: BLE001
+            pass
+    try:
+        prev = st.setdefault("zenPrev", {})
+        for prof in zen_profiles():
+            if prof not in prev:
+                prev[prof] = zen_current_accent(prof)
+            zen_user_js(prof, r["primary"])
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def restore_app_themes(st):
+    for prof, accent in (st.pop("zenPrev", None) or {}).items():
+        try:
+            zen_user_js(prof, accent or None)
+        except OSError:
+            pass
+
+
 def make_lock_image(wp):
     from PIL import Image, ImageFilter, ImageEnhance
     im = Image.open(wp)
@@ -834,6 +1081,7 @@ def apply_extras(st, wp, src, mode, wallpaper_changed, force=False):
         st["lockPrev"] = subprocess.run(["kreadconfig6", "--file", "kscreenlockerrc", *LOCK_GROUPS, "--key", "Image"],
                                         capture_output=True, text=True, timeout=5).stdout.strip()
     write_konsole_scheme(src, mode)
+    apply_app_themes(st, src, mode)
     for p in konsole_profiles():
         if profile_scheme(p)[0] != KONSOLE_SCHEME:
             set_profile_scheme(p, KONSOLE_SCHEME)
@@ -849,6 +1097,7 @@ def apply_extras(st, wp, src, mode, wallpaper_changed, force=False):
 def restore_extras(st):
     write_palette(None, None, enabled=False)
     restore_icons(st)
+    restore_app_themes(st)
     for p, scheme in (st.pop("konsolePrev", None) or {}).items():
         if os.path.exists(p) and profile_scheme(p)[0] == KONSOLE_SCHEME:
             set_profile_scheme(p, scheme)

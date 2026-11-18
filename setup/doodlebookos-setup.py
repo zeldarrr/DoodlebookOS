@@ -677,6 +677,16 @@ def ensure_deps():
         ui.note("Toujours manquant : " + ", ".join(m[0] for m in left) + ".")
 
 
+FLATPAK_THEME_FS = ("xdg-config/gtk-3.0:ro", "xdg-config/gtk-4.0:ro", "xdg-config/kdeglobals:ro",
+                    "xdg-data/icons:ro", "xdg-data/color-schemes:ro")
+
+
+def flatpak_theming():
+    """Flatpak apps see the same GTK/KDE colours (Material You) and icons, read-only."""
+    if which("flatpak"):
+        run(["flatpak", "override", "--user", *("--filesystem=" + fs for fs in FLATPAK_THEME_FS)], timeout=60)
+
+
 SDDM_THEME = "/usr/share/sddm/themes/doodlebookos"
 SDDM_CONF = "/etc/sddm.conf.d/zz-doodlebookos.conf"       # sorts after the distribution's files
 SDDM_QUESTION = ("Mettre aussi l'<b>écran de connexion</b> DoodlebookOS (SDDM) ?<br><br>"
@@ -902,6 +912,7 @@ def main():
         ui.step("Raccourcis et services…")
         azerty_shortcuts(settings)
         services(pack)
+        flatpak_theming()
         if want_sddm:
             install_sddm(ask=False)
         ui.step("Relance de Plasma…")

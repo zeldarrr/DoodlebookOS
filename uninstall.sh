@@ -23,6 +23,8 @@ if command -v systemctl &>/dev/null; then
     [ -x "$HOME/.local/bin/doodlebookos-gamemode" ] && "$HOME/.local/bin/doodlebookos-gamemode" reset 2>/dev/null || true
     systemctl --user disable --now doodlebookos-powersave.service 2>/dev/null || true
     [ -x "$HOME/.local/bin/doodlebookos-powersave" ] && "$HOME/.local/bin/doodlebookos-powersave" restore 2>/dev/null || true
+    # Material You extras (Konsole, lock screen, icons, Zen accent) go back to the user's own
+    [ -x "$HOME/.local/bin/doodlebookos-materialyou" ] && "$HOME/.local/bin/doodlebookos-materialyou" off >/dev/null 2>&1 || true
     [ -x "$HOME/.local/bin/doodlebookos-desktop-shortcuts" ] && "$HOME/.local/bin/doodlebookos-desktop-shortcuts" off 2>/dev/null || true
 fi
 rm -f "$HOME"/.config/systemd/user/doodlebookos-update{.service,.timer,-apply.service} \
@@ -78,6 +80,30 @@ if [ "$(kreadconfig6 --file kscreenlockerrc --group Greeter --key WallpaperPlugi
 fi
 rm -rf "$HOME/.local/share/plasma/wallpapers/org.doodlebookos.lockscreen"
 rm -rf "$HOME/.local/share/doodlebookos/apps"
+# app themes generated from Material You (Kate, VS Code / VSCodium); Zen got its accent back with « off »
+rm -f "$HOME/.local/share/org.kde.syntax-highlighting/themes/doodlebookos-materialyou.theme"
+rm -rf "$HOME/.vscode-oss/extensions/doodlebookos.material-you-1.0.0" "$HOME/.vscode/extensions/doodlebookos.material-you-1.0.0"
+for z in "$HOME"/.zen/*/user.js; do
+    [ -f "$z" ] && sed -i '/^\/\/ >>> DoodlebookOS Material You$/,/^\/\/ <<< DoodlebookOS Material You$/d' "$z"
+done
+# Flatpak: drop only the read-only theme folders the installer shared
+G="$HOME/.local/share/flatpak/overrides/global"
+if [ -f "$G" ]; then
+    python3 - "$G" <<'PY' || true
+import sys
+p = sys.argv[1]
+ours = {"xdg-config/gtk-3.0:ro", "xdg-config/gtk-4.0:ro", "xdg-config/kdeglobals:ro", "xdg-data/icons:ro", "xdg-data/color-schemes:ro"}
+out = []
+for line in open(p, encoding="utf-8").read().splitlines():
+    if line.startswith("filesystems="):
+        keep = [f for f in line[len("filesystems="):].split(";") if f and f not in ours]
+        if not keep:
+            continue
+        line = "filesystems=" + ";".join(keep) + ";"
+    out.append(line)
+open(p, "w", encoding="utf-8").write("\n".join(out) + "\n")
+PY
+fi
 rm -f "$HOME/.local/share/applications/doodlebookos-style.desktop" "$HOME/.local/bin/doodlebookos-style"
 
 # login screen (optional, installed as root): the distribution's theme comes back
