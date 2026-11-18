@@ -36,6 +36,7 @@ ITEMS=(
   gtkrc
   gtkrc-2.0
   plasmaparc
+  kscreenlockerrc
   doodlebookosrc
   doodlebookos/icon-pack
   doodlebookos/icon-shape

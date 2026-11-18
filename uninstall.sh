@@ -71,6 +71,12 @@ if command -v kwriteconfig6 &>/dev/null; then
     fi
 fi
 rm -rf "$HOME/.local/share/kwin/effects/doodlebookos_popups" "$HOME/.local/share/kwin/effects/doodlebookos_motion"
+# Plasma's own lock screen clock and wallpaper come back
+if [ "$(kreadconfig6 --file kscreenlockerrc --group Greeter --key WallpaperPlugin 2>/dev/null)" = org.doodlebookos.lockscreen ]; then
+    kwriteconfig6 --file kscreenlockerrc --group Greeter --key WallpaperPlugin org.kde.image
+    kwriteconfig6 --file kscreenlockerrc --group Greeter --group LnF --group General --key alwaysShowClock --delete
+fi
+rm -rf "$HOME/.local/share/plasma/wallpapers/org.doodlebookos.lockscreen"
 
 # 3. Remove Installed Themes, Icons, Cursors, Wallpapers, Fonts & C++ Plugins
 rm -rf "$HOME/.local/share/plasma/desktoptheme/DoodlebookOS_Dark" \

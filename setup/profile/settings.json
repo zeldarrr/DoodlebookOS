@@ -91,6 +91,8 @@
   ["doodlebookosrc", "Common", "ShadowOpacity", "230"],
   ["doodlebookosrc", "Common", "ShadowSize", "ShadowVeryLarge"],
   ["doodlebookosrc", "Common", "ShadowSpread", "135"],
-  ["kglobalshortcutsrc", "plasmashell", "show-on-mouse-pos", "Meta+V,Meta+V,Afficher les éléments du presse-papier à la position de la souris"]
+  ["kglobalshortcutsrc", "plasmashell", "show-on-mouse-pos", "Meta+V,Meta+V,Afficher les éléments du presse-papier à la position de la souris"],
+  ["kscreenlockerrc", "Greeter", "WallpaperPlugin", "org.doodlebookos.lockscreen"],
+  ["kscreenlockerrc", "Greeter][LnF][General", "alwaysShowClock", "false"]
  ]
 }

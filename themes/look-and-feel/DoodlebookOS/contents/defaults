@@ -13,16 +13,14 @@ Theme=DoodlebookOS
 [kwinrc][Plugins]
 overviewEnabled=false
 screenedgeEnabled=false
-scaleEnabled=true
+scaleEnabled=false
+doodlebookos_motionEnabled=true
 squashEnabled=true
 maximizeEnabled=true
-fadingpopupsEnabled=true
+fadingpopupsEnabled=false
+doodlebookos_popupsEnabled=true
 slidingpopupsEnabled=true
 blurEnabled=true
-
-[kwinrc][Effect-scale]
-InScale=0.85
-OutScale=0.85
 
 [kwinrc][Effect-blur]
 BlurStrength=5

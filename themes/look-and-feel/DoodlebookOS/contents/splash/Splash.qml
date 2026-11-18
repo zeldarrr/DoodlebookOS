@@ -7,6 +7,7 @@
 */
 import QtQuick
 import org.kde.kirigami as Kirigami
+import "../components"
 
 Rectangle {
     id: root
@@ -44,22 +45,17 @@ Rectangle {
             }
         }
 
-        // M3 expressive loading indicator: a shape that spins and morphs
-        Rectangle {
+        // M3 Expressive loading indicator (Android 16): a shape morphing through the M3 shape
+        // family on a spring while it turns
+        M3LoadingIndicator {
             id: loader
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
-            width: 40
-            height: 40
+            width: 48
+            height: 48
+            contained: true
             color: Kirigami.Theme.highlightColor
-            radius: 20
-            RotationAnimator on rotation { from: 0; to: 360; duration: 1400; loops: Animation.Infinite; running: root.visible }
-            SequentialAnimation on radius {
-                loops: Animation.Infinite
-                running: root.visible
-                NumberAnimation { to: 9; duration: 520; easing.type: Easing.InOutCubic }
-                NumberAnimation { to: 20; duration: 520; easing.type: Easing.InOutCubic }
-            }
+            running: root.visible && root.stage < 5
         }
     }
 

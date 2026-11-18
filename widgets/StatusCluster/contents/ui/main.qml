@@ -750,6 +750,21 @@ PlasmoidItem {
         requestTogglePopup("qs");
     }
 
+    // M3 Expressive power menu (full-screen overlay), created on first use
+    Loader {
+        id: powerMenuLoader
+        active: false
+        sourceComponent: PowerMenu {}
+    }
+    function openPowerMenu(labels, dark) {
+        powerMenuLoader.active = true;
+        var m = powerMenuLoader.item;
+        if (!m) return;
+        m.labels = labels || {};
+        m.dark = dark !== false;
+        m.open();
+    }
+
     // ==========================================
     // CLUSTER COMPACT PANEL REPRESENTATION
     // ==========================================

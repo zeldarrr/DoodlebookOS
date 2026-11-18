@@ -1154,7 +1154,17 @@ PlasmaExtras.Representation {
                         anchors.fill: parent
                         hoverEnabled: true
                         onClicked: {
-                            fullRep.powerMenuOpen = !fullRep.powerMenuOpen;
+                            // M3 Expressive full-screen power menu (Android-style); the small
+                            // dropdown stays as a fallback
+                            if (fullRep.appletRoot && typeof fullRep.appletRoot.openPowerMenu === "function") {
+                                fullRep.appletRoot.openPowerMenu({
+                                    lock: i18n("Lock"), sleep: i18n("Sleep"), logout: i18n("Sign out"),
+                                    restart: i18n("Restart"), shutdown: i18n("Power off"), hint: i18n("Press Esc to cancel")
+                                }, fullRep.isSystemDark);
+                                closePopup();
+                            } else {
+                                fullRep.powerMenuOpen = !fullRep.powerMenuOpen;
+                            }
                         }
                     }
                 }

@@ -270,6 +270,11 @@ def install_files():
             with open(d, encoding="utf-8") as f:
                 pid = json.load(f)["KPlugin"]["Id"]
             copytree(os.path.dirname(d), os.path.join(SHARE, "kwin", sub, pid))
+    # wallpaper plugins (the Material 3 lock screen)
+    for d in sorted(glob.glob(os.path.join(ROOT, "themes", "wallpaper-plugins", "*", "metadata.json"))):
+        with open(d, encoding="utf-8") as f:
+            pid = json.load(f)["KPlugin"]["Id"]
+        copytree(os.path.dirname(d), os.path.join(SHARE, "plasma", "wallpapers", pid))
     # Plasma style, global theme, colours
     for d in glob.glob(os.path.join(ROOT, "themes", "plasma-theme", "*")):
         if os.path.isdir(d):

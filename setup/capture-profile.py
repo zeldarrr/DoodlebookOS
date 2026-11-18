@@ -40,6 +40,8 @@ SPEC = {
     "plasmaparc": {"General": ["VolumeOsd", "MuteOsd"]},
     "doodlebookosrc": {"*": "*"},
     "kglobalshortcutsrc": {"plasmashell": ["show-on-mouse-pos"]},
+    "kscreenlockerrc": {"Greeter": ["WallpaperPlugin"],
+                        "Greeter][LnF][General": ["alwaysShowClock", "hideClockWhenIdle", "showMediaControls"]},
 }
 # keys never exported (machine state, not theme)
 DROP_KEYS = {"kwinrc": {"Plugins": re.compile(r"^(kwin4_effect_shapecorners|shapecorners|round-corners)Enabled$")}}
@@ -76,8 +78,24 @@ def group_match(pattern, name):
     return name == pattern
 
 
+# doodlebookos-powersave lowers a few settings on battery and keeps the user's values here:
+# capture those, not the battery ones (else a release made unplugged ships without animations)
+POWERSAVE_STATE = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"),
+                               "doodlebookos", "powersave.json")
+
+
+def powersave_originals():
+    try:
+        with open(POWERSAVE_STATE, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    return {tuple(k.split("|", 2)): rec for k, rec in data.items() if isinstance(rec, dict)}
+
+
 def capture_settings():
     out = []
+    saved = powersave_originals()
     for fname, groups_spec in SPEC.items():
         data = parse_kconfig(os.path.join(CFG, fname))
         for gname, kv in data.items():
@@ -91,6 +109,14 @@ def capture_settings():
                     drop = DROP_KEYS.get(fname, {}).get(gname)
                     if drop and drop.match(key):
                         continue
+                    if fname == "kcminputrc" and key == "cursorTheme" and \
+                            not os.path.isdir(os.path.join(HERE, "..", "extras", "cursors", v)):
+                        continue                    # a cursor theme the installer doesn't ship
+                    rec = saved.get((fname, gname, key))
+                    if rec and v == rec.get("new"):
+                        if rec.get("old") in (None, ""):
+                            continue
+                        v = rec["old"]
                     if fname == "kwinrc" and gname == "org.kde.kdecoration2" and key == "library" \
                             and v.startswith("org.doodlebookos.decoration"):
                         v = "org.doodlebookos.decoration"   # local hot-reload ids → the shipped id

@@ -1,0 +1,15 @@
+{
+    "KPackageStructure": "Plasma/Wallpaper",
+    "KPlugin": {
+        "Authors": [{ "Name": "DoodlebookOS" }],
+        "Description": "Material 3 Expressive lock screen: big clock, date and weather over the wallpaper",
+        "Description[fr]": "Écran de verrouillage Material 3 Expressive : grande horloge, date et météo sur le fond d'écran",
+        "Icon": "preferences-desktop-wallpaper",
+        "Id": "org.doodlebookos.lockscreen",
+        "License": "GPL-3.0-or-later",
+        "Name": "DoodlebookOS lock screen",
+        "Name[fr]": "Écran de verrouillage DoodlebookOS",
+        "Version": "1.0"
+    },
+    "X-Plasma-MainScript": "ui/main.qml"
+}
